@@ -717,7 +717,8 @@ const FORM_SECTIONS = [
       {id:'children',label:'Do you have children or dependents?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'children_ages',label:'Ages of children / dependents',type:'text',placeholder:'e.g. 8, 14, 22'},
-          {show:'Yes',id:'children_college',label:'Are any heading to college in the next 10 years?',type:'radio',options:['Yes','No']},
+          {show:'Yes',id:'children_college',label:'Are any heading to college in the next 10 years?',type:'radio',options:['Yes','No'],
+            follow:[{show:'Yes',id:'children_college_detail',label:'How many and approximate timeline?',type:'text',placeholder:'e.g. 2 children, ages 10 and 14'}]},
           {show:'Yes',id:'children_special_needs',label:'Do any have special financial planning needs?',type:'radio',options:['Yes','No'],
             follow:[{show:'Yes',id:'special_needs_detail',label:'Please describe',type:'textarea',placeholder:''}]},
         ]},
@@ -732,8 +733,8 @@ const FORM_SECTIONS = [
       {id:'st_cap_gains',label:'Short-term capital gains (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'lt_cap_gains',label:'Long-term capital gains (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'investment_income',label:'Interest & dividend income (prior year)',type:'currency',placeholder:'0',half:true},
-      {id:'other_income',label:'Other income — rental, K-1, royalties, etc. (prior year)',type:'currency',placeholder:'0',half:true},
-      {id:'total_income_display',label:'Total income (prior year — calculated)',type:'calc',placeholder:''},
+      {id:'other_income',label:'Other income - rental, K-1, royalties, etc. (prior year)',type:'currency',placeholder:'0',half:true},
+      {id:'total_income_display',label:'Total income (prior year - calculated)',type:'calc',placeholder:''},
       {id:'tax_liability',label:'Total federal + state tax liability (prior year)',type:'currency',placeholder:'0'},
       {id:'projected_income',label:'Projected total income (current year)',type:'currency',placeholder:'0'},
       {id:'income_notes',label:'Anything notable about your income this year vs. last year?',type:'textarea',placeholder:'e.g. expecting a large bonus, selling a property, receiving an inheritance...'},
@@ -754,14 +755,41 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'real_estate_income',label:'Does it generate rental income?',type:'radio',options:['Yes','No'],
             follow:[{show:'Yes',id:'real_estate_income_amt',label:'Annual rental income',type:'currency',placeholder:'0'}]},
           {show:'Yes',id:'real_estate_depreciation',label:'Are you currently taking depreciation deductions?',type:'radio',options:['Yes','No','Unsure']},
+          {show:'Yes',id:'real_estate_mortgage',label:'Do you have mortgages on these properties?',type:'radio',options:['Yes','No'],
+            follow:[{show:'Yes',id:'real_estate_mortgage_detail',label:'Approximate total remaining balance',type:'currency',placeholder:'0'}]},
         ]},
-      {id:'large_asset_txn',label:'Are you considering buying or selling a significant asset (over $500K) in the next 12 months?',type:'radio',options:['Yes','No','Possibly'],
+      {id:'major_assets_planned',label:'Are you planning any major asset purchases, sales, or expecting significant windfalls in the next 12-24 months?',type:'radio',options:['Yes','No','Possibly'],
         follow:[
-          {show:'Yes',id:'large_asset_detail',label:'Please describe',type:'textarea',placeholder:''},
-          {show:'Possibly',id:'large_asset_maybe',label:'Please describe',type:'textarea',placeholder:''},
+          {show:'Yes',id:'major_assets_detail',label:'Please describe (property purchase, business sale, inheritance, large gift, stock vesting, etc.)',type:'textarea',placeholder:''},
+          {show:'Possibly',id:'major_assets_maybe',label:'Please describe',type:'textarea',placeholder:''},
         ]},
       {id:'inheritance',label:'Are you expecting any inheritance or significant financial gift?',type:'radio',options:['Yes','No','Possibly'],
-        follow:[{show:'Yes',id:'inheritance_detail',label:'Approximate amount and timeline',type:'text',placeholder:''}]},
+        follow:[
+          {show:'Yes',id:'inheritance_detail',label:'Approximate amount and timeline',type:'text',placeholder:''},
+          {show:'Yes',id:'inheritance_tax_aware',label:'Are you aware of potential tax implications?',type:'radio',options:['Yes','No - would appreciate guidance']},
+        ]},
+    ]
+  },
+  {
+    id:'investments', title:'Investments & risk',
+    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/></svg>',
+    fields:[
+      {id:'has_investments',label:'Do you have a taxable investment / brokerage account?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'investment_value',label:'Approximate total value',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'investment_managed',label:'How is it currently managed?',type:'radio',options:['Self-directed','Managed by an advisor','Mix of both']},
+          {show:'Yes',id:'investment_satisfied',label:'Are you satisfied with your investment performance?',type:'radio',options:['Yes','No','Unsure']},
+        ]},
+      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative - preserve capital, minimal risk','Moderate - balanced growth and protection','Growth-oriented - comfortable with market swings','Aggressive - maximize long-term growth']},
+      {id:'investment_horizon',label:'What is your primary investment time horizon?',type:'radio',options:['Less than 5 years','5-10 years','10-20 years','20+ years']},
+      {id:'investment_concerns',label:'Which of the following investment concerns apply to you? (select all that apply)',type:'multicheck',options:['Market volatility','Sequence of returns risk','Not generating enough income','Too concentrated in one stock or sector','High fees or costs','Tax drag on returns','Inflation eroding purchasing power','Not sure if I am on track for retirement']},
+      {id:'concentrated_position',label:'Do you have a large concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'concentrated_detail',label:'What is the asset and approximate value?',type:'text',placeholder:'e.g. company stock, $500K'},
+          {show:'Yes',id:'concentrated_tax_basis',label:'What is the approximate cost basis?',type:'currency',placeholder:'0'},
+        ]},
+      {id:'alternative_investments',label:'Do you invest in alternative assets?',type:'radio',options:['Yes','No','Interested in learning more'],
+        follow:[{show:'Yes',id:'alt_investments_detail',label:'What types? (select all that apply)',type:'multicheck',options:['Private equity','Hedge funds','Real estate syndications','Commodities / precious metals','Cryptocurrency','Private lending','Oil and gas','Other']}]},
     ]
   },
   {
@@ -773,14 +801,29 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'cpa_name',label:'Name / firm',type:'text',placeholder:''},
           {show:'Yes',id:'cpa_satisfied',label:'Are you satisfied with your current tax strategy?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied - open to a second opinion']},
           {show:'Yes',id:'tax_planning',label:'How proactive is your current tax planning?',type:'radio',options:['Purely reactive - I just file each year','Some planning - occasional conversations','Very proactive - year-round strategy in place']},
+          {show:'Yes',id:'cpa_coordinates',label:'Does your CPA coordinate with your financial advisor?',type:'radio',options:['Yes','No','I do not have a financial advisor']},
         ]},
       {id:'unrealized_gains',label:'Do you have significant unrealized capital gains in taxable accounts?',type:'radio',options:['Yes','No','Unsure'],
-        follow:[{show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'}]},
+        follow:[
+          {show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'unrealized_gains_plan',label:'Do you have a plan to manage these gains?',type:'radio',options:['Yes','No','Looking for guidance']},
+        ]},
       {id:'stock_options',label:'Do you have stock options, RSUs, or equity compensation?',type:'radio',options:['Yes','No'],
-        follow:[{show:'Yes',id:'stock_options_detail',label:'Please briefly describe (type, vesting timeline, approximate value)',type:'textarea',placeholder:'e.g. ISOs vesting over 4 years, approx. $200K value'}]},
-      {id:'tax_pain',label:'What is your biggest tax frustration or concern?',type:'textarea',placeholder:'e.g. I feel like I pay too much every year, I have a large gain I need to manage, I have no idea where my money goes...'},
+        follow:[
+          {show:'Yes',id:'stock_options_detail',label:'Please describe (type, vesting timeline, approximate value)',type:'textarea',placeholder:'e.g. ISOs vesting over 4 years, approx. $200K value'},
+          {show:'Yes',id:'stock_options_strategy',label:'Do you have a strategy for when and how to exercise or sell?',type:'radio',options:['Yes','No - need guidance','Partially']},
+        ]},
+      {id:'tax_pain',label:'What is your biggest tax frustration or concern?',type:'textarea',placeholder:'e.g. I feel like I pay too much every year, I have a large gain to manage, I have no visibility into my tax situation until April...'},
       {id:'tax_strategies_tried',label:'Have you ever implemented any advanced tax reduction strategies?',type:'radio',options:['Yes','No','Unsure what is available to me'],
-        follow:[{show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred comp...'}]},
+        follow:[
+          {show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone...'},
+          {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning what options may be available to you?',type:'radio',options:['Yes - very interested','Possibly','Not at this time']},
+        ]},
+      {id:'charitable_giving',label:'Do you make charitable contributions?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'charitable_amount',label:'Approximate annual giving',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'charitable_strategy',label:'How do you currently give?',type:'multicheck',options:['Cash / check','Appreciated stock','Donor-advised fund','Charitable trust','Private foundation','Other']},
+        ]},
     ]
   },
   {
@@ -792,15 +835,25 @@ const FORM_SECTIONS = [
       {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Solo 401(k)','Pension / defined benefit','457 plan','None']},
       {id:'max_contributions',label:'Are you maximizing contributions to all available plans?',type:'radio',options:['Yes','No','Unsure'],
         follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:'e.g. cash flow constraints, unsure of limits...'}]},
+      {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes - confident','Somewhat - could be better','No - concerned I am behind','Unsure - have not calculated it']},
       {id:'social_security',label:'Have you analyzed your Social Security claiming strategy?',type:'radio',options:['Yes','No - open to guidance','Not applicable yet'],
-        follow:[{show:'Yes',id:'ss_start_age',label:'At what age do you plan to start claiming?',type:'number',placeholder:'e.g. 67'}]},
+        follow:[
+          {show:'Yes',id:'ss_start_age',label:'At what age do you plan to start claiming?',type:'number',placeholder:'e.g. 67'},
+          {show:'Yes',id:'ss_amount',label:'Estimated monthly benefit at that age',type:'currency',placeholder:'0'},
+        ]},
       {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
-        follow:[{show:'Yes',id:'pension_detail',label:'Vested amount or estimated monthly benefit',type:'text',placeholder:''}]},
+        follow:[
+          {show:'Yes',id:'pension_value',label:'Estimated lump sum value or total vested amount',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'pension_monthly',label:'Estimated monthly benefit at retirement',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'pension_vested',label:'Are you fully vested?',type:'radio',options:['Yes','No','Unsure']},
+        ]},
       {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
         follow:[
-          {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Fixed indexed','Variable','Immediate / SPIA','MYGA']},
-          {show:'Yes',id:'annuity_annual_benefit',label:'Annual benefit / payout amount',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'annuity_satisfied',label:'Are you satisfied with your annuities?',type:'radio',options:['Yes','No','Unsure - have not reviewed recently']},
+          {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Fixed indexed','Variable','Immediate / SPIA','MYGA','Deferred income']},
+          {show:'Yes',id:'annuity_total_value',label:'Total annuity value / account balance',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected annual income / payout',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'annuity_satisfied',label:'Are you satisfied with your annuities?',type:'radio',options:['Yes','No','Unsure - have not reviewed recently'],
+            follow:[{show:'No',id:'annuity_concern',label:'What is your main concern?',type:'textarea',placeholder:''}]},
         ]},
     ]
   },
@@ -812,13 +865,24 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'life_ins_types',label:'What type(s)?',type:'multicheck',options:['Term','Whole life','Universal life','Indexed universal life (IUL)','Variable universal life (VUL)','Final expense','Premium financed policy']},
           {show:'Yes',id:'life_ins_coverage',label:'Total death benefit coverage amount',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'life_ins_cash_value',label:'Approximate total cash value (if permanent policy)',type:'currency',placeholder:'0'},
           {show:'Yes',id:'life_ins_reviewed',label:'When was it last reviewed?',type:'select',options:['','Within the last year','1-3 years ago','More than 3 years ago','Never reviewed']},
-          {show:'Yes',id:'life_ins_purpose',label:'What is the primary purpose of your coverage? (select all that apply)',type:'multicheck',options:['Income replacement','Estate liquidity','Business protection','Key person','Buy-sell funding','Wealth transfer','Cash value accumulation']},
+          {show:'Yes',id:'life_ins_purpose',label:'Primary purpose of your coverage (select all that apply)',type:'multicheck',options:['Income replacement','Estate liquidity','Business protection','Key person','Buy-sell funding','Wealth transfer','Cash value accumulation']},
+          {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No - I think I am underinsured','Unsure']},
         ]},
-      {id:'has_disability',label:'Do you have disability insurance?',type:'radio',options:['Yes','No']},
+      {id:'has_disability',label:'Do you have disability insurance?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'disability_monthly',label:'Monthly benefit amount',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'disability_type',label:'Individual or group policy?',type:'radio',options:['Individual','Group (employer)','Both']},
+        ]},
       {id:'has_ltc',label:'Do you have long-term care coverage?',type:'radio',options:['Yes','No - planning to get it','No - not concerned','No - open to reviewing options'],
-        follow:[{show:'Yes',id:'ltc_detail',label:'Type and daily / monthly benefit amount',type:'text',placeholder:''}]},
-      {id:'has_umbrella',label:'Do you have an umbrella / excess liability policy?',type:'radio',options:['Yes','No']},
+        follow:[
+          {show:'Yes',id:'ltc_daily_benefit',label:'Daily or monthly benefit amount',type:'text',placeholder:'e.g. $200/day'},
+          {show:'Yes',id:'ltc_benefit_period',label:'Benefit period',type:'text',placeholder:'e.g. 3 years, lifetime'},
+        ]},
+      {id:'has_umbrella',label:'Do you have an umbrella / excess liability policy?',type:'radio',options:['Yes','No'],
+        follow:[{show:'Yes',id:'umbrella_coverage',label:'Coverage amount',type:'currency',placeholder:'0'}]},
+      {id:'pc_insurance',label:'Have you recently reviewed your property and casualty insurance?',type:'radio',options:['Yes - reviewed within the last year','No - has not been reviewed recently','Unsure']},
       {id:'has_insurance_agent',label:'Do you work with an insurance agent or advisor?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'insurance_agent_detail',label:'Name / firm',type:'text',placeholder:''}]},
     ]
@@ -829,17 +893,24 @@ const FORM_SECTIONS = [
     fields:[
       {id:'has_will',label:'Do you have a will?',type:'radio',options:['Yes','No'],
         follow:[
-          {show:'Yes',id:'will_last_updated',label:'What year was it last updated?',type:'number',placeholder:'e.g. 2019',hint:'If more than 5 years ago, we will ask a follow-up'},
+          {show:'Yes',id:'will_last_updated',label:'What year was it last updated?',type:'number',placeholder:'e.g. 2019'},
         ]},
       {id:'has_trust',label:'Do you have a trust?',type:'radio',options:['Yes','No - considering one','No'],
         follow:[
           {show:'Yes',id:'trust_type',label:'What type? (select all that apply)',type:'multicheck',options:['Revocable living trust','Irrevocable trust','Charitable trust','Special needs trust','Asset protection trust','Other']},
-          {show:'Yes',id:'trust_funded',label:'Is the trust fully funded?',type:'radio',options:['Yes','Partially','Unsure']},
+          {show:'Yes',id:'trust_funded',label:'Is the trust fully funded?',type:'radio',options:['Yes','Partially','Unsure'],
+            follow:[{show:'Partially',id:'trust_funded_detail',label:'What has not yet been transferred into the trust?',type:'textarea',placeholder:''}]},
+          {show:'Yes',id:'trust_reviewed',label:'When was the trust last reviewed?',type:'select',options:['','Within the last year','1-3 years ago','More than 3 years ago','Never reviewed']},
         ]},
-      {id:'has_poa',label:'Do you have powers of attorney and healthcare directives in place?',type:'radio',options:['Yes - both in place','Partially','No']},
-      {id:'estate_size_concern',label:'Is estate / inheritance tax a concern for you?',type:'radio',options:['Yes - estate likely exceeds exemption','Possibly - not sure','No - estate is below exemption threshold','Unsure of current exemption levels']},
+      {id:'has_poa',label:'Do you have powers of attorney and healthcare directives in place?',type:'radio',options:['Yes - both in place','Partially','No'],
+        follow:[{show:'Partially',id:'poa_missing',label:'What is currently missing?',type:'text',placeholder:'e.g. financial POA, healthcare directive...'}]},
+      {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies recently?',type:'radio',options:['Yes - within the last year','No - has been a while','Never reviewed','Not sure what I have']},
+      {id:'estate_size_concern',label:'Is estate or inheritance tax a concern for you?',type:'radio',options:['Yes - estate likely exceeds exemption','Possibly - not sure','No - estate is below exemption threshold','Unsure of current exemption levels']},
       {id:'has_estate_atty',label:'Do you have an estate planning attorney?',type:'radio',options:['Yes','No - have not needed one yet','No - need to find one'],
-        follow:[{show:'Yes',id:'estate_atty_name',label:'Name / firm (optional)',type:'text',placeholder:''}]},
+        follow:[
+          {show:'Yes',id:'estate_atty_name',label:'Name / firm (optional)',type:'text',placeholder:''},
+          {show:'Yes',id:'estate_atty_current',label:'Is your estate plan current and up to date?',type:'radio',options:['Yes','No - needs updating','Unsure']},
+        ]},
     ]
   },
   {
@@ -849,33 +920,42 @@ const FORM_SECTIONS = [
       {id:'has_business',label:'Do you have any ownership interest in a private business?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
-          {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Founder / sole owner','Majority owner','Minority partner','Key employee with equity']},
+          {show:'Yes',id:'business_role',label:'Your role in the business',type:'radio',options:['Founder / sole owner','Majority owner','Minority partner','Key employee with equity']},
           {show:'Yes',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
           {show:'Yes',id:'business_years',label:'How long have you owned the business?',type:'select',options:['','Less than 2 years','2-5 years','6-10 years','More than 10 years']},
           {show:'Yes',id:'business_employees',label:'Number of employees',type:'select',options:['','Just me','2-5','6-20','21-50','51-100','100+']},
           {show:'Yes',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_gross_profit',label:'Annual gross profit',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'business_est_value',label:'Estimated business value',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 50'},
           {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-          {show:'Yes',id:'business_exit',label:'Have you thought about an exit strategy?',type:'radio',options:['Yes - defined plan in place','Thinking about it - no formal plan yet','Not yet - focused on growth','Planning to pass it to family / heirs']},
-          {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, age 65, when value reaches $X...'},
+          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 6 months, what would happen to the business?',type:'textarea',placeholder:'Be honest - this reveals key risks we can help address.'},
+          {show:'Yes',id:'business_exit',label:'Have you thought about an exit strategy?',type:'radio',options:['Yes - defined plan in place','Thinking about it - no formal plan yet','Not yet - focused on growth','Planning to pass it to family / heirs'],
+            follow:[
+              {show:'Yes - defined plan in place',id:'biz_exit_plan_detail',label:'Please briefly describe your plan',type:'textarea',placeholder:''},
+            ]},
+          {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, at age 65, when revenue reaches $X...'},
           {show:'Yes',id:'biz_exit_target_value',label:'What do you want to sell it for?',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_succession_steps',label:'What have you done to begin your succession plan or exit preparation?',type:'textarea',placeholder:'e.g. hired a COO, began working with a business broker, set up a buy-sell...'},
-          {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. based on EBITDA multiple, industry comps, asset value...'},
+          {show:'Yes',id:'biz_succession_steps',label:'What steps have you already taken toward succession or exit preparation?',type:'textarea',placeholder:'e.g. hired a COO, working with a broker, set up a buy-sell agreement, began gifting shares...'},
+          {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. EBITDA multiple, asset value, revenue multiple...'},
+          {show:'Yes',id:'biz_sellability',label:'Could your business run without you for 30 days?',type:'radio',options:['Yes - fully systems-dependent','Partially - some things would suffer','No - I am essential to daily operations']},
+          {show:'Yes',id:'biz_revenue_double',label:'How much additional revenue and profit do you think you could generate if everything in your business was fully optimized?',type:'textarea',placeholder:'e.g. 20% more revenue, double the profit margins...'},
+          {show:'Yes',id:'biz_value_double',label:'How much more could you sell your business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to significantly grow your business while working less?',type:'radio',options:['Yes - very interested','Possibly - open to learning more','Not at this time']},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
-              {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement in place?',type:'radio',options:['Yes - funded','Yes - not funded','No','Unsure']},
+              {show:'Yes',id:'business_buysell',label:'Do you have a funded buy-sell agreement in place?',type:'radio',options:['Yes - funded','Yes - not funded','No','Unsure']},
+              {show:'Yes',id:'partner_alignment',label:'Are you and your partners aligned on the future direction and exit of the business?',type:'radio',options:['Yes - fully aligned','Somewhat aligned','No - there are disagreements','Have not had that conversation yet']},
             ]},
-          {show:'Yes',id:'business_key_person',label:'Do you have key person insurance on yourself or critical employees?',type:'radio',options:['Yes','No','Unsure']},
+          {show:'Yes',id:'business_key_person',label:'Do you have key person insurance on yourself or any critical employees?',type:'radio',options:['Yes','No','Unsure']},
           {show:'Yes',id:'business_retirement_plan',label:'Does your business offer a retirement plan to employees?',type:'radio',options:['Yes - 401(k) or similar','Yes - SEP or SIMPLE IRA','No','Considering establishing one']},
-          {show:'Yes',id:'business_health_coverage',label:'Do you offer health insurance to employees?',type:'radio',options:['Yes','No','Only for owners']},
+          {show:'Yes',id:'business_health_coverage',label:'Do you offer health insurance to employees?',type:'radio',options:['Yes','No','Only for owners'],
+            follow:[{show:'Yes',id:'business_health_cost',label:'Approximate annual cost of health benefits',type:'currency',placeholder:'0'}]},
           {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized - working with a proactive advisor','Adequate - basic planning only','Reactive - mostly just filing','Not sure what I am missing']},
-          {show:'Yes',id:'business_concerns',label:'What are your biggest business concerns right now? (select all that apply)',type:'multicheck',options:['Minimizing taxes','Key employee retention','Business valuation / growth','Exit and succession planning','Cash flow management','Liability exposure','Healthcare costs','Owner disability or death','Funding retirement through the business','Recruiting and hiring']},
-          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','Defined company culture','5-year business plan','Operations manual / playbook','Business software / operating system','Marketing plan and process','Sales plan and process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard (marketing / sales / financials)','Recruiting and onboarding process','Employee handbook','Training and development plan','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A leadership team','Consistent team meetings']},
-          {show:'Yes',id:'biz_infrastructure_impact',label:'How much additional revenue and profit do you think you could generate if all of these were in place?',type:'textarea',placeholder:'Be as specific or general as you like...'},
-          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to grow your business significantly while working less?',type:'radio',options:['Yes - very interested','Possibly - open to learning more','Not at this time']},
+          {show:'Yes',id:'business_concerns',label:'What are your biggest business concerns right now? (select all that apply)',type:'multicheck',options:['Minimizing taxes','Key employee retention','Business valuation and growth','Exit and succession planning','Cash flow management','Liability exposure','Healthcare costs','Owner disability or death','Funding retirement through the business','Recruiting and hiring','Leadership development']},
+          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','Defined company culture','5-year business plan','Operations manual / playbook','Business software / operating system','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard - marketing / sales / financials','Recruiting and onboarding process','Employee handbook','Training and development plan','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
+          {show:'Yes',id:'biz_infrastructure_gaps',label:'How much additional revenue and profit do you believe you could generate if all of these were fully in place?',type:'textarea',placeholder:'e.g. could double revenue, could reduce my hours by 50%...'},
         ]},
     ]
   },
@@ -887,11 +967,13 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'wealth_mgr_name',label:'Firm / advisor name',type:'text',placeholder:''},
           {show:'Yes',id:'wealth_mgr_satisfied',label:'How satisfied are you with that relationship?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied','Looking for alternatives']},
-          {show:'Yes',id:'wealth_mgr_gaps',label:'What, if anything, do you feel is missing from that relationship?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'wealth_mgr_gaps',label:'What, if anything, feels missing from that relationship?',type:'textarea',placeholder:'e.g. not proactive enough, no tax coordination, limited investment options...'},
+          {show:'No',id:'no_advisor_reason',label:'Have you worked with a financial advisor in the past?',type:'radio',options:['Yes - but no longer','No - this is new for me']},
         ]},
       {id:'advisory_gaps',label:'Which of the following do you feel are currently underserved in your financial life? (select all that apply)',type:'multicheck',options:['Tax planning and reduction','Investment management','Insurance and protection','Estate planning','Retirement planning','Business planning','Charitable giving','Cash flow management','None - I feel well covered']},
-      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family...'},
+      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family, build generational wealth...'},
       {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:'Be candid - this helps us focus on what matters most to you.'},
+      {id:'success_definition',label:'How do you define financial success for yourself and your family?',type:'textarea',placeholder:'e.g. financial independence by age 55, leaving a legacy, never having to worry about money...'},
     ]
   },
   {
@@ -1143,103 +1225,80 @@ function buildPrompt(fd) {
   const yn = v => v || 'N/A';
   const arr = v => Array.isArray(v) ? (v.join(', ') || 'None') : (v || 'N/A');
   const cur = v => v ? '$'+Number(v).toLocaleString() : 'N/A';
-
   return `CLIENT FINANCIAL PROFILE
----
-PERSONAL
-Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'}
-Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}
-Children/dependents: ${yn(fd.children)} ${fd.children_ages?'(ages: '+fd.children_ages+')':''}
-Children heading to college: ${yn(fd.children_college)}
+PERSONAL: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}
+Children: ${yn(fd.children)} ${fd.children_ages?'(ages: '+fd.children_ages+')':''} | To college: ${yn(fd.children_college)}
 
-INCOME (prior year)
-W-2/salary: ${cur(fd.w2_income)} | Business/SE: ${cur(fd.business_income)}
-ST cap gains: ${cur(fd.st_cap_gains)} | LT cap gains: ${cur(fd.lt_cap_gains)}
-Interest & dividends: ${cur(fd.investment_income)} | Other: ${cur(fd.other_income)}
-Total income (prior year): ${cur(fd.total_income_display)}
-Tax liability: ${cur(fd.tax_liability)}
-Projected total income (current year): ${cur(fd.projected_income)}
-Income notes: ${yn(fd.income_notes)}
+INCOME (prior year): W2: ${cur(fd.w2_income)} | Business: ${cur(fd.business_income)} | ST gains: ${cur(fd.st_cap_gains)} | LT gains: ${cur(fd.lt_cap_gains)} | Investment income: ${cur(fd.investment_income)} | Other: ${cur(fd.other_income)} | TOTAL: ${cur(fd.total_income_display)} | Tax liability: ${cur(fd.tax_liability)} | Projected: ${cur(fd.projected_income)}
+Notes: ${yn(fd.income_notes)}
 
-NET WORTH & ASSETS
-Total net worth: ${cur(fd.net_worth)} | Liquid/investable: ${cur(fd.liquid_assets)}
-Primary home value: ${cur(fd.real_estate_primary_value)}
-Net worth allocation: ${yn(fd.net_worth_desc)}
-Owns additional real estate: ${yn(fd.real_estate)} ${fd.real_estate_type?'('+arr(fd.real_estate_type)+')':''}
-Additional real estate value: ${cur(fd.real_estate_value)} | Rental income: ${yn(fd.real_estate_income)}
-Taking depreciation: ${yn(fd.real_estate_depreciation)}
-Large asset transaction planned: ${yn(fd.large_asset_txn)} ${fd.large_asset_detail||fd.large_asset_maybe||''}
-Expecting inheritance: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
+NET WORTH: ${cur(fd.net_worth)} | Liquid: ${cur(fd.liquid_assets)} | Primary home: ${cur(fd.real_estate_primary_value)}
+Allocation: ${yn(fd.net_worth_desc)}
+Real estate beyond primary: ${yn(fd.real_estate)} ${fd.real_estate_type?'('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)} | Depreciation: ${yn(fd.real_estate_depreciation)}
+Major asset plans: ${yn(fd.major_assets_planned)} ${fd.major_assets_detail||fd.major_assets_maybe||''}
+Inheritance expected: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
 
-TAX
-Has CPA: ${yn(fd.has_cpa)} ${fd.cpa_name?'('+fd.cpa_name+')':''} 
-Satisfied with tax strategy: ${yn(fd.cpa_satisfied)} | Planning approach: ${yn(fd.tax_planning)}
-Significant unrealized gains: ${yn(fd.unrealized_gains)} ${fd.unrealized_gains_detail?cur(fd.unrealized_gains_detail):''}
+INVESTMENTS: Has taxable account: ${yn(fd.has_investments)} | Value: ${cur(fd.investment_value)} | Managed: ${yn(fd.investment_managed)} | Satisfied: ${yn(fd.investment_satisfied)}
+Risk tolerance: ${yn(fd.risk_tolerance)} | Horizon: ${yn(fd.investment_horizon)}
+Concerns: ${arr(fd.investment_concerns)}
+Concentrated position: ${yn(fd.concentrated_position)} ${fd.concentrated_detail||''}
+Alternative investments: ${yn(fd.alternative_investments)} ${fd.alt_investments_detail?'('+arr(fd.alt_investments_detail)+')':''}
+
+TAX: Has CPA: ${yn(fd.has_cpa)} ${fd.cpa_name?'('+fd.cpa_name+')':''} | Satisfied: ${yn(fd.cpa_satisfied)} | Planning approach: ${yn(fd.tax_planning)} | CPA coordinates with advisor: ${yn(fd.cpa_coordinates)}
+Unrealized gains: ${yn(fd.unrealized_gains)} ${cur(fd.unrealized_gains_detail)} | Plan for gains: ${yn(fd.unrealized_gains_plan)}
 Stock options/RSUs: ${yn(fd.stock_options)} ${fd.stock_options_detail||''}
-Biggest tax concern: ${yn(fd.tax_pain)}
-Advanced strategies tried: ${yn(fd.tax_strategies_tried)} ${fd.tax_strategies_detail||''}
+Tax frustration: ${yn(fd.tax_pain)}
+Advanced strategies used: ${yn(fd.tax_strategies_tried)} ${fd.tax_strategies_detail||''} | Interest if not: ${yn(fd.tax_strategies_interest)}
+Charitable giving: ${yn(fd.charitable_giving)} | Annual: ${cur(fd.charitable_amount)} | Method: ${arr(fd.charitable_strategy)}
 
-RETIREMENT
-Target retirement age: ${yn(fd.retirement_target_age)} | Annual income needed: ${cur(fd.retirement_income_need)}
-Accounts: ${arr(fd.retirement_accts)} | Maximizing contributions: ${yn(fd.max_contributions)}
-SS strategy analyzed: ${yn(fd.social_security)} | Planned SS start age: ${yn(fd.ss_start_age)}
-Pension: ${yn(fd.has_pension)} ${fd.pension_detail||''}
-Annuities: ${yn(fd.has_annuities)} ${fd.annuity_type?'('+arr(fd.annuity_type)+')':''} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
+RETIREMENT: Target age: ${yn(fd.retirement_target_age)} | Income needed: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
+Accounts: ${arr(fd.retirement_accts)} | Maximizing: ${yn(fd.max_contributions)}
+SS strategy: ${yn(fd.social_security)} | Planned start age: ${yn(fd.ss_start_age)}
+Pension: ${yn(fd.has_pension)} | Value: ${cur(fd.pension_value)} | Monthly: ${cur(fd.pension_monthly)}
+Annuities: ${yn(fd.has_annuities)} ${fd.annuity_type?'('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
 
-INSURANCE
-Life insurance: ${yn(fd.has_life_ins)} ${fd.life_ins_types?'('+arr(fd.life_ins_types)+')':''}
-Coverage amount: ${cur(fd.life_ins_coverage)} | Last reviewed: ${yn(fd.life_ins_reviewed)} | Purpose: ${arr(fd.life_ins_purpose)}
-Disability insurance: ${yn(fd.has_disability)}
-Long-term care: ${yn(fd.has_ltc)} ${fd.ltc_detail||''}
-Umbrella policy: ${yn(fd.has_umbrella)}
+INSURANCE: Life insurance: ${yn(fd.has_life_ins)} | Types: ${arr(fd.life_ins_types)} | Coverage: ${cur(fd.life_ins_coverage)} | Cash value: ${cur(fd.life_ins_cash_value)} | Reviewed: ${yn(fd.life_ins_reviewed)} | Adequate: ${yn(fd.life_ins_adequate)}
+Disability: ${yn(fd.has_disability)} | Monthly benefit: ${cur(fd.disability_monthly)}
+LTC: ${yn(fd.has_ltc)} ${fd.ltc_daily_benefit||''}
+Umbrella: ${yn(fd.has_umbrella)} | Coverage: ${cur(fd.umbrella_coverage)}
+P&C reviewed: ${yn(fd.pc_insurance)}
 
-ESTATE PLANNING
-Has will: ${yn(fd.has_will)} | Last updated: ${yn(fd.will_last_updated)} | Changes needed: ${yn(fd.will_changes_needed)}
-Has trust: ${yn(fd.has_trust)} ${fd.trust_type?'('+arr(fd.trust_type)+')':''} | Funded: ${yn(fd.trust_funded)}
-POA/directives: ${yn(fd.has_poa)} | Estate tax concern: ${yn(fd.estate_size_concern)}
-Estate attorney: ${yn(fd.has_estate_atty)} ${fd.estate_atty_name||''}
+ESTATE: Will: ${yn(fd.has_will)} | Last updated: ${yn(fd.will_last_updated)} | Changes needed: ${yn(fd.will_changes_needed)}
+Trust: ${yn(fd.has_trust)} | Types: ${arr(fd.trust_type)} | Funded: ${yn(fd.trust_funded)} | Reviewed: ${yn(fd.trust_reviewed)}
+POA/directives: ${yn(fd.has_poa)} | Beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
+Estate tax concern: ${yn(fd.estate_size_concern)} | Estate attorney: ${yn(fd.has_estate_atty)}
 
-BUSINESS OWNERSHIP
-Owns business: ${yn(fd.has_business)}
-${fd.has_business==='Yes'?`Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)}
-Years owned: ${yn(fd.business_years)} | Employees: ${yn(fd.business_employees)}
-Revenue: ${cur(fd.biz_revenue)} | Gross profit: ${cur(fd.biz_gross_profit)} | Net profit: ${cur(fd.biz_net_profit)}
-Est. business value: ${cur(fd.business_est_value)}
-Hours/week: ${yn(fd.biz_hours_week)} | Weeks vacation/year: ${yn(fd.biz_weeks_vacation)}
-Exit strategy: ${yn(fd.business_exit)} | Exit timeline: ${yn(fd.biz_exit_timeline)}
-Target exit value: ${cur(fd.biz_exit_target_value)}
-Succession steps taken: ${yn(fd.biz_succession_steps)}
-Buyer valuation view: ${yn(fd.biz_buyer_valuation)}
-Has partners: ${yn(fd.business_partners)} | Buy-sell agreement: ${yn(fd.business_buysell)}
-Key person coverage: ${yn(fd.business_key_person)}
-Employee retirement plan: ${yn(fd.business_retirement_plan)} | Health coverage: ${yn(fd.business_health_coverage)}
-Tax strategy rating: ${yn(fd.business_tax_strategy)}
-Business concerns: ${arr(fd.business_concerns)}
+BUSINESS: Owns business: ${yn(fd.has_business)}
+${fd.has_business==='Yes'?`Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)} | Years: ${yn(fd.business_years)} | Employees: ${yn(fd.business_employees)}
+Revenue: ${cur(fd.biz_revenue)} | Gross profit: ${cur(fd.biz_gross_profit)} | Net profit: ${cur(fd.biz_net_profit)} | Value: ${cur(fd.business_est_value)}
+Hours/week: ${yn(fd.biz_hours_week)} | Vacation weeks: ${yn(fd.biz_weeks_vacation)}
+If owner unable to work: ${yn(fd.biz_owner_dependent)}
+Exit strategy: ${yn(fd.business_exit)} | Timeline: ${yn(fd.biz_exit_timeline)} | Target value: ${cur(fd.biz_exit_target_value)}
+Succession steps: ${yn(fd.biz_succession_steps)} | Buyer valuation view: ${yn(fd.biz_buyer_valuation)}
+Runs without owner: ${yn(fd.biz_sellability)}
+Revenue/value if optimized: ${yn(fd.biz_revenue_double)} / ${yn(fd.biz_value_double)}
+Partners: ${yn(fd.business_partners)} | Buy-sell: ${yn(fd.business_buysell)} | Partner alignment: ${yn(fd.partner_alignment)}
+Key person: ${yn(fd.business_key_person)} | Employee retirement: ${yn(fd.business_retirement_plan)} | Health: ${yn(fd.business_health_coverage)}
+Tax strategy: ${yn(fd.business_tax_strategy)}
+Concerns: ${arr(fd.business_concerns)}
 Infrastructure in place: ${arr(fd.biz_infrastructure)}
-Infrastructure impact if complete: ${yn(fd.biz_infrastructure_impact)}
-Interest in business growth help: ${yn(fd.biz_help_interest)}`:'Not a business owner'}
+Growth interest: ${yn(fd.biz_help_interest)}`:'Not a business owner'}
 
-ADVISORY & GOALS
-Works with wealth manager: ${yn(fd.has_wealth_mgr)} ${fd.wealth_mgr_name?'('+fd.wealth_mgr_name+')':''} | Satisfied: ${yn(fd.wealth_mgr_satisfied)}
-Gaps in wealth mgr relationship: ${yn(fd.wealth_mgr_gaps)}
-Underserved advisory areas: ${arr(fd.advisory_gaps)}
-Financial goals: ${yn(fd.financial_goals)}
-Biggest concern: ${yn(fd.biggest_concern)}
-Additional info: ${yn(fd.additional_info)}
+ADVISORY & GOALS: Wealth manager: ${yn(fd.has_wealth_mgr)} ${fd.wealth_mgr_name?'('+fd.wealth_mgr_name+')':''} | Satisfied: ${yn(fd.wealth_mgr_satisfied)} | Gaps: ${yn(fd.wealth_mgr_gaps)}
+Underserved: ${arr(fd.advisory_gaps)} | Goals: ${yn(fd.financial_goals)} | Biggest concern: ${yn(fd.biggest_concern)} | Success definition: ${yn(fd.success_definition)}
 
 ---
-You are a senior financial planner at Pelican Family Office. Based on this client profile, generate a ranked list of the most important focus areas for the initial advisory meeting.
+You are a senior financial planner at Pelican Family Office. Generate a ranked list of the most important focus areas for this client's initial advisory meeting.
 
-IMPORTANT GUIDELINES:
-- Generate between 8 and 15 priorities — only include areas with genuine relevance to THIS client. Do not pad with weak priorities to reach 15.
+GUIDELINES:
+- Generate between 8 and 15 priorities. Only include areas with genuine relevance. Do not pad.
 - Be highly specific — reference their actual numbers, gaps, and situation.
-- Draw from (but are NOT limited to) these services: Advanced Personal Tax Strategies Review, Asset Protection Review, Cost Segregation Review, Safe Money Options Review, Investment Review, Premium Finance Review, Retirement Review, Trust & Estate Planning Review, Premium Funded Review, Annuity Products Review, Life Insurance Review, College Expenses Review, Long Term Care Review, Charitable Planning Review, Advanced Business Tax Strategies Review, Business Health Coverage Review, Employee Retirement Plans, Business Health Costs Review, Business Exit Planning Review, Social Security Review, Business Insurance Review, Disability Insurance Review, Buy/Sell Agreement Review, Business Operating Costs Review, Key Person Coverage Review, Property & Casualty Insurance Review, Business Finance Review, CFO Outsourcing / KPIs / Financial Forecasting, Personal Asset Valuation, Leadership / Cultural Change, Digital Employees and Robotics.
-- If the client owns a business, include multiple highly relevant business-specific priorities.
-- For high-income or business-owner clients, tax minimization should almost always feature prominently.
-- Each rationale must be ONE concise sentence (max 12 words) tied to a specific data point.
+- Draw from (but are NOT limited to): Advanced Personal Tax Strategies Review, Asset Protection Review, Cost Segregation Review, Safe Money Options Review, Investment Review, Premium Finance Review, Retirement Review, Trust & Estate Planning Review, Premium Funded Review, Annuity Products Review, Life Insurance Review, College Expenses Review, Long Term Care Review, Charitable Planning Review, Advanced Business Tax Strategies Review, Business Health Coverage Review, Employee Retirement Plans, Business Health Costs Review, Business Exit Planning Review, Social Security Review, Business Insurance Review, Disability Insurance Review, Buy/Sell Agreement Review, Business Operating Costs Review, Key Person Coverage Review, Property & Casualty Insurance Review, Business Finance Review, CFO Outsourcing / KPIs / Financial Forecasting, Personal Asset Valuation, Leadership / Cultural Change, Digital Employees and Robotics.
+- For business owners, include multiple business-specific priorities.
+- Each rationale: ONE sentence, max 12 words, tied to a specific data point.
 
-Return ONLY a valid JSON array, no markdown:
-[{"rank":1,"title":"Exact service name or clear variant","rationale":"One concise sentence max 12 words."},...]`;
+Return ONLY valid JSON array, no markdown:
+[{"rank":1,"title":"Service name","rationale":"One sentence max 12 words."},...]`;
 }
 
 async function runAnalysis(clientId) {
@@ -1787,7 +1846,7 @@ const CSV_FORM_FIELDS = [
   {id:'st_cap_gains',label:'ST Capital Gains'},{id:'lt_cap_gains',label:'LT Capital Gains'},
   {id:'investment_income',label:'Interest & Dividend Income'},
   {id:'other_income',label:'Other Income'},
-  {id:'total_income_display',label:'Total Income (Prior Year)'},
+  {id:'total_income_display',label:'Total Income Prior Year'},
   {id:'tax_liability',label:'Tax Liability'},
   {id:'projected_income',label:'Projected Total Income'},
   {id:'income_notes',label:'Income Notes'},
@@ -1795,56 +1854,67 @@ const CSV_FORM_FIELDS = [
   {id:'real_estate_primary_value',label:'Primary Home Value'},
   {id:'net_worth_desc',label:'Net Worth Allocation'},
   {id:'real_estate',label:'Owns Real Estate'},{id:'real_estate_type',label:'Real Estate Types'},
-  {id:'real_estate_value',label:'Real Estate Value'},{id:'real_estate_income',label:'Real Estate Income'},
-  {id:'real_estate_depreciation',label:'Taking Depreciation'},
-  {id:'large_asset_txn',label:'Large Asset Transaction'},{id:'large_asset_detail',label:'Large Asset Detail'},
+  {id:'real_estate_value',label:'Real Estate Value'},
+  {id:'major_assets_planned',label:'Major Asset Plans'},{id:'major_assets_detail',label:'Major Asset Detail'},
   {id:'inheritance',label:'Expecting Inheritance'},{id:'inheritance_detail',label:'Inheritance Detail'},
+  {id:'has_investments',label:'Has Investments'},{id:'investment_value',label:'Investment Value'},
+  {id:'investment_managed',label:'How Managed'},{id:'investment_satisfied',label:'Investment Satisfaction'},
+  {id:'risk_tolerance',label:'Risk Tolerance'},{id:'investment_horizon',label:'Investment Horizon'},
+  {id:'investment_concerns',label:'Investment Concerns'},
+  {id:'concentrated_position',label:'Concentrated Position'},{id:'concentrated_detail',label:'Concentration Detail'},
+  {id:'alternative_investments',label:'Alternative Investments'},{id:'alt_investments_detail',label:'Alt Investment Types'},
   {id:'has_cpa',label:'Has CPA'},{id:'cpa_name',label:'CPA Name'},
-  {id:'cpa_satisfied',label:'Tax Strategy Satisfaction'},{id:'tax_planning',label:'Tax Planning Approach'},
+  {id:'cpa_satisfied',label:'Tax Satisfaction'},{id:'tax_planning',label:'Tax Planning Approach'},
   {id:'unrealized_gains',label:'Unrealized Gains'},{id:'unrealized_gains_detail',label:'Unrealized Gains Amount'},
   {id:'stock_options',label:'Has Stock Options'},{id:'stock_options_detail',label:'Stock Options Detail'},
-  {id:'tax_pain',label:'Tax Frustration'},{id:'tax_strategies_tried',label:'Advanced Tax Strategies'},
-  {id:'tax_strategies_detail',label:'Tax Strategies Detail'},
+  {id:'tax_pain',label:'Tax Frustration'},
+  {id:'tax_strategies_tried',label:'Advanced Tax Strategies'},{id:'tax_strategies_detail',label:'Tax Strategies Detail'},
+  {id:'charitable_giving',label:'Charitable Giving'},{id:'charitable_amount',label:'Annual Giving'},
+  {id:'charitable_strategy',label:'Giving Strategy'},
   {id:'retirement_target_age',label:'Target Retirement Age'},
   {id:'retirement_income_need',label:'Retirement Income Need'},
   {id:'retirement_accts',label:'Retirement Accounts'},{id:'max_contributions',label:'Maximizing Contributions'},
-  {id:'social_security',label:'SS Strategy Analyzed'},{id:'ss_start_age',label:'SS Planned Start Age'},
-  {id:'has_pension',label:'Has Pension'},{id:'pension_detail',label:'Pension Detail'},
+  {id:'retirement_on_track',label:'Retirement On Track'},
+  {id:'social_security',label:'SS Strategy'},{id:'ss_start_age',label:'SS Start Age'},
+  {id:'has_pension',label:'Has Pension'},{id:'pension_value',label:'Pension Value'},
+  {id:'pension_monthly',label:'Pension Monthly Benefit'},
   {id:'has_annuities',label:'Has Annuities'},{id:'annuity_type',label:'Annuity Types'},
-  {id:'annuity_annual_benefit',label:'Annuity Annual Benefit'},{id:'annuity_satisfied',label:'Annuity Satisfaction'},
+  {id:'annuity_total_value',label:'Annuity Total Value'},
+  {id:'annuity_annual_benefit',label:'Annuity Annual Benefit'},
   {id:'has_life_ins',label:'Has Life Insurance'},{id:'life_ins_types',label:'Life Ins Types'},
-  {id:'life_ins_coverage',label:'Life Ins Coverage'},{id:'life_ins_reviewed',label:'Life Ins Last Reviewed'},
-  {id:'life_ins_purpose',label:'Life Ins Purpose'},
-  {id:'has_disability',label:'Has Disability Ins'},
-  {id:'has_ltc',label:'Has LTC'},{id:'ltc_detail',label:'LTC Detail'},
-  {id:'has_umbrella',label:'Has Umbrella Policy'},
+  {id:'life_ins_coverage',label:'Life Ins Coverage'},{id:'life_ins_cash_value',label:'Life Ins Cash Value'},
+  {id:'life_ins_reviewed',label:'Life Ins Last Reviewed'},{id:'life_ins_purpose',label:'Life Ins Purpose'},
+  {id:'has_disability',label:'Has Disability Ins'},{id:'disability_monthly',label:'Disability Monthly Benefit'},
+  {id:'has_ltc',label:'Has LTC'},{id:'ltc_daily_benefit',label:'LTC Daily Benefit'},
+  {id:'has_umbrella',label:'Has Umbrella'},{id:'umbrella_coverage',label:'Umbrella Coverage'},
+  {id:'pc_insurance',label:'P&C Reviewed'},
   {id:'has_will',label:'Has Will'},{id:'will_last_updated',label:'Will Last Updated'},
   {id:'will_changes_needed',label:'Will Changes Needed'},
   {id:'has_trust',label:'Has Trust'},{id:'trust_type',label:'Trust Types'},
-  {id:'trust_funded',label:'Trust Funded'},{id:'has_poa',label:'Has POA'},
+  {id:'trust_funded',label:'Trust Funded'},
+  {id:'has_poa',label:'Has POA'},{id:'beneficiaries_current',label:'Beneficiaries Reviewed'},
   {id:'estate_size_concern',label:'Estate Tax Concern'},{id:'has_estate_atty',label:'Has Estate Attorney'},
   {id:'has_business',label:'Has Business'},{id:'business_entity',label:'Business Entity'},
   {id:'business_role',label:'Business Role'},{id:'business_industry',label:'Industry'},
   {id:'business_years',label:'Years in Business'},{id:'business_employees',label:'Employees'},
   {id:'biz_revenue',label:'Business Revenue'},{id:'biz_gross_profit',label:'Gross Profit'},
   {id:'biz_net_profit',label:'Net Profit'},{id:'business_est_value',label:'Business Value'},
-  {id:'biz_hours_week',label:'Hours/Week in Business'},{id:'biz_weeks_vacation',label:'Vacation Weeks/Year'},
+  {id:'biz_hours_week',label:'Hours/Week'},{id:'biz_weeks_vacation',label:'Vacation Weeks/Year'},
   {id:'business_exit',label:'Exit Strategy'},{id:'biz_exit_timeline',label:'Exit Timeline'},
   {id:'biz_exit_target_value',label:'Target Exit Value'},
-  {id:'biz_succession_steps',label:'Succession Steps Taken'},
+  {id:'biz_succession_steps',label:'Succession Steps'},
+  {id:'biz_sellability',label:'Business Runs Without Owner'},
   {id:'business_partners',label:'Has Partners'},{id:'business_buysell',label:'Buy-Sell Agreement'},
   {id:'business_key_person',label:'Key Person Coverage'},
   {id:'business_retirement_plan',label:'Employee Retirement Plan'},
   {id:'business_health_coverage',label:'Employee Health Coverage'},
-  {id:'business_tax_strategy',label:'Business Tax Strategy Rating'},
+  {id:'business_tax_strategy',label:'Business Tax Strategy'},
   {id:'business_concerns',label:'Business Concerns'},
   {id:'biz_infrastructure',label:'Business Infrastructure'},
   {id:'has_wealth_mgr',label:'Has Wealth Manager'},{id:'wealth_mgr_name',label:'Wealth Manager'},
-  {id:'wealth_mgr_satisfied',label:'Wealth Manager Satisfaction'},
-  {id:'wealth_mgr_gaps',label:'Wealth Manager Gaps'},
-  {id:'advisory_gaps',label:'Underserved Advisory Areas'},
-  {id:'financial_goals',label:'Financial Goals'},
-  {id:'biggest_concern',label:'Biggest Financial Concern'},
+  {id:'wealth_mgr_satisfied',label:'WM Satisfaction'},{id:'wealth_mgr_gaps',label:'WM Gaps'},
+  {id:'advisory_gaps',label:'Underserved Areas'},{id:'financial_goals',label:'Financial Goals'},
+  {id:'biggest_concern',label:'Biggest Concern'},{id:'success_definition',label:'Success Definition'},
   {id:'additional_info',label:'Additional Info'},{id:'comments',label:'Comments'},
 ]
 
