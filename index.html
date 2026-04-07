@@ -948,8 +948,13 @@ function renderField(f) {
   let inner = '';
   // Special: will year check — inject hidden follow-up container after rendering
   if (f.id==='will_last_updated') {
-    const willFollowHtml = '<div class="conditional-field" id="old-will-followup"><div class="field-group"><label class="field-label">Any changes needed?</label><div class="radio-group" id="rg-will_changes_needed"><label class="radio-item" id="rl-will_changes_needed-Yes"><input type="radio" name="cf-will_changes_needed" value="Yes" onchange="saveField('will_changes_needed',this.value);updateRadioStyle('will_changes_needed')"/> Yes — needs updating</label><label class="radio-item" id="rl-will_changes_needed-No"><input type="radio" name="cf-will_changes_needed" value="No" onchange="saveField('will_changes_needed',this.value);updateRadioStyle('will_changes_needed')"/> No — still current</label></div></div></div>';
-    return '<div class="field-group"><label class="field-label">'+esc(f.label)+'</label><input type="number" id="cf-'+f.id+'" placeholder="'+esc(f.placeholder||'')+'" oninput="saveField(''+f.id+'',this.value);checkWillYear()"/>'+(f.hint?'<p class="field-hint">'+esc(f.hint)+'</p>':'')+willFollowHtml+'</div>';
+    const willFollowHtml = '<div class="conditional-field" id="old-will-followup"><div class="field-group"><label class="field-label">Any changes needed?</label><div class="radio-group" id="rg-will_changes_needed"><label class="check-card" style="cursor:pointer;" onclick="saveField(\'will_changes_needed\',\'Yes\');this.classList.add(\'checked\');this.nextElementSibling.classList.remove(\'checked\')">Yes — needs updating</label><label class="check-card" onclick="saveField(\'will_changes_needed\',\'No\');this.classList.add(\'checked\');this.previousElementSibling.classList.remove(\'checked\')">No — still current</label></div></div></div>';
+    const willInputId = 'cf-'+f.id;
+    return '<div class="field-group"><label class="field-label">'+esc(f.label)+'</label>'
+      +'<input type="number" id="'+willInputId+'" placeholder="'+esc(f.placeholder||'')+'" '
+      +'oninput="saveField(\''+f.id+'\',this.value);checkWillYear()"/>'
+      +(f.hint?'<p class="field-hint">'+esc(f.hint)+'</p>':'')
+      +willFollowHtml+'</div>';
   }
   if (f.type==='calc') {
     inner = '<div style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--cream-dark);font-size:14px;color:var(--navy);font-weight:500;" id="cf-'+f.id+'">—</div>';
@@ -1964,7 +1969,6 @@ async function confirmDelete(){
 let toastTimer;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
 function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
