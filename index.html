@@ -113,9 +113,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .items-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .items-head{display:grid;grid-template-columns:40px 1fr 280px 36px;padding:9px 14px;background:var(--cream-dark);border-bottom:1px solid var(--border);}
 .items-head span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:500;}
-.item-block{border-bottom:1px solid var(--border);}
+.item-block{border-bottom:1px solid var(--border);overflow:hidden;}
 .item-block:last-child{border-bottom:none;}
-.item-row{display:grid;grid-template-columns:40px 1fr 280px 36px;align-items:center;transition:background .15s;}
+.item-row{display:grid;grid-template-columns:40px 1fr 280px 36px;align-items:center;transition:background .15s;border-bottom:none;}
 .item-row.status-critical{background:var(--green-row);}
 .item-row.status-optional{background:var(--grey-row);}
 .item-row.status-bypass{background:var(--red-row);}
@@ -137,7 +137,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .item-del-cell{display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
 /* NOTES */
-.item-notes-area{padding:0 14px 6px 54px;margin-top:-1px;transition:background .15s;}
+.item-notes-area{padding:0 14px 7px 54px;transition:background .15s;line-height:1;}
 .item-notes-area.status-critical{background:var(--green-row);}
 .item-notes-area.status-optional{background:var(--grey-row);}
 .item-notes-area.status-bypass{background:var(--red-row);}
@@ -347,7 +347,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" id="back-to-form-btn">← Back to form</button>
           <button class="btn btn-sm" id="sort-btn">↕ Sort</button>
-          <button class="btn btn-primary btn-sm" id="export-btn">Save →</button>
+          <button class="btn btn-gold btn-sm" id="export-btn">Save →</button>
         </div>
       </div>
       <div class="card" style="margin-bottom:1.25rem;">
@@ -381,7 +381,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       </div>
       <!-- Action buttons -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;">
-        <button class="btn btn-gold" id="print-btn">
+        <button class="btn btn-primary" id="print-btn">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
           Download / Print PDF
         </button>
@@ -1361,7 +1361,7 @@ async function sendEmail() {
   }
 
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const subject = 'Focus priorities — '+currentClientName;
+  const subject = 'Pelican Family Office — Focus priorities: '+currentClientName;
 
   // Build HTML email body
   const critCount = pItems.filter(i=>i.status==='critical').length;
@@ -1387,11 +1387,38 @@ async function sendEmail() {
     bypCount  ? '<td style="padding:10px 14px;text-align:center;background:#ffb3b6;border-radius:8px;margin-left:8px;"><div style="font-size:22px;font-weight:bold;color:#800006;">'+bypCount+'</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#800006;font-family:Arial,sans-serif;">Bypass</div></td>' : '',
   ].filter(Boolean).join('<td style="width:8px;"></td>');
 
+
+  // Build form responses HTML for email
+  const fd = pClientFormData || {};
+  const fmtVal = v => Array.isArray(v) ? (v.join(', ') || '—') : (v || '—');
+  let formSectionsHtml = '';
+  if (fd && Object.keys(fd).length) {
+    formSectionsHtml += '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
+      +'<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:16px;font-family:Arial,sans-serif;">Client profile</div>';
+    FORM_SECTIONS.forEach(sec => {
+      const relevant = sec.fields.filter(f => fd[f.id] !== undefined && fd[f.id] !== '' && !(Array.isArray(fd[f.id]) && fd[f.id].length===0));
+      if (!relevant.length) return;
+      formSectionsHtml += '<div style="margin-bottom:12px;">'
+        +'<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:Arial,sans-serif;margin-bottom:6px;">'+sec.title+'</div>'
+        +'<table style="width:100%;border-collapse:collapse;">';
+      relevant.forEach(f => {
+        formSectionsHtml += '<tr><td style="padding:3px 0;font-size:12px;color:#888;font-family:Arial,sans-serif;width:180px;vertical-align:top;">'+escPlain(f.label)+'</td>'
+          +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(fd[f.id]))+'</td></tr>';
+        if (f.follow) f.follow.forEach(ff => {
+          if (fd[ff.id]) formSectionsHtml += '<tr><td style="padding:3px 0 3px 12px;font-size:12px;color:#aaa;font-family:Arial,sans-serif;">↳ '+escPlain(ff.label)+'</td>'
+            +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(fd[ff.id]))+'</td></tr>';
+        });
+      });
+      formSectionsHtml += '</table></div>';
+    });
+    formSectionsHtml += '</div>';
+  }
+
   const htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
     +'<div style="max-width:620px;margin:0 auto;padding:32px 16px;">'
     +'<div style="background:#0f2535;border-radius:12px 12px 0 0;padding:24px 28px;display:flex;align-items:center;gap:16px;">'
     +'<div><div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Pelican Family Office</div>'
-    +'<div style="font-size:22px;font-weight:bold;color:#fff;">Focus Prioritizer</div></div></div>'
+    +'<div style="font-size:22px;font-weight:bold;color:#fff;">Client Advisory Priorities</div></div></div>'
     +'<div style="background:#fff;border-radius:0 0 12px 12px;padding:28px;border:1px solid rgba(15,37,53,.1);border-top:none;">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #0f2535;">'
     +'<div><div style="font-size:20px;font-weight:bold;color:#0f2535;">'+escPlain(currentClientName)+'</div>'
@@ -1403,7 +1430,8 @@ async function sendEmail() {
     +'<th style="padding:7px 12px;font-size:10px;color:#aaa;font-weight:normal;text-align:center;font-family:Arial,sans-serif;">Priority</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table>'
     +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
-    +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
+    +formSectionsHtml
+    +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
     +'</div></div></body></html>';
 
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
