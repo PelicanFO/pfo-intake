@@ -137,7 +137,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .item-del-cell{display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
 /* NOTES */
-.item-notes-area{padding:0 14px 8px 54px;transition:background .15s;}
+.item-notes-area{padding:0 14px 6px 54px;margin-top:-1px;transition:background .15s;}
 .item-notes-area.status-critical{background:var(--green-row);}
 .item-notes-area.status-optional{background:var(--grey-row);}
 .item-notes-area.status-bypass{background:var(--red-row);}
@@ -345,8 +345,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <div style="font-size:12px;color:var(--text-light);" id="p-saved-status"></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-sm" id="sort-btn">↕ Sort by priority</button>
-          <button class="btn btn-primary btn-sm" id="export-btn">Export PDF →</button>
+          <button class="btn btn-ghost btn-sm" id="back-to-form-btn">← Back to form</button>
+          <button class="btn btn-sm" id="sort-btn">↕ Sort</button>
+          <button class="btn btn-primary btn-sm" id="export-btn">Save →</button>
         </div>
       </div>
       <div class="card" style="margin-bottom:1.25rem;">
@@ -372,14 +373,48 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       </div>
     </div>
 
-    <!-- EXPORT -->
+    <!-- SAVE & SHARE -->
     <div id="view-export" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
-        <div class="page-header" style="margin:0;"><h2>Export PDF</h2></div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-sm" id="back-to-p-btn">← Back</button>
-          <button class="btn btn-gold" id="print-btn">⬇ Download / Print PDF</button>
+        <div class="page-header" style="margin:0;"><h2>Save &amp; share results</h2></div>
+        <button class="btn btn-sm" id="back-to-p-btn">← Back</button>
+      </div>
+      <!-- Action buttons -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;">
+        <button class="btn btn-gold" id="print-btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
+          Download / Print PDF
+        </button>
+        <button class="btn btn-primary" id="email-btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/></svg>
+          Email results
+        </button>
+      </div>
+      <!-- Email panel (hidden by default) -->
+      <div id="email-panel" style="display:none;" class="card" style="margin-bottom:1.25rem;">
+        <div class="card-title">Send by email</div>
+        <div class="field-group">
+          <label class="field-label">Recipient email address</label>
+          <input type="email" id="email-to" placeholder="advisor@example.com"/>
         </div>
+        <div class="field-group">
+          <label class="field-label">Subject</label>
+          <input type="text" id="email-subject" placeholder="Focus priorities — [Client name]"/>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Message (optional)</label>
+          <textarea id="email-message" rows="3" placeholder="Hi, please find the focus priorities summary attached…"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="email-send-btn">Send email</button>
+          <button class="btn btn-ghost btn-sm" id="email-cancel-btn">Cancel</button>
+          <span id="email-status" style="font-size:13px;color:var(--text-muted);"></span>
+        </div>
+      </div>
+      <div id="emailjs-note" style="font-size:12px;color:var(--text-light);margin-bottom:1.25rem;padding:0 2px;">
+        <strong style="font-weight:500;color:var(--text-muted);">Email setup:</strong> Works immediately using your default email client. 
+        For fully automated sending (no email app opens), add EmailJS credentials to the HTML file — 
+        see the three <code style="font-size:11px;background:var(--cream-dark);padding:1px 5px;border-radius:3px;">EMAILJS_*</code> constants near the bottom of the script.
       </div>
       <div id="pdf-preview"></div>
     </div>
@@ -536,11 +571,30 @@ function wireButtons() {
   document.getElementById('send-to-prioritizer-btn').addEventListener('click', sendToPrioritizer);
   document.getElementById('add-ai-item-btn').addEventListener('click', addAnalysisItem);
 
+  document.getElementById('back-to-form-btn')?.addEventListener('click', () => {
+    if (currentClientId) openIntakeById(currentClientId, currentClientName);
+    else showView('home');
+  });
   document.getElementById('sort-btn').addEventListener('click', () => { sortItems(); toast('Sorted ✓'); });
   document.getElementById('export-btn').addEventListener('click', goToExport);
   document.getElementById('add-item-btn').addEventListener('click', addPItem);
 
   document.getElementById('back-to-p-btn').addEventListener('click', () => showView('prioritizer'));
+  document.getElementById('email-btn').addEventListener('click', () => {
+    const panel = document.getElementById('email-panel');
+    const isOpen = panel.style.display === '';
+    panel.style.display = isOpen ? 'none' : '';
+    if (!isOpen) {
+      // Pre-fill subject
+      const subj = document.getElementById('email-subject');
+      if (!subj.value) subj.value = 'Focus priorities — ' + currentClientName;
+      document.getElementById('email-to').focus();
+    }
+  });
+  document.getElementById('email-cancel-btn').addEventListener('click', () => {
+    document.getElementById('email-panel').style.display = 'none';
+  });
+  document.getElementById('email-send-btn').addEventListener('click', sendEmail);
   document.getElementById('print-btn').addEventListener('click', printPDF);
 
   document.getElementById('delete-cancel-btn').addEventListener('click', closeDeleteModal);
@@ -595,7 +649,7 @@ async function renderClientList() {
           <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${date}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>
+          ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
           ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review &amp; prioritize →</button>`:''}
           <button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>
         </div>
@@ -1270,6 +1324,84 @@ function buildPDFResponsesHTML(fd) {
   });
   html+='</div>';
   return html;
+}
+
+// ══════════════════════════════════
+//  EMAIL via EmailJS
+// ══════════════════════════════════
+// EmailJS sends email directly from the browser — no backend needed.
+// Setup: go to emailjs.com, create account, add email service, create template.
+// Then fill in the three constants below.
+const EMAILJS_SERVICE_ID  = '';  // e.g. 'service_abc123'
+const EMAILJS_TEMPLATE_ID = '';  // e.g. 'template_xyz456'
+const EMAILJS_PUBLIC_KEY  = '';  // e.g. 'user_AbCdEfGhIjK'
+
+async function sendEmail() {
+  const to      = document.getElementById('email-to').value.trim();
+  const subject = document.getElementById('email-subject').value.trim();
+  const message = document.getElementById('email-message').value.trim();
+  const status  = document.getElementById('email-status');
+
+  if (!to) { status.textContent = 'Please enter a recipient email.'; status.style.color='var(--red-s)'; return; }
+
+  // Build plain-text summary of priorities
+  const lines = pItems.map((item, idx) => {
+    const label = item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'Unset';
+    const note = item.notes ? ' — '+item.notes : '';
+    return (idx+1)+'. ['+label+'] '+item.text+note;
+  }).join('\n');
+  const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const bodyText = 'Pelican Family Office — Focus Prioritizer\n'+
+    'Client: '+currentClientName+'\n'+
+    'Date: '+today+'\n'+
+    (staffName?'Prepared by: '+staffName+'\n':'')+
+    '\nFOCUS AREAS:\n'+lines+
+    (message?'\n\nNotes:\n'+message:'');
+
+  if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
+    // EmailJS not configured — open mailto fallback
+    const mailtoBody = encodeURIComponent(bodyText);
+    const mailtoSubj = encodeURIComponent(subject || 'Focus priorities — '+currentClientName);
+    window.open('mailto:'+encodeURIComponent(to)+'?subject='+mailtoSubj+'&body='+mailtoBody);
+    status.textContent = 'Opened in your email client.';
+    status.style.color = 'var(--green)';
+    return;
+  }
+
+  // EmailJS configured — send programmatically
+  status.textContent = 'Sending…';
+  status.style.color = 'var(--text-muted)';
+  document.getElementById('email-send-btn').disabled = true;
+
+  try {
+    // Load EmailJS SDK if not already loaded
+    if (!window.emailjs) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+        script.onload = resolve; script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      emailjs.init(EMAILJS_PUBLIC_KEY);
+    }
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:   to,
+      subject:    subject || 'Focus priorities — '+currentClientName,
+      client:     currentClientName,
+      date:       today,
+      staff:      staffName || '',
+      priorities: lines,
+      message:    message || '',
+    });
+    status.textContent = '✓ Email sent successfully.';
+    status.style.color = 'var(--green)';
+    document.getElementById('email-send-btn').disabled = false;
+  } catch(e) {
+    console.error(e);
+    status.textContent = 'Send failed — check console or use mailto fallback.';
+    status.style.color = 'var(--red-s)';
+    document.getElementById('email-send-btn').disabled = false;
+  }
 }
 
 function printPDF() {
