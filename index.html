@@ -281,9 +281,15 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
     <!-- CLIENTS LIST -->
     <div id="view-clients" style="display:none;">
-      <div class="page-header">
-        <h2>All clients</h2>
-        <p>Select a client to continue their session.</p>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);margin-bottom:3px;">All clients</h2>
+          <p style="font-size:14px;color:var(--text-muted);">Select a client to continue their session.</p>
+        </div>
+        <button class="btn btn-sm" id="export-csv-btn">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+          Export all to CSV
+        </button>
       </div>
       <div id="client-list-container">
         <div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>
@@ -540,6 +546,7 @@ function wireButtons() {
 
   document.getElementById('nav-home').addEventListener('click', () => showView('home'));
   document.getElementById('nav-clients').addEventListener('click', () => { showView('clients'); renderClientList(); });
+  document.getElementById('export-csv-btn').addEventListener('click', exportAllToCSV);
 
   document.getElementById('home-start-btn').addEventListener('click', startSession);
   document.getElementById('home-client-name').addEventListener('keydown', e => { if(e.key==='Enter') startSession(); });
@@ -1373,12 +1380,13 @@ async function sendEmail() {
     const chipBg = item.status==='critical'?'#b6f2cc':item.status==='optional'?'#d8d8d8':item.status==='bypass'?'#ffb3b6':'#f0ede6';
     const chipCol = item.status==='critical'?'#0d5229':item.status==='optional'?'#3a3a3a':item.status==='bypass'?'#800006':'#999';
     const label = item.status?(item.status.charAt(0).toUpperCase()+item.status.slice(1)):'Unset';
-    const noteRow = item.notes ? '<tr style="background:'+bg+';"><td></td><td colspan="2" style="padding:0 14px 8px;font-size:11px;color:#888;font-family:Arial,sans-serif;">└ '+escPlain(item.notes)+'</td></tr>' : '';
-    return '<tr style="background:'+bg+';border-bottom:1px solid #f0ede6;">'
-      +'<td style="padding:9px 10px;font-size:12px;color:#aaa;text-align:center;width:34px;font-family:Arial,sans-serif;">'+(idx+1)+'</td>'
-      +'<td style="padding:9px 14px;font-size:14px;font-family:Arial,sans-serif;color:#1a1a18;">'+escPlain(item.text)+'</td>'
-      +'<td style="padding:9px 12px;text-align:center;width:110px;"><span style="background:'+chipBg+';color:'+chipCol+';border:1px solid '+chipCol+'50;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:bold;font-family:Arial,sans-serif;">'+label+'</span></td>'
-      +'</tr>'+noteRow;
+    const borderRow = '<tr style="background:#fff;"><td colspan="3" style="padding:0;height:1px;background:#f0ede6;font-size:0;line-height:0;"></td></tr>';
+    const noteRow = item.notes ? '<tr style="background:'+bg+';"><td style="padding:0 10px 8px;font-size:11px;color:#aaa;text-align:center;font-family:Arial,sans-serif;"></td><td colspan="2" style="padding:0 14px 8px;font-size:11px;color:#888;font-family:Arial,sans-serif;">└ '+escPlain(item.notes)+'</td></tr>' : '';
+    return '<tr style="background:'+bg+';">'
+      +'<td style="padding:9px 10px 6px;font-size:12px;color:#aaa;text-align:center;width:34px;font-family:Arial,sans-serif;">'+(idx+1)+'</td>'
+      +'<td style="padding:9px 14px 6px;font-size:14px;font-family:Arial,sans-serif;color:#1a1a18;">'+escPlain(item.text)+'</td>'
+      +'<td style="padding:9px 12px 6px;text-align:center;width:110px;"><span style="background:'+chipBg+';color:'+chipCol+';border:1px solid '+chipCol+'50;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:bold;font-family:Arial,sans-serif;">'+label+'</span></td>'
+      +'</tr>'+noteRow+borderRow;
   }).join('');
 
   const statBoxes = [
@@ -1488,6 +1496,138 @@ async function sendEmail() {
 }
 
 function escPlain(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+
+// ══════════════════════════════════
+//  CSV EXPORT
+// ══════════════════════════════════
+// All form fields in display order for CSV columns
+const CSV_FORM_FIELDS = [
+  {id:'fname',label:'First Name'},{id:'lname',label:'Last Name'},
+  {id:'email',label:'Email'},{id:'phone',label:'Phone'},
+  {id:'age',label:'Age'},{id:'marital',label:'Marital Status'},
+  {id:'children',label:'Has Children'},{id:'children_ages',label:'Children Ages'},
+  {id:'state',label:'State'},
+  {id:'has_cpa',label:'Has CPA'},{id:'cpa_name',label:'CPA Name'},
+  {id:'has_estate_atty',label:'Has Estate Attorney'},
+  {id:'has_insurance_agent',label:'Has Insurance Agent'},
+  {id:'has_wealth_mgr',label:'Has Wealth Manager'},{id:'wealth_mgr_name',label:'Wealth Manager Name'},
+  {id:'has_other_advisor',label:'Has Other Advisor'},{id:'other_advisor_detail',label:'Other Advisor Detail'},
+  {id:'agi_prior',label:'Prior Year AGI'},{id:'tax_liability',label:'Tax Liability'},
+  {id:'agi_current',label:'Projected AGI'},{id:'income_sources',label:'Income Sources'},
+  {id:'net_worth',label:'Net Worth'},{id:'net_worth_desc',label:'Net Worth Allocation'},
+  {id:'large_asset_txn',label:'Large Asset Transaction'},{id:'large_asset_detail',label:'Large Asset Detail'},
+  {id:'retirement_accts',label:'Retirement Accounts'},{id:'max_contributions',label:'Maximizing Contributions'},
+  {id:'has_annuities',label:'Has Annuities'},{id:'annuity_detail',label:'Annuity Detail'},
+  {id:'has_life_ins',label:'Has Life Insurance'},{id:'life_ins_types',label:'Life Insurance Types'},
+  {id:'has_will',label:'Will/Trust Status'},{id:'will_year',label:'Will Year Updated'},
+  {id:'trust_type',label:'Trust Type'},
+  {id:'tax_focus',label:'Tax Focus Areas'},{id:'wealth_focus',label:'Wealth Focus Areas'},
+  {id:'risk_focus',label:'Risk Focus Areas'},{id:'other_focus',label:'Other Focus Areas'},
+  {id:'has_business',label:'Has Business'},{id:'business_type',label:'Business Type'},
+  {id:'business_role',label:'Business Role'},{id:'business_est_value',label:'Business Est. Value'},
+  {id:'additional_info',label:'Additional Info'},{id:'comments',label:'Comments'},
+];
+
+function csvCell(val) {
+  if (val === null || val === undefined) return '';
+  const s = Array.isArray(val) ? val.join('; ') : String(val);
+  // Wrap in quotes if contains comma, quote, or newline
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+async function exportAllToCSV() {
+  const btn = document.getElementById('export-csv-btn');
+  btn.textContent = 'Exporting…';
+  btn.disabled = true;
+
+  try {
+    // Load all clients and their intakes
+    const clients = await dbGetAll(TBL_CLIENTS);
+    if (!clients.length) { toast('No clients to export.'); btn.textContent = 'Export all to CSV'; btn.disabled = false; return; }
+
+    // Load all intakes keyed by client_id
+    const intakesRaw = useCloud
+      ? (await db.from(TBL_INTAKES).select('*')).data || []
+      : await dbGetAll(TBL_INTAKES);
+    const intakeMap = {};
+    intakesRaw.forEach(r => { if (r.client_id) intakeMap[String(r.client_id)] = r; });
+
+    // Build headers
+    const priorityHeaders = [];
+    for (let i = 1; i <= 15; i++) {
+      priorityHeaders.push('Focus Area '+i, 'Priority '+i, 'Note '+i);
+    }
+    const formHeaders = CSV_FORM_FIELDS.map(f => f.label);
+    const headers = [
+      'Date','Client Name','Staff','Form Status',
+      'Critical Count','Optional Count','Bypass Count','Total Items',
+      ...priorityHeaders,
+      ...formHeaders,
+      'Staff Notes',
+    ];
+
+    const rows = [headers];
+
+    clients.forEach(client => {
+      const intake = intakeMap[String(client.id)];
+      const fd = client.form_data || {};
+      const items = intake ? (intake.items || []) : [];
+      const date = new Date(client.created_at).toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
+
+      const critical = items.filter(i=>i.status==='critical').length;
+      const optional = items.filter(i=>i.status==='optional').length;
+      const bypass   = items.filter(i=>i.status==='bypass').length;
+
+      // Priority columns (up to 15, padded with empty)
+      const priorityCells = [];
+      for (let i = 0; i < 15; i++) {
+        const item = items[i];
+        priorityCells.push(
+          item ? csvCell(item.text) : '',
+          item ? csvCell(item.status || '') : '',
+          item ? csvCell(item.notes || '') : '',
+        );
+      }
+
+      // Form response columns
+      const formCells = CSV_FORM_FIELDS.map(f => csvCell(fd[f.id]));
+
+      const row = [
+        csvCell(date),
+        csvCell(client.client_name),
+        csvCell(client.staff_name),
+        csvCell(client.form_status),
+        critical, optional, bypass, items.length,
+        ...priorityCells,
+        ...formCells,
+        csvCell(client.staff_notes),
+      ];
+      rows.push(row);
+    });
+
+    // Convert to CSV string
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'PFO_Client_Data_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('CSV downloaded ✓');
+  } catch(e) {
+    console.error(e);
+    toast('Export failed — check console.');
+  }
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg> Export all to CSV';
+  btn.disabled = false;
+}
 
 function printPDF() {
   const win = window.open('','_blank');
