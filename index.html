@@ -448,9 +448,9 @@ async function dbGetAll(tbl) {
   if (!useCloud) {
     return Object.keys(localStorage).filter(k=>k.startsWith('pfo_'+tbl+'_'))
       .map(k=>{try{return JSON.parse(localStorage.getItem(k));}catch{return null;}})
-      .filter(Boolean).sort((a,b)=>(b.created_at||0)-(a.created_at||0));
+      .filter(Boolean).sort((a,b)=>((b.saved_at||b.created_at||0))-((a.saved_at||a.created_at||0)));
   }
-  try { const {data,error}=await db.from(tbl).select('*').order('created_at',{ascending:false}); if(error)throw error; return data||[]; }
+  try { const orderCol = tbl===TBL_INTAKES?'saved_at':'created_at'; const {data,error}=await db.from(tbl).select('*').order(orderCol,{ascending:false}); if(error)throw error; return data||[]; }
   catch(e){console.error(e);return [];}
 }
 async function dbGet(tbl, id) {
@@ -583,7 +583,7 @@ async function renderClientList() {
     card.className = 'card';
     card.style.marginBottom = '10px';
 
-    const staffInfo = c.staff_name ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">— ${esc(c.staff_name)}</span>` : '';
+    const staffInfo = c.staff_name ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">Form completed with: <strong style="font-weight:500;color:var(--text-muted);">${esc(c.staff_name)}</strong></span>` : '';
     const hasNotes = c.staff_notes && c.staff_notes.trim();
 
     card.innerHTML =
@@ -785,7 +785,85 @@ function triggerCond(fid,val){const sec=FORM_SECTIONS.find(s=>s.fields.some(f=>f
 
 async function cfSubmit() {
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
-  openAnalysisById(currentClientId);
+  // Run analysis in background, go straight to prioritizer
+  goDirectToPrioritizer(currentClientId);
+}
+
+async function goDirectToPrioritizer(clientId) {
+  // Check for existing saved intake
+  const existing = await getIntakeForClient(clientId);
+  if (existing && existing.items && existing.items.length) {
+    pItems = existing.items.map(i=>({...i, id:++pItemCounter}));
+    pCurrentId = existing.id;
+    pClientFormData = currentFormData;
+    document.getElementById('p-client-title').textContent = currentClientName;
+    document.getElementById('p-responses-body').innerHTML = buildResponsesHTML(pClientFormData);
+    pResponsesOpen = false;
+    document.getElementById('p-responses-body').style.display='none';
+    document.getElementById('p-responses-toggle-label').textContent='Show \u25be';
+    renderPForm(); showView('prioritizer');
+    // Regenerate AI in background to refresh
+    runAnalysisBackground(clientId);
+  } else {
+    // Show loading state in prioritizer while AI runs
+    pItems = []; pCurrentId = null; pClientFormData = currentFormData;
+    document.getElementById('p-client-title').textContent = currentClientName;
+    document.getElementById('p-responses-body').innerHTML = buildResponsesHTML(pClientFormData);
+    pResponsesOpen = false;
+    document.getElementById('p-responses-body').style.display='none';
+    document.getElementById('p-responses-toggle-label').textContent='Show \u25be';
+    showView('prioritizer');
+    document.getElementById('p-items-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:14px;"><div class="loading-pulse"><span></span><span></span><span></span></div><div style="margin-top:1rem;">Generating focus areas…</div></div>';
+    document.getElementById('p-saved-status').textContent = 'Generating\u2026';
+    await runAnalysisAndPopulate(clientId);
+  }
+}
+
+async function getIntakeForClient(clientId) {
+  if (!useCloud) {
+    const all = await dbGetAll(TBL_INTAKES);
+    return all.find(r => String(r.client_id) === String(clientId)) || null;
+  }
+  try {
+    const {data,error} = await db.from(TBL_INTAKES).select('*').eq('client_id', String(clientId)).order('saved_at',{ascending:false}).limit(1).maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch(e) { console.error(e); return null; }
+}
+
+async function runAnalysisBackground(clientId) {
+  // Silently refresh AI items without disrupting the prioritizer
+  try {
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const data = await res.json();
+    const text = data.content?.[0]?.text||'';
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return;
+    aiItems = JSON.parse(match[0]);
+    await saveAIItems(clientId);
+  } catch(e) { console.error('Background analysis failed:', e); }
+}
+
+async function runAnalysisAndPopulate(clientId) {
+  try {
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const data = await res.json();
+    const text = data.content?.[0]?.text||'';
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('No JSON');
+    aiItems = JSON.parse(match[0]);
+    pItems = aiItems.map(item=>({id:++pItemCounter, text:item.title, status:null, notes:''}));
+    await saveAIItems(clientId);
+    // Update pCurrentId after save
+    const saved = await getIntakeForClient(clientId);
+    if (saved) { pCurrentId = saved.id; await dbUpdate(TBL_INTAKES, pCurrentId, {items: JSON.parse(JSON.stringify(pItems))}); }
+    renderPForm();
+    document.getElementById('p-saved-status').textContent = '';
+  } catch(e) {
+    console.error(e);
+    document.getElementById('p-items-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--red-s);font-size:14px;">Failed to generate focus areas. <button id="retry-populate-btn" class="btn btn-sm">Retry</button></div>';
+    document.getElementById('p-saved-status').textContent = '';
+  }
 }
 
 // ══════════════════════════════════
@@ -888,9 +966,7 @@ async function runAnalysis(clientId) {
 }
 
 async function saveAIItems(cid) {
-  // Find existing intake record for this client or create one
-  const intakes = await dbGetAll(TBL_INTAKES);
-  const existing = intakes.find(r => String(r.client_id) === String(cid));
+  const existing = await getIntakeForClient(cid);
   if (existing) {
     await dbUpdate(TBL_INTAKES, existing.id, {ai_items: aiItems});
     pCurrentId = existing.id;
@@ -943,8 +1019,7 @@ function addAnalysisItem() {
 
 function sendToPrioritizer() {
   if (!aiItems.length) { toast('No items to send.'); return; }
-  // Load existing prioritized items if they exist, otherwise use aiItems
-  loadPrioritizerFromSaved();
+  goDirectToPrioritizer(currentClientId);
 }
 
 async function loadPrioritizerFromSaved() {
@@ -976,10 +1051,40 @@ async function loadPrioritizerFromSaved() {
 function renderPForm() {
   const container = document.getElementById('p-items-container');
   container.innerHTML = '';
+  let pDragSrc = null;
   pItems.forEach((item, idx) => {
     const sc = item.status ? 'status-'+item.status : 'status-none';
     const block = document.createElement('div');
     block.className = 'item-block';
+    block.draggable = true;
+    block.dataset.idx = idx;
+    block.style.cursor = 'grab';
+    block.style.transition = 'opacity 0.15s';
+    block.addEventListener('dragstart', e => {
+      pDragSrc = idx;
+      block.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    block.addEventListener('dragend', () => {
+      block.style.opacity = '1';
+      container.querySelectorAll('.item-block').forEach(b => b.style.borderTop = '');
+    });
+    block.addEventListener('dragover', e => {
+      e.preventDefault();
+      container.querySelectorAll('.item-block').forEach(b => b.style.borderTop = '');
+      if (pDragSrc !== null && pDragSrc !== idx) block.style.borderTop = '2px solid var(--gold)';
+    });
+    block.addEventListener('dragleave', () => { block.style.borderTop = ''; });
+    block.addEventListener('drop', e => {
+      e.preventDefault();
+      block.style.borderTop = '';
+      if (pDragSrc !== null && pDragSrc !== idx) {
+        const moved = pItems.splice(pDragSrc, 1)[0];
+        pItems.splice(idx, 0, moved);
+        renderPForm();
+        autosavePrioritizer();
+      }
+    });
 
     const row = document.createElement('div');
     row.className = 'item-row '+sc;
