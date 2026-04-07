@@ -394,28 +394,18 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <div id="email-panel" style="display:none;" class="card" style="margin-bottom:1.25rem;">
         <div class="card-title">Send by email</div>
         <div class="field-group">
-          <label class="field-label">Recipient email address</label>
-          <input type="email" id="email-to" placeholder="advisor@example.com"/>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Subject</label>
-          <input type="text" id="email-subject" placeholder="Focus priorities — [Client name]"/>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Message (optional)</label>
-          <textarea id="email-message" rows="3" placeholder="Hi, please find the focus priorities summary attached…"></textarea>
+          <label class="field-label">Recipients</label>
+          <div id="email-tags" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--cream);min-height:44px;cursor:text;" onclick="document.getElementById('email-tag-input').focus()"></div>
+          <input type="email" id="email-tag-input" placeholder="Enter email and press Enter or comma…" style="margin-top:6px;"/>
+          <p class="field-hint">Press Enter or comma after each address to add it.</p>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" id="email-send-btn">Send email</button>
+          <button class="btn btn-primary" id="email-send-btn">Send</button>
           <button class="btn btn-ghost btn-sm" id="email-cancel-btn">Cancel</button>
           <span id="email-status" style="font-size:13px;color:var(--text-muted);"></span>
         </div>
       </div>
-      <div id="emailjs-note" style="font-size:12px;color:var(--text-light);margin-bottom:1.25rem;padding:0 2px;">
-        <strong style="font-weight:500;color:var(--text-muted);">Email setup:</strong> Works immediately using your default email client. 
-        For fully automated sending (no email app opens), add EmailJS credentials to the HTML file — 
-        see the three <code style="font-size:11px;background:var(--cream-dark);padding:1px 5px;border-radius:3px;">EMAILJS_*</code> constants near the bottom of the script.
-      </div>
+
       <div id="pdf-preview"></div>
     </div>
 
@@ -585,10 +575,11 @@ function wireButtons() {
     const isOpen = panel.style.display === '';
     panel.style.display = isOpen ? 'none' : '';
     if (!isOpen) {
-      // Pre-fill subject
-      const subj = document.getElementById('email-subject');
-      if (!subj.value) subj.value = 'Focus priorities — ' + currentClientName;
-      document.getElementById('email-to').focus();
+      emailRecipients = [];
+      renderEmailTags();
+      initEmailTags();
+      document.getElementById('email-tag-input').focus();
+      document.getElementById('email-status').textContent = '';
     }
   });
   document.getElementById('email-cancel-btn').addEventListener('click', () => {
@@ -650,7 +641,7 @@ async function renderClientList() {
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
-          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review &amp; prioritize →</button>`:''}
+          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review →</button>`:''}
           <button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>
         </div>
       </div>
@@ -948,30 +939,7 @@ async function openAnalysisById(clientId) {
   currentClientId = clientId;
   currentClientName = rec.client_name || '';
   currentFormData = rec.form_data || {};
-  document.getElementById('analysis-client-title').textContent = currentClientName;
-  document.getElementById('responses-body').innerHTML = buildResponsesHTML(currentFormData);
-  responsesOpen = false;
-  document.getElementById('responses-body').style.display = 'none';
-  document.getElementById('responses-toggle-label').textContent = 'Show ▾';
-  showView('analysis');
-
-  // Check for saved intake with priorities — load it if exists
-  const intakes = await dbGetAll(TBL_INTAKES);
-  const existing = intakes.find(r => String(r.client_id) === String(clientId));
-
-  if (existing && existing.ai_items && existing.ai_items.length) {
-    // Load saved AI items — skip regeneration
-    aiItems = existing.ai_items;
-    document.getElementById('analysis-loading-panel').style.display = 'none';
-    document.getElementById('analysis-results-panel').style.display = '';
-    renderAIItems();
-  } else {
-    // No saved items — generate fresh
-    aiItems = [];
-    document.getElementById('analysis-loading-panel').style.display = '';
-    document.getElementById('analysis-results-panel').style.display = 'none';
-    runAnalysis(clientId);
-  }
+  await goDirectToPrioritizer(clientId);
 }
 
 function buildPrompt(fd) {
@@ -1332,77 +1300,166 @@ function buildPDFResponsesHTML(fd) {
 // EmailJS sends email directly from the browser — no backend needed.
 // Setup: go to emailjs.com, create account, add email service, create template.
 // Then fill in the three constants below.
-const EMAILJS_SERVICE_ID  = '';  // e.g. 'service_abc123'
-const EMAILJS_TEMPLATE_ID = '';  // e.g. 'template_xyz456'
-const EMAILJS_PUBLIC_KEY  = '';  // e.g. 'user_AbCdEfGhIjK'
+const EMAILJS_SERVICE_ID  = 'service_b9qkwox';
+const EMAILJS_TEMPLATE_ID = 'template_gipndut';
+const EMAILJS_PUBLIC_KEY  = 'vQGnBNLMYNpeAdjhR';
+
+// Email recipient tags state
+let emailRecipients = [];
+
+function initEmailTags() {
+  const input = document.getElementById('email-tag-input');
+  if (!input) return;
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addEmailTag(input.value.trim().replace(/,/g,''));
+    }
+    if (e.key === 'Backspace' && !input.value && emailRecipients.length) {
+      removeEmailTag(emailRecipients.length - 1);
+    }
+  });
+  input.addEventListener('blur', () => {
+    if (input.value.trim()) addEmailTag(input.value.trim());
+  });
+}
+
+function addEmailTag(email) {
+  const input = document.getElementById('email-tag-input');
+  if (!email || !email.includes('@')) return;
+  if (emailRecipients.includes(email)) { input.value=''; return; }
+  emailRecipients.push(email);
+  renderEmailTags();
+  input.value = '';
+}
+
+function removeEmailTag(idx) {
+  emailRecipients.splice(idx, 1);
+  renderEmailTags();
+}
+
+function renderEmailTags() {
+  const container = document.getElementById('email-tags');
+  if (!container) return;
+  container.innerHTML = '';
+  emailRecipients.forEach((email, idx) => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:var(--navy);color:#fff;padding:3px 10px;border-radius:99px;font-size:12px;font-family:DM Sans,sans-serif;';
+    tag.innerHTML = esc(email) + '<button style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;line-height:1;padding:0;" data-idx="'+idx+'">×</button>';
+    tag.querySelector('button').addEventListener('click', () => removeEmailTag(idx));
+    container.appendChild(tag);
+  });
+}
 
 async function sendEmail() {
-  const to      = document.getElementById('email-to').value.trim();
-  const subject = document.getElementById('email-subject').value.trim();
-  const message = document.getElementById('email-message').value.trim();
-  const status  = document.getElementById('email-status');
+  const status = document.getElementById('email-status');
+  if (!emailRecipients.length) {
+    // Try the input field too
+    const raw = document.getElementById('email-tag-input').value.trim();
+    if (raw && raw.includes('@')) addEmailTag(raw);
+    else { status.textContent = 'Please add at least one recipient.'; status.style.color='var(--red-s)'; return; }
+  }
 
-  if (!to) { status.textContent = 'Please enter a recipient email.'; status.style.color='var(--red-s)'; return; }
-
-  // Build plain-text summary of priorities
-  const lines = pItems.map((item, idx) => {
-    const label = item.status ? item.status.charAt(0).toUpperCase()+item.status.slice(1) : 'Unset';
-    const note = item.notes ? ' — '+item.notes : '';
-    return (idx+1)+'. ['+label+'] '+item.text+note;
-  }).join('\n');
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const bodyText = 'Pelican Family Office — Focus Prioritizer\n'+
-    'Client: '+currentClientName+'\n'+
-    'Date: '+today+'\n'+
-    (staffName?'Prepared by: '+staffName+'\n':'')+
-    '\nFOCUS AREAS:\n'+lines+
-    (message?'\n\nNotes:\n'+message:'');
+  const subject = 'Focus priorities — '+currentClientName;
+
+  // Build HTML email body
+  const critCount = pItems.filter(i=>i.status==='critical').length;
+  const optCount  = pItems.filter(i=>i.status==='optional').length;
+  const bypCount  = pItems.filter(i=>i.status==='bypass').length;
+
+  const rowsHtml = pItems.map((item,idx) => {
+    const bg = item.status==='critical'?'#e4f9ec':item.status==='optional'?'#efefef':item.status==='bypass'?'#fff0f1':'#ffffff';
+    const chipBg = item.status==='critical'?'#b6f2cc':item.status==='optional'?'#d8d8d8':item.status==='bypass'?'#ffb3b6':'#f0ede6';
+    const chipCol = item.status==='critical'?'#0d5229':item.status==='optional'?'#3a3a3a':item.status==='bypass'?'#800006':'#999';
+    const label = item.status?(item.status.charAt(0).toUpperCase()+item.status.slice(1)):'Unset';
+    const noteRow = item.notes ? '<tr style="background:'+bg+';"><td></td><td colspan="2" style="padding:0 14px 8px;font-size:11px;color:#888;font-family:Arial,sans-serif;">└ '+escPlain(item.notes)+'</td></tr>' : '';
+    return '<tr style="background:'+bg+';border-bottom:1px solid #f0ede6;">'
+      +'<td style="padding:9px 10px;font-size:12px;color:#aaa;text-align:center;width:34px;font-family:Arial,sans-serif;">'+(idx+1)+'</td>'
+      +'<td style="padding:9px 14px;font-size:14px;font-family:Arial,sans-serif;color:#1a1a18;">'+escPlain(item.text)+'</td>'
+      +'<td style="padding:9px 12px;text-align:center;width:110px;"><span style="background:'+chipBg+';color:'+chipCol+';border:1px solid '+chipCol+'50;padding:3px 12px;border-radius:99px;font-size:12px;font-weight:bold;font-family:Arial,sans-serif;">'+label+'</span></td>'
+      +'</tr>'+noteRow;
+  }).join('');
+
+  const statBoxes = [
+    critCount ? '<td style="padding:10px 14px;text-align:center;background:#b6f2cc;border-radius:8px;"><div style="font-size:22px;font-weight:bold;color:#0d5229;">'+critCount+'</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#0d5229;font-family:Arial,sans-serif;">Critical</div></td>' : '',
+    optCount  ? '<td style="padding:10px 14px;text-align:center;background:#d8d8d8;border-radius:8px;margin-left:8px;"><div style="font-size:22px;font-weight:bold;color:#3a3a3a;">'+optCount+'</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#3a3a3a;font-family:Arial,sans-serif;">Optional</div></td>' : '',
+    bypCount  ? '<td style="padding:10px 14px;text-align:center;background:#ffb3b6;border-radius:8px;margin-left:8px;"><div style="font-size:22px;font-weight:bold;color:#800006;">'+bypCount+'</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#800006;font-family:Arial,sans-serif;">Bypass</div></td>' : '',
+  ].filter(Boolean).join('<td style="width:8px;"></td>');
+
+  const htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
+    +'<div style="max-width:620px;margin:0 auto;padding:32px 16px;">'
+    +'<div style="background:#0f2535;border-radius:12px 12px 0 0;padding:24px 28px;display:flex;align-items:center;gap:16px;">'
+    +'<div><div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Pelican Family Office</div>'
+    +'<div style="font-size:22px;font-weight:bold;color:#fff;">Focus Prioritizer</div></div></div>'
+    +'<div style="background:#fff;border-radius:0 0 12px 12px;padding:28px;border:1px solid rgba(15,37,53,.1);border-top:none;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #0f2535;">'
+    +'<div><div style="font-size:20px;font-weight:bold;color:#0f2535;">'+escPlain(currentClientName)+'</div>'
+    +(staffName?'<div style="font-size:12px;color:#888;margin-top:3px;">Prepared by: '+escPlain(staffName)+'</div>':'')+'</div>'
+    +'<div style="text-align:right;font-size:12px;color:#aaa;">'+today+'</div></div>'
+    +'<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">'
+    +'<thead><tr style="background:#f7f4ef;"><th style="padding:7px 10px;font-size:10px;color:#aaa;font-weight:normal;text-align:center;font-family:Arial,sans-serif;">#</th>'
+    +'<th style="padding:7px 14px;font-size:10px;color:#aaa;font-weight:normal;text-align:left;font-family:Arial,sans-serif;">Focus area</th>'
+    +'<th style="padding:7px 12px;font-size:10px;color:#aaa;font-weight:normal;text-align:center;font-family:Arial,sans-serif;">Priority</th></tr></thead>'
+    +'<tbody>'+rowsHtml+'</tbody></table>'
+    +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
+    +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
+    +'</div></div></body></html>';
 
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
-    // EmailJS not configured — open mailto fallback
-    const mailtoBody = encodeURIComponent(bodyText);
-    const mailtoSubj = encodeURIComponent(subject || 'Focus priorities — '+currentClientName);
-    window.open('mailto:'+encodeURIComponent(to)+'?subject='+mailtoSubj+'&body='+mailtoBody);
+    // Mailto fallback — plain text only (mailto can't send HTML)
+    const plain = 'Pelican Family Office — Focus Prioritizer\n'
+      +'Client: '+currentClientName+'\n'
+      +'Date: '+today+'\n'
+      +(staffName?'Prepared by: '+staffName+'\n':'')
+      +'\nFocus areas:\n'
+      +pItems.map((item,i)=>{
+        const lbl = item.status?(item.status.charAt(0).toUpperCase()+item.status.slice(1)):'Unset';
+        return (i+1)+'. ['+lbl+'] '+item.text+(item.notes?' — '+item.notes:'');
+      }).join('\n');
+    const toStr = emailRecipients.join(',');
+    window.open('mailto:'+encodeURIComponent(toStr)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(plain));
     status.textContent = 'Opened in your email client.';
     status.style.color = 'var(--green)';
     return;
   }
 
-  // EmailJS configured — send programmatically
+  // EmailJS — send HTML email to each recipient
   status.textContent = 'Sending…';
   status.style.color = 'var(--text-muted)';
   document.getElementById('email-send-btn').disabled = true;
-
   try {
-    // Load EmailJS SDK if not already loaded
     if (!window.emailjs) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
-        script.onload = resolve; script.onerror = reject;
-        document.head.appendChild(script);
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+        s.onload=resolve;s.onerror=reject;
+        document.head.appendChild(s);
       });
       emailjs.init(EMAILJS_PUBLIC_KEY);
     }
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      to_email:   to,
-      subject:    subject || 'Focus priorities — '+currentClientName,
-      client:     currentClientName,
-      date:       today,
-      staff:      staffName || '',
-      priorities: lines,
-      message:    message || '',
-    });
-    status.textContent = '✓ Email sent successfully.';
+    for (const recipient of emailRecipients) {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: recipient,
+        subject:  subject,
+        html_body: htmlBody,
+        client:   currentClientName,
+        date:     today,
+        staff:    staffName||'',
+      });
+    }
+    status.textContent = '✓ Sent to '+emailRecipients.length+' recipient'+(emailRecipients.length>1?'s':'')+'.';
     status.style.color = 'var(--green)';
     document.getElementById('email-send-btn').disabled = false;
   } catch(e) {
     console.error(e);
-    status.textContent = 'Send failed — check console or use mailto fallback.';
+    status.textContent = 'Send failed — check console.';
     status.style.color = 'var(--red-s)';
     document.getElementById('email-send-btn').disabled = false;
   }
 }
+
+function escPlain(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function printPDF() {
   const win = window.open('','_blank');
