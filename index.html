@@ -920,7 +920,10 @@ const FORM_SECTIONS = [
       {id:'has_business',label:'Do you have any ownership interest in a private business?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
-          {show:'Yes',id:'business_role',label:'Your role in the business',type:'radio',options:['Founder / sole owner','Majority owner','Minority partner','Key employee with equity']},
+          {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Founder / sole owner','Majority owner','Minority partner','Key employee with equity'],
+            follow:[
+              {show:'Minority partner',id:'minority_pct',label:'Approximate ownership percentage',type:'text',placeholder:'e.g. 25%'},
+            ]},
           {show:'Yes',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
           {show:'Yes',id:'business_years',label:'How long have you owned the business?',type:'select',options:['','Less than 2 years','2-5 years','6-10 years','More than 10 years']},
           {show:'Yes',id:'business_employees',label:'Number of employees',type:'select',options:['','Just me','2-5','6-20','21-50','51-100','100+']},
@@ -928,34 +931,55 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'biz_gross_profit',label:'Annual gross profit',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
           {show:'Yes',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 50'},
+          {show:'Yes',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'radio',options:['EBITDA multiple','Revenue multiple','Asset-based','Rule of thumb for my industry','I am not sure','Never formally valued']},
+          {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
           {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 6 months, what would happen to the business?',type:'textarea',placeholder:'Be honest - this reveals key risks we can help address.'},
-          {show:'Yes',id:'business_exit',label:'Have you thought about an exit strategy?',type:'radio',options:['Yes - defined plan in place','Thinking about it - no formal plan yet','Not yet - focused on growth','Planning to pass it to family / heirs'],
+          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:'Be honest - this reveals key risks we can help address.'},
+          {show:'Yes',id:'biz_sellability',label:'Could your business operate without you for 30 days?',type:'radio',options:['Yes - fully systems-driven','Partially - some things would suffer','No - I am essential to daily operations'],
             follow:[
-              {show:'Yes - defined plan in place',id:'biz_exit_plan_detail',label:'Please briefly describe your plan',type:'textarea',placeholder:''},
+              {show:'No - I am essential to daily operations',id:'biz_sellability_plan',label:'Have you thought about how to change that?',type:'radio',options:['Yes - working on it','No - not sure where to start','It is intentional for now']},
             ]},
-          {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, at age 65, when revenue reaches $X...'},
+          {show:'Yes',id:'biz_priorities',label:'What are your top priorities in the business right now? (select all that apply)',type:'multicheck',options:['Revenue growth','Profit improvement','Reducing owner dependency','Building a leadership team','Preparing for exit','Improving cash flow','Reducing taxes','Protecting key employees','Hiring and retention','Systemizing operations','Increasing business value']},
+          {show:'Yes',id:'business_exit',label:'Have you defined an exit strategy?',type:'radio',options:['Yes - formal plan in place','Working on it - no formal plan yet','Not yet - focused on growth','Planning to pass to family or heirs','No plan - open to guidance'],
+            follow:[
+              {show:'Yes - formal plan in place',id:'biz_exit_plan_detail',label:'Briefly describe your plan',type:'textarea',placeholder:'e.g. sell to private equity in 5 years, management buyout, merger...'},
+            ]},
+          {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, at age 60, when revenue reaches $X...'},
           {show:'Yes',id:'biz_exit_target_value',label:'What do you want to sell it for?',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_succession_steps',label:'What steps have you already taken toward succession or exit preparation?',type:'textarea',placeholder:'e.g. hired a COO, working with a broker, set up a buy-sell agreement, began gifting shares...'},
-          {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. EBITDA multiple, asset value, revenue multiple...'},
-          {show:'Yes',id:'biz_sellability',label:'Could your business run without you for 30 days?',type:'radio',options:['Yes - fully systems-dependent','Partially - some things would suffer','No - I am essential to daily operations']},
-          {show:'Yes',id:'biz_revenue_double',label:'How much additional revenue and profit do you think you could generate if everything in your business was fully optimized?',type:'textarea',placeholder:'e.g. 20% more revenue, double the profit margins...'},
-          {show:'Yes',id:'biz_value_double',label:'How much more could you sell your business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to significantly grow your business while working less?',type:'radio',options:['Yes - very interested','Possibly - open to learning more','Not at this time']},
+          {show:'Yes',id:'biz_succession_steps',label:'What steps have you already taken toward succession or exit preparation?',type:'textarea',placeholder:'e.g. hired a COO, working with a broker, set up a buy-sell agreement, began gifting shares to family...'},
+          {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. based on EBITDA multiple, recurring revenue, customer concentration, industry comps...'},
+          {show:'Yes',id:'biz_revenue_double',label:'How much additional revenue and profit do you think you could generate if your business were fully optimized?',type:'textarea',placeholder:'e.g. 30% more revenue, double the net profit...'},
+          {show:'Yes',id:'biz_value_if_systemized',label:'How much more could you sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to grow your business significantly while reducing your personal hours?',type:'radio',options:['Yes - very interested','Possibly - open to learning more','Not at this time']},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
-              {show:'Yes',id:'business_buysell',label:'Do you have a funded buy-sell agreement in place?',type:'radio',options:['Yes - funded','Yes - not funded','No','Unsure']},
+              {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement?',type:'radio',options:['Yes','No'],
+                follow:[
+                  {show:'Yes',id:'buysell_funded',label:'Is it funded?',type:'radio',options:['Yes - funded with life insurance','Yes - funded another way','No - not funded','Unsure']},
+                ]},
               {show:'Yes',id:'partner_alignment',label:'Are you and your partners aligned on the future direction and exit of the business?',type:'radio',options:['Yes - fully aligned','Somewhat aligned','No - there are disagreements','Have not had that conversation yet']},
             ]},
-          {show:'Yes',id:'business_key_person',label:'Do you have key person insurance on yourself or any critical employees?',type:'radio',options:['Yes','No','Unsure']},
-          {show:'Yes',id:'business_retirement_plan',label:'Does your business offer a retirement plan to employees?',type:'radio',options:['Yes - 401(k) or similar','Yes - SEP or SIMPLE IRA','No','Considering establishing one']},
-          {show:'Yes',id:'business_health_coverage',label:'Do you offer health insurance to employees?',type:'radio',options:['Yes','No','Only for owners'],
-            follow:[{show:'Yes',id:'business_health_cost',label:'Approximate annual cost of health benefits',type:'currency',placeholder:'0'}]},
-          {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized - working with a proactive advisor','Adequate - basic planning only','Reactive - mostly just filing','Not sure what I am missing']},
-          {show:'Yes',id:'business_concerns',label:'What are your biggest business concerns right now? (select all that apply)',type:'multicheck',options:['Minimizing taxes','Key employee retention','Business valuation and growth','Exit and succession planning','Cash flow management','Liability exposure','Healthcare costs','Owner disability or death','Funding retirement through the business','Recruiting and hiring','Leadership development']},
-          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','Defined company culture','5-year business plan','Operations manual / playbook','Business software / operating system','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard - marketing / sales / financials','Recruiting and onboarding process','Employee handbook','Training and development plan','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
-          {show:'Yes',id:'biz_infrastructure_gaps',label:'How much additional revenue and profit do you believe you could generate if all of these were fully in place?',type:'textarea',placeholder:'e.g. could double revenue, could reduce my hours by 50%...'},
+          {show:'Yes',id:'business_key_person',label:'Do you have key person insurance on yourself or critical employees?',type:'radio',options:['Yes','No'],
+            follow:[
+              {show:'No',id:'key_person_awareness',label:'Are you aware of the financial exposure if you or a key employee were unable to work?',type:'radio',options:['Yes - aware but no coverage','No - I had not thought about it']},
+            ]},
+          {show:'Yes',id:'business_retirement_plan',label:'Does your business offer a retirement plan to employees?',type:'radio',options:['Yes','No'],
+            follow:[
+              {show:'Yes',id:'biz_retirement_type',label:'What type?',type:'multicheck',options:['401(k)','Safe harbor 401(k)','SEP IRA','SIMPLE IRA','Profit sharing','Defined benefit / pension']},
+              {show:'No',id:'biz_retirement_interest',label:'Are you interested in establishing one as a tax strategy?',type:'radio',options:['Yes - interested','Possibly','Not currently']},
+            ]},
+          {show:'Yes',id:'business_health_coverage',label:'Do you offer health insurance to employees?',type:'radio',options:['Yes','No'],
+            follow:[
+              {show:'Yes',id:'business_health_cost',label:'Approximate annual cost of health benefits',type:'currency',placeholder:'0'},
+              {show:'Yes',id:'biz_health_satisfied',label:'Are you satisfied with your current health plan costs?',type:'radio',options:['Yes','No - costs are too high','No - coverage is inadequate']},
+            ]},
+          {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized - proactive advisor involved','Adequate - basic planning only','Reactive - mostly just filing','Not sure what I am missing'],
+            follow:[
+              {show:'Not sure what I am missing',id:'biz_tax_open',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
+              {show:'Reactive - mostly just filing',id:'biz_tax_open2',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
+            ]},
+          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','Defined company culture','5-year business plan','Operations manual / playbook','Business software / operating system','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard - marketing, sales, financials','Recruiting and onboarding process','Employee handbook','Training and development plan','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
+          {show:'Yes',id:'biz_infrastructure_gaps',label:'How much more revenue and profit could you generate if everything above were fully in place?',type:'textarea',placeholder:'e.g. could double revenue, reduce my hours by 50%...'},
         ]},
     ]
   },
@@ -1007,8 +1031,19 @@ function renderCFSection() {
   }
   html += '</div>';
   document.getElementById('cf-form-body').innerHTML = html;
-  sec.fields.forEach(f => { restoreVal(f); if(f.follow) f.follow.forEach(ff=>restoreVal(ff)); });
-  sec.fields.forEach(f => { if(f.follow) wireRadio(f); });
+  // Recursively restore and wire all fields at any nesting depth
+  (function restoreAll(fields) {
+    fields.forEach(f => {
+      restoreVal(f);
+      if (f.follow) restoreAll(f.follow);
+    });
+  })(sec.fields);
+  (function wireAll(fields) {
+    fields.forEach(f => {
+      if (f.type === 'radio') wireRadio(f);
+      if (f.follow) wireAll(f.follow);
+    });
+  })(sec.fields);
   afterSectionRender();
   const isLast = cfSection === FORM_SECTIONS.length-1;
   const nav = document.getElementById('cf-nav-buttons');
@@ -1099,13 +1134,52 @@ function checkWillYear() {
     oldWillWrap.classList.remove('show');
   }
 }
-function wireRadio(f){document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(r=>r.addEventListener('change',()=>{triggerCond(f.id,r.value);updateRadioStyle(f.id);}));if(currentFormData[f.id])triggerCond(f.id,currentFormData[f.id]);}
+function wireRadio(f) {
+  document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(r => {
+    r.addEventListener('change', () => { triggerCond(f.id, r.value); updateRadioStyle(f.id); });
+  });
+  if (currentFormData[f.id]) triggerCond(f.id, currentFormData[f.id]);
+  // Recursively wire any nested follow fields that are radio type
+  if (f.follow) {
+    f.follow.forEach(ff => {
+      if (ff.type === 'radio') wireRadio(ff);
+      if (ff.follow) ff.follow.forEach(fff => { if (fff.type === 'radio') wireRadio(fff); });
+    });
+  }
+}
 
 function afterSectionRender() {
   // Recalculate displayed totals after section loads
   setTimeout(()=>{updateCalcFields();checkWillYear();},50);
 }
-function triggerCond(fid,val){const sec=FORM_SECTIONS.find(s=>s.fields.some(f=>f.id===fid));if(!sec)return;const field=sec.fields.find(f=>f.id===fid);if(!field||!field.follow)return;field.follow.forEach(ff=>{const el=document.getElementById('cond-'+fid+'-'+ff.show.replace(/[^a-z0-9]/gi,'_'));if(el)el.classList.toggle('show',val===ff.show);});}
+// Find a field definition anywhere in the form (including nested follow fields)
+function findFieldDef(fid, fields) {
+  for (const f of fields) {
+    if (f.id === fid) return f;
+    if (f.follow) {
+      for (const ff of f.follow) {
+        const found = findFieldDef(fid, [ff]);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
+}
+
+function triggerCond(fid, val) {
+  // Search all sections recursively for this field
+  let field = null;
+  for (const sec of FORM_SECTIONS) {
+    field = findFieldDef(fid, sec.fields);
+    if (field) break;
+  }
+  if (!field || !field.follow) return;
+  field.follow.forEach(ff => {
+    const key = 'cond-'+fid+'-'+ff.show.replace(/[^a-z0-9]/gi,'_');
+    const el = document.getElementById(key);
+    if (el) el.classList.toggle('show', val === ff.show);
+  });
+}
 
 async function cfSubmit() {
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
