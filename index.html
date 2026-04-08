@@ -215,30 +215,16 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
     <img id="gate-logo" class="gate-logo" src="" alt="Pelican Family Office"/>
     <div class="gate-title">Pelican Family Office</div>
     <div class="gate-sub">Focus Prioritizer</div>
-
-    <!-- Step 1: Site code -->
-    <div id="gate-step1">
-      <div class="gate-field">
-        <label>Site access code</label>
-        <input class="gate-input gate-input-code" id="gate-site-code" type="password" placeholder="Site code"/>
-      </div>
-      <div class="gate-error" id="gate-site-error">Incorrect site code. Please try again.</div>
-      <button class="btn btn-primary" style="width:100%;margin-top:.25rem;" id="gate-site-btn">Continue →</button>
+    <div class="gate-field">
+      <label>Username</label>
+      <input class="gate-input" id="gate-username" type="text" placeholder="e.g. PFO" autocomplete="username"/>
     </div>
-
-    <!-- Step 2: Username / password -->
-    <div id="gate-step2" style="display:none;">
-      <div class="gate-field">
-        <label>Username</label>
-        <input class="gate-input" id="gate-username" type="text" placeholder="e.g. PFO" autocomplete="username"/>
-      </div>
-      <div class="gate-field">
-        <label>Password</label>
-        <input class="gate-input gate-input-code" id="gate-password" type="password" placeholder="Password" autocomplete="current-password"/>
-      </div>
-      <div class="gate-error" id="gate-login-error">Incorrect username or password.</div>
-      <button class="btn btn-primary" style="width:100%;margin-top:.25rem;" id="gate-login-btn">Enter</button>
+    <div class="gate-field">
+      <label>Password</label>
+      <input class="gate-input gate-input-code" id="gate-password" type="password" placeholder="e.g. 41927" autocomplete="current-password"/>
     </div>
+    <div class="gate-error" id="gate-login-error">Incorrect username or password.</div>
+    <button class="btn btn-primary" style="width:100%;margin-top:.25rem;" id="gate-login-btn">Enter</button>
   </div>
 </div>
 
@@ -289,6 +275,12 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
             <label class="field-label">Client name</label>
             <input type="text" id="home-client-name" placeholder="e.g. The Harrington Family" autocomplete="off"/>
           </div>
+          <div class="field-group admin-only" id="home-cpa-group" style="margin-bottom:1rem;">
+            <label class="field-label">Assign CPA <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-light);">(optional)</span></label>
+            <select id="home-cpa-select" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--cream);appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239b9790' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 14px center;outline:none;cursor:pointer;">
+              <option value="">No CPA Assigned</option>
+            </select>
+          </div>
           <button class="btn btn-primary" style="width:100%;" id="home-start-btn">Begin →</button>
         </div>
       </div>
@@ -303,7 +295,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         </div>
         <button class="btn btn-sm admin-only" id="export-csv-btn">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
-          Export all to CSV
+          Export all to XLSX
         </button>
       </div>
       <div id="client-list-container">
@@ -453,24 +445,23 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
-const SITE_CODE         = 'pfo-prioritizer-2026';
 const TBL_CLIENTS       = 'pfo_clients';
 const TBL_INTAKES       = 'pfo_intakes';
 
-// User accounts: { username, password, displayName, role, cpaCode }
+// User accounts: { username, password, altPassword, displayName, role, cpaCode }
 // role: 'admin' sees all clients and can assign CPAs
-// role: 'cpa' sees only clients with matching cpaCode
+// role: 'cpa'   sees only clients with matching cpaCode
 const USERS = [
-  { username:'PFO',   password:'29109', displayName:'PFO Admin',        role:'admin',  cpaCode:null     },
-  { username:'A&A',   password:'20931', displayName:'A&A',              role:'cpa',    cpaCode:'A&A'    },
-  { username:'BCP',   password:'57294', displayName:'BCP',              role:'cpa',    cpaCode:'BCP'    },
-  { username:'BUR',   password:'19925', displayName:'BUR',              role:'cpa',    cpaCode:'BUR'    },
-  { username:'J&J',   password:'48202', displayName:'J&J',              role:'cpa',    cpaCode:'J&J'    },
-  { username:'LCH',   password:'59204', displayName:'LCH',              role:'cpa',    cpaCode:'LCH'    },
-  { username:'MBO',   password:'29475', displayName:'MBO',              role:'cpa',    cpaCode:'MBO'    },
-  { username:'PIC',   password:'29476', displayName:'PIC',              role:'cpa',    cpaCode:'PIC'    },
-  { username:'SSB',   password:'29479', displayName:'SSB',              role:'cpa',    cpaCode:'SSB'    },
-  { username:'TVN',   password:'88651', displayName:'TVN',              role:'cpa',    cpaCode:'TVN'    },
+  { username:'PFO',   password:'29109', altPassword:'pfo-prioritizer-2026', displayName:'PFO Admin', role:'admin', cpaCode:null  },
+  { username:'A&A',   password:'20931', displayName:'A&A',   role:'cpa', cpaCode:'A&A'  },
+  { username:'BCP',   password:'57294', displayName:'BCP',   role:'cpa', cpaCode:'BCP'  },
+  { username:'BUR',   password:'19925', displayName:'BUR',   role:'cpa', cpaCode:'BUR'  },
+  { username:'J&J',   password:'48202', displayName:'J&J',   role:'cpa', cpaCode:'J&J'  },
+  { username:'LCH',   password:'59204', displayName:'LCH',   role:'cpa', cpaCode:'LCH'  },
+  { username:'MBO',   password:'29475', displayName:'MBO',   role:'cpa', cpaCode:'MBO'  },
+  { username:'PIC',   password:'29476', displayName:'PIC',   role:'cpa', cpaCode:'PIC'  },
+  { username:'SSB',   password:'29479', displayName:'SSB',   role:'cpa', cpaCode:'SSB'  },
+  { username:'TVN',   password:'88651', displayName:'TVN',   role:'cpa', cpaCode:'TVN'  },
 ];
 const CPA_CODES = USERS.filter(u=>u.role==='cpa').map(u=>u.cpaCode);
 
@@ -490,7 +481,27 @@ function initSupabase() {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     useCloud = true;
     setSyncStatus('connected','Cloud sync active');
+    // Probe schema to check for cpa_code column
+    probeSchema();
   } catch(e) { setSyncStatus('error','Local only'); }
+}
+
+let schemaCpaCodeExists = false;
+
+async function probeSchema() {
+  try {
+    // Try fetching one row to see what columns come back
+    const {data, error} = await db.from(TBL_CLIENTS).select('cpa_code').limit(1);
+    if (error && error.message && error.message.includes('cpa_code')) {
+      schemaCpaCodeExists = false;
+      console.warn('⚠️ Missing column: cpa_code. Run this in Supabase SQL editor:\nALTER TABLE pfo_clients ADD COLUMN cpa_code text;\n\nCPA filtering and assignment will be disabled until this is added.');
+      setSyncStatus('connected', 'Cloud sync active — ⚠️ run SQL migration');
+    } else {
+      schemaCpaCodeExists = true;
+    }
+  } catch(e) {
+    schemaCpaCodeExists = false;
+  }
 }
 function setSyncStatus(s,l) {
   document.getElementById('sync-dot').className = 'sync-dot '+s;
@@ -499,13 +510,30 @@ function setSyncStatus(s,l) {
 
 async function dbInsert(tbl, payload) {
   if (!useCloud) { const k='pfo_'+tbl+'_'+Date.now(); localStorage.setItem(k,JSON.stringify({...payload,id:k})); return k; }
-  try { const {data,error}=await db.from(tbl).insert(payload).select().single(); if(error)throw error; return data.id; }
-  catch(e){console.error(e);toast('Save failed');return null;}
+  try {
+    // Strip cpa_code from payload if column doesn't exist yet
+    const safe = {...payload};
+    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) delete safe.cpa_code;
+    const {data,error}=await db.from(tbl).insert(safe).select().single();
+    if(error) throw error;
+    return data.id;
+  } catch(e) {
+    console.error('dbInsert error:', e?.message||e?.details||JSON.stringify(e));
+    toast('Save failed: ' + (e?.message||e?.code||'unknown error'));
+    return null;
+  }
 }
 async function dbUpdate(tbl, id, payload) {
   if (!useCloud) { const k=String(id); const ex=JSON.parse(localStorage.getItem(k)||'{}'); localStorage.setItem(k,JSON.stringify({...ex,...payload,id:k})); return; }
-  try { const {error}=await db.from(tbl).update(payload).eq('id',id); if(error)throw error; }
-  catch(e){console.error(e);toast('Update failed');}
+  try {
+    const safe = {...payload};
+    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) delete safe.cpa_code;
+    const {error}=await db.from(tbl).update(safe).eq('id',id);
+    if(error) throw error;
+  } catch(e) {
+    console.error('dbUpdate error:', e?.message||e?.details||JSON.stringify(e));
+    toast('Update failed: ' + (e?.message||e?.code||'unknown error'));
+  }
 }
 async function dbGetAll(tbl) {
   if (!useCloud) {
@@ -516,21 +544,31 @@ async function dbGetAll(tbl) {
   try {
     const orderCol = tbl===TBL_INTAKES?'saved_at':'created_at';
     let query = db.from(tbl).select('*').order(orderCol,{ascending:false});
-    // CPAs only see their own clients
-    if (tbl===TBL_CLIENTS && userRole==='cpa' && userCpaCode) {
+    // CPAs only see their own clients — only apply filter if column exists
+    if (tbl===TBL_CLIENTS && userRole==='cpa' && userCpaCode && schemaCpaCodeExists) {
       query = query.eq('cpa_code', userCpaCode);
     }
-    const {data,error}=await query; if(error)throw error; return data||[];
+    const {data,error}=await query;
+    if (error) throw error;
+    return data||[];
+  } catch(e) {
+    console.error('dbGetAll error:', e?.message||e?.details||JSON.stringify(e));
+    return [];
   }
-  catch(e){console.error(e);return [];}
 }
 async function dbGet(tbl, id) {
   if (!useCloud) { try{return JSON.parse(localStorage.getItem(String(id)));}catch{return null;} }
-  try { const {data,error}=await db.from(tbl).select('*').eq('id',id).single(); if(error)throw error; return data; }
-  catch(e){return null;}
+  try {
+    const {data,error}=await db.from(tbl).select('*').eq('id',id).single();
+    if(error) throw error;
+    return data;
+  } catch(e) {
+    console.error('dbGet error:', e?.message||e?.details||JSON.stringify(e));
+    return null;
+  }
 }
 async function dbDeleteRow(tbl, id) {
-  if (useCloud) { try{await db.from(tbl).delete().eq('id',id);}catch(e){console.error(e);} }
+  if (useCloud) { try{await db.from(tbl).delete().eq('id',id);}catch(e){console.error('dbDeleteRow error:', e?.message||JSON.stringify(e));} }
   localStorage.removeItem(String(id));
 }
 
@@ -550,33 +588,26 @@ let responsesOpen = false, pResponsesOpen = false;
 // ══════════════════════════════════
 //  ACCESS GATE
 // ══════════════════════════════════
-function checkSiteCode() {
-  const code = document.getElementById('gate-site-code').value.trim();
-  if (code.toLowerCase() === SITE_CODE.toLowerCase()) {
-    document.getElementById('gate-site-error').style.display = 'none';
-    document.getElementById('gate-step1').style.display = 'none';
-    document.getElementById('gate-step2').style.display = '';
-    setTimeout(()=>document.getElementById('gate-username').focus(), 50);
-  } else {
-    document.getElementById('gate-site-error').style.display = 'block';
-    document.getElementById('gate-site-code').value = '';
-    document.getElementById('gate-site-code').focus();
-  }
-}
-
 function checkLogin() {
   const username = document.getElementById('gate-username').value.trim();
   const password = document.getElementById('gate-password').value.trim();
-  const user = USERS.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+  const user = USERS.find(u =>
+    u.username.toLowerCase() === username.toLowerCase() &&
+    (u.password === password || (u.altPassword && u.altPassword === password))
+  );
   if (user) {
     currentUser = user;
     staffName = user.displayName;
     userRole = user.role;
     userCpaCode = user.cpaCode;
     document.getElementById('access-gate').style.display = 'none';
-    // Show/hide admin-only UI elements
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = userRole==='admin' ? '' : 'none');
-    // Show logged-in user in sidebar
+    // Populate CPA select on home page
+    const cpaSel = document.getElementById('home-cpa-select');
+    if (cpaSel) {
+      cpaSel.innerHTML = '<option value="">No CPA Assigned</option>' +
+        CPA_CODES.map(c=>`<option value="${c}">${c}</option>`).join('');
+    }
     const userLabel = document.getElementById('sidebar-user-label');
     if (userLabel) userLabel.textContent = user.displayName + (user.role==='admin' ? ' — Admin' : ' — CPA');
     initApp();
@@ -606,18 +637,14 @@ function showView(name) {
 function wireButtons() {
   document.getElementById('collapse-btn').addEventListener('click', () => document.getElementById('shell').classList.toggle('collapsed'));
 
-  // Gate step 1
-  document.getElementById('gate-site-btn').addEventListener('click', checkSiteCode);
-  document.getElementById('gate-site-code').addEventListener('keydown', e => { if(e.key==='Enter') checkSiteCode(); });
-
-  // Gate step 2
+  // Gate
   document.getElementById('gate-login-btn').addEventListener('click', checkLogin);
   document.getElementById('gate-password').addEventListener('keydown', e => { if(e.key==='Enter') checkLogin(); });
   document.getElementById('gate-username').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('gate-password').focus(); });
 
   document.getElementById('nav-home').addEventListener('click', () => showView('home'));
   document.getElementById('nav-clients').addEventListener('click', () => { showView('clients'); renderClientList(); });
-  document.getElementById('export-csv-btn').addEventListener('click', exportAllToCSV);
+  document.getElementById('export-csv-btn').addEventListener('click', exportAllToXLSX);
 
   document.getElementById('home-start-btn').addEventListener('click', startSession);
   document.getElementById('home-client-name').addEventListener('keydown', e => { if(e.key==='Enter') startSession(); });
@@ -681,12 +708,27 @@ async function startSession() {
   currentClientName = name;
   currentFormData = {};
   cfSection = 0;
-  // CPA users auto-assign their own code; admin leaves null until assigned
-  const cpaCode = userRole === 'cpa' ? userCpaCode : null;
-  const id = await dbInsert(TBL_CLIENTS, {client_name:name, form_status:'pending', form_data:null, staff_name:staffName, cpa_code:cpaCode, client_status:'active', staff_notes:'', created_at:Date.now()});
+  // Determine cpa_code: CPA users use their own code; admins read from the selector
+  let cpaCode = null;
+  if (userRole === 'cpa') {
+    cpaCode = userCpaCode;
+  } else {
+    const cpaSel = document.getElementById('home-cpa-select');
+    cpaCode = cpaSel ? (cpaSel.value || null) : null;
+  }
+  const id = await dbInsert(TBL_CLIENTS, {
+    client_name: name,
+    form_status: 'pending',
+    form_data: null,
+    staff_name: staffName,
+    cpa_code: cpaCode,
+    staff_notes: '',
+    created_at: Date.now()
+  });
   if (!id) return;
   currentClientId = id;
   nameInput.value = '';
+  if (document.getElementById('home-cpa-select')) document.getElementById('home-cpa-select').value = '';
   document.getElementById('intake-client-title').textContent = name;
   renderCFSection();
   showView('intake');
@@ -713,7 +755,7 @@ async function renderClientList() {
     const hasNotes = c.staff_notes && c.staff_notes.trim();
 
     // CPA assignment dropdown (admin only)
-    const cpaOpts = ['','...unassigned',...CPA_CODES].map(o=>`<option value="${o==='...unassigned'?'':o}" ${(c.cpa_code||'')===(o==='...unassigned'?'':o)?'selected':''}>${o||'Assign CPA…'}</option>`).join('');
+    const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'No CPA Assigned'}</option>`).join('');
     const cpaAssign = userRole==='admin'
       ? `<div style="display:inline-flex;align-items:center;gap:6px;margin-left:8px;vertical-align:middle;">
           <select class="cpa-assign-select" data-id="${esc(String(c.id))}" style="font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--cream);font-family:'DM Sans',sans-serif;cursor:pointer;">${cpaOpts}</select>
@@ -2102,93 +2144,115 @@ function csvCell(val) {
   return s;
 }
 
-async function exportAllToCSV() {
+async function exportAllToXLSX() {
   const btn = document.getElementById('export-csv-btn');
   btn.textContent = 'Exporting…';
   btn.disabled = true;
 
   try {
-    // Load all clients and their intakes
-    const clients = await dbGetAll(TBL_CLIENTS);
-    if (!clients.length) { toast('No clients to export.'); btn.textContent = 'Export all to CSV'; btn.disabled = false; return; }
+    // Lazy-load SheetJS
+    if (!window.XLSX) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
 
-    // Load all intakes keyed by client_id
+    const clients = await dbGetAll(TBL_CLIENTS);
+    if (!clients.length) { toast('No clients to export.'); btn.textContent = 'Export all to XLSX'; btn.disabled = false; return; }
+
     const intakesRaw = useCloud
       ? (await db.from(TBL_INTAKES).select('*')).data || []
       : await dbGetAll(TBL_INTAKES);
     const intakeMap = {};
     intakesRaw.forEach(r => { if (r.client_id) intakeMap[String(r.client_id)] = r; });
 
-    // Build headers
+    // ── Sheet 1: Summary ─────────────────────────────────────────
     const priorityHeaders = [];
-    for (let i = 1; i <= 15; i++) {
-      priorityHeaders.push('Focus Area '+i, 'Priority '+i, 'Note '+i);
-    }
+    for (let i = 1; i <= 15; i++) priorityHeaders.push('Focus Area '+i, 'Priority '+i, 'Note '+i);
     const formHeaders = CSV_FORM_FIELDS.map(f => f.label);
     const headers = [
-      'Date','Client Name','Staff','Form Status',
-      'Critical Count','Optional Count','Bypass Count','Total Items',
+      'Date','Client Name','Staff','CPA','Form Status',
+      'Critical','Optional','Bypass','Total Items',
       ...priorityHeaders,
       ...formHeaders,
       'Staff Notes',
     ];
 
-    const rows = [headers];
-
-    clients.forEach(client => {
+    const dataRows = clients.map(client => {
       const intake = intakeMap[String(client.id)];
       const fd = client.form_data || {};
       const items = intake ? (intake.items || []) : [];
       const date = new Date(client.created_at).toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
-
       const critical = items.filter(i=>i.status==='critical').length;
       const optional = items.filter(i=>i.status==='optional').length;
       const bypass   = items.filter(i=>i.status==='bypass').length;
 
-      // Priority columns (up to 15, padded with empty)
       const priorityCells = [];
       for (let i = 0; i < 15; i++) {
         const item = items[i];
-        priorityCells.push(
-          item ? csvCell(item.text) : '',
-          item ? csvCell(item.status || '') : '',
-          item ? csvCell(item.notes || '') : '',
-        );
+        priorityCells.push(item?item.text:'', item?(item.status||''):'', item?(item.notes||''):'');
       }
+      const formCells = CSV_FORM_FIELDS.map(f => {
+        const v = fd[f.id];
+        return Array.isArray(v) ? v.join('; ') : (v||'');
+      });
 
-      // Form response columns
-      const formCells = CSV_FORM_FIELDS.map(f => csvCell(fd[f.id]));
-
-      const row = [
-        csvCell(date),
-        csvCell(client.client_name),
-        csvCell(client.staff_name),
-        csvCell(client.form_status),
+      return [date, client.client_name||'', client.staff_name||'', client.cpa_code||'', client.form_status||'',
         critical, optional, bypass, items.length,
-        ...priorityCells,
-        ...formCells,
-        csvCell(client.staff_notes),
-      ];
-      rows.push(row);
+        ...priorityCells, ...formCells, client.staff_notes||''];
     });
 
-    // Convert to CSV string
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'PFO_Client_Data_' + new Date().toISOString().slice(0,10) + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast('CSV downloaded ✓');
+    const wb = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summarySheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    // Style header row bold by setting cell metadata
+    const range = XLSX.utils.decode_range(summarySheet['!ref']);
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const addr = XLSX.utils.encode_cell({r:0,c:C});
+      if (!summarySheet[addr]) continue;
+      summarySheet[addr].s = {font:{bold:true}, fill:{fgColor:{rgb:'0F2535'}}, font:{bold:true,color:{rgb:'FFFFFF'}}};
+    }
+    // Set column widths
+    summarySheet['!cols'] = [
+      {wch:12},{wch:28},{wch:16},{wch:10},{wch:12},
+      {wch:9},{wch:9},{wch:9},{wch:9},
+      ...Array(45).fill({wch:22}),
+      ...Array(formHeaders.length).fill({wch:20}),
+      {wch:30},
+    ];
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'All Clients');
+
+    // ── Sheet 2: Focus Areas detail (one row per focus item) ─────
+    const detailHeaders = ['Client Name','Staff','CPA','Date','#','Focus Area','Priority','Notes'];
+    const detailRows = [];
+    clients.forEach(client => {
+      const intake = intakeMap[String(client.id)];
+      const items = intake ? (intake.items || []) : [];
+      const date = new Date(client.created_at).toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
+      items.forEach((item,idx) => {
+        detailRows.push([
+          client.client_name||'', client.staff_name||'', client.cpa_code||'', date,
+          idx+1, item.text||'', item.status||'Unset', item.notes||''
+        ]);
+      });
+    });
+    const detailSheet = XLSX.utils.aoa_to_sheet([detailHeaders, ...detailRows]);
+    detailSheet['!cols'] = [{wch:28},{wch:16},{wch:10},{wch:12},{wch:4},{wch:40},{wch:10},{wch:35}];
+    XLSX.utils.book_append_sheet(wb, detailSheet, 'Focus Areas');
+
+    // Download
+    XLSX.writeFile(wb, 'PFO_Client_Data_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    toast('XLSX downloaded ✓');
   } catch(e) {
     console.error(e);
     toast('Export failed — check console.');
   }
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg> Export all to CSV';
+
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg> Export all to XLSX';
   btn.disabled = false;
 }
 
