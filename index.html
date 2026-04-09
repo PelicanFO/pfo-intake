@@ -57,7 +57,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 .collapse-btn:hover{background:var(--navy-mid);color:#fff;}
 
 /* MAIN */
-.main{padding:2.25rem 2.5rem 4rem;max-width:900px;min-width:0;}
+.main{padding:2rem 2rem 4rem 2.25rem;max-width:1100px;min-width:0;}
 .shell.collapsed .main{padding-left:56px;}
 .page-header{margin-bottom:1.5rem;}
 .page-header h2{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:var(--navy);margin-bottom:3px;}
@@ -76,11 +76,11 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .field-hint{font-size:12px;color:var(--text-light);margin-top:4px;}
 .radio-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-.radio-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:7px 14px;transition:all .12s;}
+.radio-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:15px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:7px 14px;transition:all .12s;}
 .radio-item.checked{background:var(--navy);color:#fff;border-color:var(--navy);}
 .radio-item input{display:none;}
 .multi-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;}
-.check-card{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;background:var(--white);transition:all .12s;}
+.check-card{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:15px;background:var(--white);transition:all .12s;}
 .check-card.checked{background:var(--cream-dark);border-color:var(--navy-light);}
 .check-card input{accent-color:var(--navy);cursor:pointer;flex-shrink:0;}
 .conditional-field{display:none;margin-top:10px;padding:12px 16px;background:var(--cream);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;}
@@ -90,7 +90,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .currency-wrap input{padding-left:26px;}
 .form-section-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;}
 .form-section-icon{width:32px;height:32px;border-radius:8px;background:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.form-section-title{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:600;color:var(--navy);}
+.form-section-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);}
 .cf-progress{height:4px;background:var(--cream-dark);border-radius:99px;margin-bottom:2rem;overflow:hidden;}
 .cf-progress-bar{height:100%;background:var(--gold);border-radius:99px;transition:width .4s ease;}
 
@@ -160,10 +160,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .progress-chip.active-completed{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500;}
 .progress-chip.active-on_hold{background:#ffb3b6;color:#800006;border-color:rgba(184,0,8,.3);font-weight:500;}
 .progress-group{display:flex;gap:3px;align-items:center;flex-wrap:wrap;}
-.progress-notes-wrap{margin-top:5px;display:flex;align-items:center;gap:6px;}
-.progress-notes-input{flex:1;border:none;border-bottom:1px dashed var(--border);background:transparent;font-size:12px;color:var(--text);font-family:'DM Sans',sans-serif;padding:2px 0;outline:none;transition:border-color .12s;}
-.progress-notes-input:focus{border-color:var(--navy-light);}
-.progress-notes-input::placeholder{color:var(--text-light);font-style:italic;}
 .progress-bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:0;padding:10px 16px;background:var(--cream-dark);border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .progress-bar-track{flex:1;min-width:120px;height:5px;background:var(--border);border-radius:99px;overflow:hidden;}
 .progress-bar-fill{height:100%;background:var(--navy);border-radius:99px;transition:width .4s ease;}
@@ -769,6 +765,16 @@ async function renderClientList() {
   const clients = await dbGetAll(TBL_CLIENTS);
   if (!clients.length) { container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">No clients yet.</div>'; return; }
   container.innerHTML = '';
+
+  // Load intakes to show progress on cards
+  let intakeMap = {};
+  try {
+    const intakesRaw = useCloud
+      ? ((await db.from(TBL_INTAKES).select('client_id,items')).data || [])
+      : await dbGetAll(TBL_INTAKES);
+    intakesRaw.forEach(r => { if (r.client_id) intakeMap[String(r.client_id)] = r; });
+  } catch(e) { /* intakes optional for display */ }
+
   clients.forEach(c => {
     const date = new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const complete = c.form_status === 'complete';
@@ -781,6 +787,26 @@ async function renderClientList() {
       : '';
     const hasNotes = c.staff_notes && c.staff_notes.trim();
     const hasStatus = c.client_status && c.client_status.trim();
+
+    // Progress badge from intake data
+    let progressBadge = '';
+    if (complete) {
+      const intake = intakeMap[String(c.id)];
+      const items = intake ? (intake.items || []) : [];
+      const critItems = items.filter(i => i.status === 'critical');
+      const critTotal = critItems.length;
+      const critDone  = critItems.filter(i => i.progress === 'completed').length;
+      if (critTotal > 0) {
+        const pct = Math.round((critDone / critTotal) * 100);
+        const barCol = critDone === critTotal ? 'var(--navy)' : 'var(--gold)';
+        progressBadge = `<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;vertical-align:middle;">
+          <span style="display:inline-block;width:48px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;vertical-align:middle;">
+            <span style="display:block;height:100%;width:${pct}%;background:${barCol};border-radius:99px;"></span>
+          </span>
+          <span style="font-size:11px;color:var(--text-muted);">${critDone}/${critTotal}</span>
+        </span>`;
+      }
+    }
 
     // CPA assignment dropdown (admin only)
     const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'Unassigned'}</option>`).join('');
@@ -796,7 +822,7 @@ async function renderClientList() {
         <div>
           <span style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
           <span class="cf-tag ${complete?'cf-tag-complete':'cf-tag-pending'}">${complete?'Complete':'Pending'}</span>
-          ${cpaInfo}${cpaAssign}
+          ${cpaInfo}${cpaAssign}${progressBadge}
           <div style="font-size:12px;color:var(--text-light);margin-top:3px;">${date}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
@@ -1727,7 +1753,7 @@ async function loadPrioritizerFromSaved() {
     pCurrentId = existing.id;
   } else {
     // Fresh from AI items
-    pItems = aiItems.map(item => ({id: ++pItemCounter, text: item.title, status: null, notes: '', progress: null, progress_notes: ''}));
+    pItems = aiItems.map(item => ({id: ++pItemCounter, text: item.title, status: null, notes: '', progress: null}));
   }
 
   pClientFormData = currentFormData;
@@ -1752,17 +1778,18 @@ const PROGRESS_STAGES = [
 ];
 
 function updateProgressSummary() {
-  const total     = pItems.length;
-  const completed = pItems.filter(i=>i.progress==='completed').length;
-  const inProg    = pItems.filter(i=>i.progress==='in_progress').length;
-  const onHold    = pItems.filter(i=>i.progress==='on_hold').length;
-  const pct = total > 0 ? Math.round((completed/total)*100) : 0;
+  const criticalItems = pItems.filter(i=>i.status==='critical');
+  const critTotal     = criticalItems.length;
+  const critDone      = criticalItems.filter(i=>i.progress==='completed').length;
+  const inProg        = pItems.filter(i=>i.progress==='in_progress').length;
+  const onHold        = pItems.filter(i=>i.progress==='on_hold').length;
+  const pct = critTotal > 0 ? Math.round((critDone/critTotal)*100) : 0;
   const fill = document.getElementById('progress-bar-fill');
   const txt  = document.getElementById('progress-summary-text');
   const ip   = document.getElementById('progress-in-progress-count');
   const oh   = document.getElementById('progress-on-hold-count');
   if (fill) fill.style.width = pct+'%';
-  if (txt)  txt.textContent  = `${completed} of ${total} completed`;
+  if (txt)  txt.textContent  = critTotal > 0 ? `${critDone} of ${critTotal} critical priorities completed` : 'No critical priorities set';
   if (ip)   ip.textContent   = inProg;
   if (oh)   oh.textContent   = onHold;
 }
@@ -1884,11 +1911,7 @@ function renderPForm() {
       ? `<div class="notes-field-wrap" id="nfw-${item.id}"><input class="notes-input" type="text" placeholder="Notes\u2026" value="${esc(item.notes)}"/><button class="notes-clear-btn" title="Clear">\u2715</button></div>`
       : `<button class="notes-toggle-link" data-id="${item.id}">add notes</button><div class="notes-field-wrap hidden" id="nfw-${item.id}"><input class="notes-input" type="text" placeholder="Notes\u2026" value=""/><button class="notes-clear-btn" title="Clear">\u2715</button></div>`;
 
-    const progressNotesHtml = pSessionComplete
-      ? `<div class="progress-notes-wrap"><input class="progress-notes-input" type="text" placeholder="Progress notes\u2026" value="${esc(item.progress_notes||'')}"/></div>`
-      : '';
-
-    notesArea.innerHTML = notesFieldHtml + progressNotesHtml;
+    notesArea.innerHTML = notesFieldHtml;
 
     const toggleLink = notesArea.querySelector('.notes-toggle-link');
     if (toggleLink) {
@@ -1920,16 +1943,6 @@ function renderPForm() {
       });
     }
 
-    const progressNotesInput = notesArea.querySelector('.progress-notes-input');
-    if (progressNotesInput) {
-      let pt;
-      progressNotesInput.addEventListener('input', e => {
-        clearTimeout(pt);
-        const it = pItems.find(x => String(x.id)===String(item.id));
-        if (it) it.progress_notes = e.target.value;
-        pt = setTimeout(() => autosavePrioritizer(), 800);
-      });
-    }
 
     block.appendChild(row);
     block.appendChild(notesArea);
@@ -1954,7 +1967,7 @@ function sortItems() {
 }
 
 function addPItem() {
-  pItems.push({id:++pItemCounter, text:'New item', status:null, notes:'', progress:null, progress_notes:''});
+  pItems.push({id:++pItemCounter, text:'New item', status:null, notes:'', progress:null});
   renderPForm();
   setTimeout(()=>{ const displays=document.querySelectorAll('.item-text-display'); if(displays.length) displays[displays.length-1].click(); },40);
 }
@@ -1993,8 +2006,7 @@ function buildPDFPreview() {
     const pBg = item.progress==='completed'?'#0f2535':item.progress==='in_progress'?'#fff3cd':item.progress==='on_hold'?'#ffb3b6':'';
     const pCol = item.progress==='completed'?'#fff':item.progress==='in_progress'?'#7a5c00':item.progress==='on_hold'?'#800006':'';
     const progressHtml = pLabel ? `<div style="margin-top:4px;"><span style="background:${pBg};color:${pCol};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500;font-family:'DM Sans',sans-serif;">${pLabel}</span></div>` : '';
-    const progressNotesHtml = item.progress_notes ? `<div style="font-size:11px;color:#555;margin-top:2px;font-style:italic;">${esc(item.progress_notes)}</div>` : '';
-    return `<tr style="background:${bg};"><td style="padding:8px 10px;font-size:12px;color:#aaa;text-align:center;border-bottom:1px solid #f0ede6;vertical-align:top;">${idx+1}</td><td style="padding:8px 14px;font-size:14px;font-family:'DM Sans',sans-serif;border-bottom:1px solid #f0ede6;">${esc(item.text)}${notesHtml}${progressNotesHtml}</td><td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f0ede6;vertical-align:top;width:120px;"><span style="background:${chipBg};color:${chipCol};border:1px solid ${chipCol}40;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;">${label}</span>${progressHtml}</td></tr>`;
+    return `<tr style="background:${bg};"><td style="padding:8px 10px;font-size:12px;color:#aaa;text-align:center;border-bottom:1px solid #f0ede6;vertical-align:top;">${idx+1}</td><td style="padding:8px 14px;font-size:14px;font-family:'DM Sans',sans-serif;border-bottom:1px solid #f0ede6;">${esc(item.text)}${notesHtml}</td><td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f0ede6;vertical-align:top;width:120px;"><span style="background:${chipBg};color:${chipCol};border:1px solid ${chipCol}40;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;">${label}</span>${progressHtml}</td></tr>`;
   }).join('');
 
   const sc=(n,l,bg,col)=>n?`<div style="flex:1;min-width:76px;border-radius:8px;padding:10px 14px;text-align:center;background:${bg};color:${col};"><span style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;display:block;">${n}</span><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Sans',sans-serif;">${l}</span></div>`:'';
@@ -2122,12 +2134,11 @@ async function sendEmail() {
     const ePBg = item.progress==='completed'?'#0f2535':item.progress==='in_progress'?'#fff3cd':item.progress==='on_hold'?'#ffb3b6':'';
     const ePCol = item.progress==='completed'?'#fff':item.progress==='in_progress'?'#7a5c00':item.progress==='on_hold'?'#800006':'';
     const eProgressChip = ePLabel ? ' <span style="background:'+ePBg+';color:'+ePCol+';padding:2px 7px;border-radius:4px;font-size:10px;font-weight:bold;font-family:Arial,sans-serif;">'+ePLabel+'</span>' : '';
-    const eProgressNoteRow = item.progress_notes ? '<tr style="background:'+bg+';"><td style="padding:0 10px 6px;text-align:center;font-family:Arial,sans-serif;"></td><td colspan="2" style="padding:0 14px 6px;font-size:11px;color:#555;font-style:italic;font-family:Arial,sans-serif;">↳ '+escPlain(item.progress_notes)+'</td></tr>' : '';
     return '<tr style="background:'+bg+';">'  
       +'<td style="padding:9px 10px 6px;font-size:12px;color:#aaa;text-align:center;width:34px;font-family:Arial,sans-serif;">'+(idx+1)+'</td>'
       +'<td style="padding:9px 14px 6px;font-size:14px;font-family:Arial,sans-serif;color:#1a1a18;">'+escPlain(item.text)+'</td>'
       +'<td style="padding:9px 12px 6px;text-align:center;width:130px;"><span style="background:'+chipBg+';color:'+chipCol+';border:1px solid '+chipCol+'50;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:bold;font-family:Arial,sans-serif;">'+label+'</span>'+eProgressChip+'</td>'
-      +'</tr>'+noteRow+eProgressNoteRow+borderRow;
+      +'</tr>'+noteRow+borderRow;
   }).join('');
 
   const statBoxes = [
