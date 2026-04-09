@@ -23,10 +23,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 
 /* ACCESS GATE */
 #access-gate{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;}
-.gate-box{background:#fff;border-radius:16px;padding:2.5rem;width:380px;max-width:92vw;text-align:center;box-shadow:var(--shadow-lg);}
-.gate-logo{width:90px;height:90px;object-fit:contain;margin-bottom:1rem;}
-.gate-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);margin-bottom:.25rem;}
-.gate-sub{font-size:13px;color:var(--text-muted);margin-bottom:1.5rem;}
+.gate-box{background:#fff;border-radius:16px;padding:2.5rem;width:380px;max-width:92vw;text-align:left;box-shadow:var(--shadow-lg);}
+.gate-logo{width:72px;height:72px;object-fit:contain;margin-bottom:1.25rem;display:block;}
+.gate-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);margin-bottom:.2rem;}
+.gate-sub{font-size:13px;color:var(--text-muted);margin-bottom:1.75rem;}
 .gate-field{margin-bottom:.85rem;text-align:left;}
 .gate-field label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:5px;}
 .gate-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;background:var(--cream);}
@@ -750,7 +750,6 @@ async function renderClientList() {
     card.className = 'card';
     card.style.marginBottom = '10px';
 
-    const staffInfo = c.staff_name ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">Completed with: <strong style="font-weight:500;color:var(--text-muted);">${esc(c.staff_name)}</strong></span>` : '';
     const cpaInfo = c.cpa_code ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">CPA: <strong style="font-weight:500;color:var(--navy);">${esc(c.cpa_code)}</strong></span>` : '';
     const hasNotes = c.staff_notes && c.staff_notes.trim();
 
@@ -767,7 +766,7 @@ async function renderClientList() {
         <div>
           <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
           <span class="cf-tag ${complete?'cf-tag-complete':'cf-tag-pending'}">${complete?'Complete':'Pending'}</span>
-          ${staffInfo}${cpaInfo}${cpaAssign}
+          ${cpaInfo}${cpaAssign}
           <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${date}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -866,8 +865,8 @@ const FORM_SECTIONS = [
       {id:'st_cap_gains',label:'Short-term capital gains (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'lt_cap_gains',label:'Long-term capital gains (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'investment_income',label:'Interest & dividend income (prior year)',type:'currency',placeholder:'0',half:true},
-      {id:'other_income',label:'Other income - rental, K-1, royalties, etc. (prior year)',type:'currency',placeholder:'0',half:true},
-      {id:'total_income_display',label:'Total income (prior year - calculated)',type:'calc',placeholder:''},
+      {id:'other_income',label:'Other income — rental, K-1, royalties, etc. (prior year)',type:'currency',placeholder:'0',half:true},
+      {id:'total_income_display',label:'Total income (prior year — calculated)',type:'calc',placeholder:''},
       {id:'tax_liability',label:'Total federal + state tax liability (prior year)',type:'currency',placeholder:'0'},
       {id:'projected_income',label:'Projected total income (current year)',type:'currency',placeholder:'0'},
       {id:'income_notes',label:'Anything notable about your income this year vs. last year?',type:'textarea',placeholder:'e.g. expecting a large bonus, selling a property, receiving an inheritance...'},
@@ -887,7 +886,8 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'real_estate_value',label:'Approximate total value',type:'currency',placeholder:'0'},
           {show:'Yes',id:'real_estate_income',label:'Does it generate rental income?',type:'radio',options:['Yes','No'],
             follow:[{show:'Yes',id:'real_estate_income_amt',label:'Annual rental income',type:'currency',placeholder:'0'}]},
-          {show:'Yes',id:'real_estate_depreciation',label:'Are you currently taking depreciation deductions?',type:'radio',options:['Yes','No','Unsure']},
+          {show:'Yes',id:'real_estate_depreciation',label:'Are you currently taking depreciation deductions?',type:'radio',options:['Yes','No','Unsure'],
+            follow:[{show:'No',id:'real_estate_depreciation_aware',label:'Are you aware that cost segregation studies can significantly accelerate depreciation?',type:'radio',options:['Yes — interested in learning more','No — would appreciate guidance']}]},
           {show:'Yes',id:'real_estate_mortgage',label:'Do you have mortgages on these properties?',type:'radio',options:['Yes','No'],
             follow:[{show:'Yes',id:'real_estate_mortgage_detail',label:'Approximate total remaining balance',type:'currency',placeholder:'0'}]},
         ]},
@@ -899,7 +899,7 @@ const FORM_SECTIONS = [
       {id:'inheritance',label:'Are you expecting any inheritance or significant financial gift?',type:'radio',options:['Yes','No','Possibly'],
         follow:[
           {show:'Yes',id:'inheritance_detail',label:'Approximate amount and timeline',type:'text',placeholder:''},
-          {show:'Yes',id:'inheritance_tax_aware',label:'Are you aware of potential tax implications?',type:'radio',options:['Yes','No - would appreciate guidance']},
+          {show:'Yes',id:'inheritance_tax_aware',label:'Are you aware of potential tax implications?',type:'radio',options:['Yes','No — would appreciate guidance']},
         ]},
     ]
   },
@@ -911,15 +911,17 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'investment_value',label:'Approximate total value',type:'currency',placeholder:'0'},
           {show:'Yes',id:'investment_managed',label:'How is it currently managed?',type:'radio',options:['Self-directed','Managed by an advisor','Mix of both']},
-          {show:'Yes',id:'investment_satisfied',label:'Are you satisfied with your investment performance?',type:'radio',options:['Yes','No','Unsure']},
+          {show:'Yes',id:'investment_satisfied',label:'Are you satisfied with your investment performance?',type:'radio',options:['Yes','No','Unsure'],
+            follow:[{show:'No',id:'investment_dissatisfied_reason',label:'What concerns you most about your current investments?',type:'textarea',placeholder:'e.g. underperformance, high fees, lack of tax strategy...'}]},
         ]},
-      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative - preserve capital, minimal risk','Moderate - balanced growth and protection','Growth-oriented - comfortable with market swings','Aggressive - maximize long-term growth']},
+      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative — preserve capital, minimal risk','Moderate — balanced growth and protection','Growth-oriented — comfortable with market swings','Aggressive — maximize long-term growth']},
       {id:'investment_horizon',label:'What is your primary investment time horizon?',type:'radio',options:['Less than 5 years','5-10 years','10-20 years','20+ years']},
       {id:'investment_concerns',label:'Which of the following investment concerns apply to you? (select all that apply)',type:'multicheck',options:['Market volatility','Sequence of returns risk','Not generating enough income','Too concentrated in one stock or sector','High fees or costs','Tax drag on returns','Inflation eroding purchasing power','Not sure if I am on track for retirement']},
       {id:'concentrated_position',label:'Do you have a large concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'concentrated_detail',label:'What is the asset and approximate value?',type:'text',placeholder:'e.g. company stock, $500K'},
           {show:'Yes',id:'concentrated_tax_basis',label:'What is the approximate cost basis?',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'concentrated_plan',label:'Do you have a plan to diversify without triggering a large tax event?',type:'radio',options:['Yes','No — looking for guidance','Not yet thinking about it']},
         ]},
       {id:'alternative_investments',label:'Do you invest in alternative assets?',type:'radio',options:['Yes','No','Interested in learning more'],
         follow:[{show:'Yes',id:'alt_investments_detail',label:'What types? (select all that apply)',type:'multicheck',options:['Private equity','Hedge funds','Real estate syndications','Commodities / precious metals','Cryptocurrency','Private lending','Oil and gas','Other']}]},
@@ -932,30 +934,35 @@ const FORM_SECTIONS = [
       {id:'has_cpa',label:'Do you have a CPA or tax preparer?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'cpa_name',label:'Name / firm',type:'text',placeholder:''},
-          {show:'Yes',id:'cpa_satisfied',label:'Are you satisfied with your current tax strategy?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied - open to a second opinion']},
-          {show:'Yes',id:'tax_planning',label:'How proactive is your current tax planning?',type:'radio',options:['Purely reactive - I just file each year','Some planning - occasional conversations','Very proactive - year-round strategy in place']},
+          {show:'Yes',id:'cpa_satisfied',label:'Are you satisfied with your current tax strategy?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied — open to a second opinion']},
+          {show:'Yes',id:'tax_planning',label:'How proactive is your current tax planning?',type:'radio',options:['Purely reactive — I just file each year','Some planning — occasional conversations','Very proactive — year-round strategy in place']},
           {show:'Yes',id:'cpa_coordinates',label:'Does your CPA coordinate with your financial advisor?',type:'radio',options:['Yes','No','I do not have a financial advisor']},
+          {show:'No',id:'no_cpa_reason',label:'How do you currently handle your taxes?',type:'radio',options:['I prepare them myself','I use tax software (TurboTax, etc.)','I have been meaning to find someone','Other']},
         ]},
+      {id:'tax_pain',label:'What is your biggest tax frustration or concern right now?',type:'textarea',placeholder:'e.g. I feel like I pay too much, I have a large gain to manage, I have no visibility until April...'},
+      {id:'tax_rate_awareness',label:'Do you know approximately what effective tax rate you paid last year?',type:'radio',options:['Yes','No — not sure'],
+        follow:[{show:'Yes',id:'tax_effective_rate',label:'Approximate effective federal tax rate',type:'text',placeholder:'e.g. 28%'}]},
       {id:'unrealized_gains',label:'Do you have significant unrealized capital gains in taxable accounts?',type:'radio',options:['Yes','No','Unsure'],
         follow:[
           {show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'unrealized_gains_plan',label:'Do you have a plan to manage these gains?',type:'radio',options:['Yes','No','Looking for guidance']},
+          {show:'Yes',id:'unrealized_gains_plan',label:'Do you have a plan to manage these gains tax-efficiently?',type:'radio',options:['Yes','No — looking for guidance','Not yet thinking about it']},
         ]},
       {id:'stock_options',label:'Do you have stock options, RSUs, or equity compensation?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'stock_options_detail',label:'Please describe (type, vesting timeline, approximate value)',type:'textarea',placeholder:'e.g. ISOs vesting over 4 years, approx. $200K value'},
-          {show:'Yes',id:'stock_options_strategy',label:'Do you have a strategy for when and how to exercise or sell?',type:'radio',options:['Yes','No - need guidance','Partially']},
+          {show:'Yes',id:'stock_options_strategy',label:'Do you have a strategy for when and how to exercise or sell?',type:'radio',options:['Yes','No — need guidance','Partially']},
         ]},
-      {id:'tax_pain',label:'What is your biggest tax frustration or concern?',type:'textarea',placeholder:'e.g. I feel like I pay too much every year, I have a large gain to manage, I have no visibility into my tax situation until April...'},
       {id:'tax_strategies_tried',label:'Have you ever implemented any advanced tax reduction strategies?',type:'radio',options:['Yes','No','Unsure what is available to me'],
         follow:[
-          {show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone...'},
-          {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning what options may be available to you?',type:'radio',options:['Yes - very interested','Possibly','Not at this time']},
+          {show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone, backdoor Roth...'},
+          {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning what options may apply to your situation?',type:'radio',options:['Yes — very interested','Possibly','Not at this time']},
+          {show:'Unsure what is available to me',id:'tax_strategies_open',label:'Are you open to a tax minimization review?',type:'radio',options:['Yes — absolutely','Possibly','Not right now']},
         ]},
       {id:'charitable_giving',label:'Do you make charitable contributions?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'charitable_amount',label:'Approximate annual giving',type:'currency',placeholder:'0'},
           {show:'Yes',id:'charitable_strategy',label:'How do you currently give?',type:'multicheck',options:['Cash / check','Appreciated stock','Donor-advised fund','Charitable trust','Private foundation','Other']},
+          {show:'Yes',id:'charitable_tax_optimized',label:'Are you giving in the most tax-efficient way possible?',type:'radio',options:['Yes — I have a strategy','Not sure — open to ideas','No — just writing checks']},
         ]},
     ]
   },
@@ -968,12 +975,8 @@ const FORM_SECTIONS = [
       {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Solo 401(k)','Pension / defined benefit','457 plan','None']},
       {id:'max_contributions',label:'Are you maximizing contributions to all available plans?',type:'radio',options:['Yes','No','Unsure'],
         follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:'e.g. cash flow constraints, unsure of limits...'}]},
-      {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes - confident','Somewhat - could be better','No - concerned I am behind','Unsure - have not calculated it']},
-      {id:'social_security',label:'Have you analyzed your Social Security claiming strategy?',type:'radio',options:['Yes','No - open to guidance','Not applicable yet'],
-        follow:[
-          {show:'Yes',id:'ss_start_age',label:'At what age do you plan to start claiming?',type:'number',placeholder:'e.g. 67'},
-          {show:'Yes',id:'ss_amount',label:'Estimated monthly benefit at that age',type:'currency',placeholder:'0'},
-        ]},
+      {id:'roth_conversion',label:'Have you considered Roth conversion strategies?',type:'radio',options:['Yes — already doing it','Open to it','No — not sure if it applies to me']},
+      {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes — confident','Somewhat — could be better','No — concerned I am behind','Unsure — have not calculated it']},
       {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'pension_value',label:'Estimated lump sum value or total vested amount',type:'currency',placeholder:'0'},
@@ -985,7 +988,7 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Fixed indexed','Variable','Immediate / SPIA','MYGA','Deferred income']},
           {show:'Yes',id:'annuity_total_value',label:'Total annuity value / account balance',type:'currency',placeholder:'0'},
           {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected annual income / payout',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'annuity_satisfied',label:'Are you satisfied with your annuities?',type:'radio',options:['Yes','No','Unsure - have not reviewed recently'],
+          {show:'Yes',id:'annuity_satisfied',label:'Are you satisfied with your annuities?',type:'radio',options:['Yes','No','Unsure — have not reviewed recently'],
             follow:[{show:'No',id:'annuity_concern',label:'What is your main concern?',type:'textarea',placeholder:''}]},
         ]},
     ]
@@ -1001,21 +1004,18 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_cash_value',label:'Approximate total cash value (if permanent policy)',type:'currency',placeholder:'0'},
           {show:'Yes',id:'life_ins_reviewed',label:'When was it last reviewed?',type:'select',options:['','Within the last year','1-3 years ago','More than 3 years ago','Never reviewed']},
           {show:'Yes',id:'life_ins_purpose',label:'Primary purpose of your coverage (select all that apply)',type:'multicheck',options:['Income replacement','Estate liquidity','Business protection','Key person','Buy-sell funding','Wealth transfer','Cash value accumulation']},
-          {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No - I think I am underinsured','Unsure']},
+          {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
+          {show:'No',id:'life_ins_why_not',label:'Have you considered getting life insurance?',type:'radio',options:['Yes — open to reviewing options','Not at this time','I do not believe I need it']},
         ]},
-      {id:'has_disability',label:'Do you have disability insurance?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'disability_monthly',label:'Monthly benefit amount',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'disability_type',label:'Individual or group policy?',type:'radio',options:['Individual','Group (employer)','Both']},
-        ]},
-      {id:'has_ltc',label:'Do you have long-term care coverage?',type:'radio',options:['Yes','No - planning to get it','No - not concerned','No - open to reviewing options'],
+      {id:'has_disability',label:'Do you have disability insurance?',type:'radio',options:['Yes','No']},
+      {id:'has_ltc',label:'Do you have long-term care coverage?',type:'radio',options:['Yes','No — planning to get it','No — not concerned','No — open to reviewing options'],
         follow:[
           {show:'Yes',id:'ltc_daily_benefit',label:'Daily or monthly benefit amount',type:'text',placeholder:'e.g. $200/day'},
           {show:'Yes',id:'ltc_benefit_period',label:'Benefit period',type:'text',placeholder:'e.g. 3 years, lifetime'},
         ]},
       {id:'has_umbrella',label:'Do you have an umbrella / excess liability policy?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'umbrella_coverage',label:'Coverage amount',type:'currency',placeholder:'0'}]},
-      {id:'pc_insurance',label:'Have you recently reviewed your property and casualty insurance?',type:'radio',options:['Yes - reviewed within the last year','No - has not been reviewed recently','Unsure']},
+      {id:'pc_insurance',label:'Have you recently reviewed your property and casualty insurance?',type:'radio',options:['Yes — reviewed within the last year','No — has not been reviewed recently','Unsure']},
       {id:'has_insurance_agent',label:'Do you work with an insurance agent or advisor?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'insurance_agent_detail',label:'Name / firm',type:'text',placeholder:''}]},
     ]
@@ -1028,21 +1028,21 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'will_last_updated',label:'What year was it last updated?',type:'number',placeholder:'e.g. 2019'},
         ]},
-      {id:'has_trust',label:'Do you have a trust?',type:'radio',options:['Yes','No - considering one','No'],
+      {id:'has_trust',label:'Do you have a trust?',type:'radio',options:['Yes','No — considering one','No'],
         follow:[
           {show:'Yes',id:'trust_type',label:'What type? (select all that apply)',type:'multicheck',options:['Revocable living trust','Irrevocable trust','Charitable trust','Special needs trust','Asset protection trust','Other']},
           {show:'Yes',id:'trust_funded',label:'Is the trust fully funded?',type:'radio',options:['Yes','Partially','Unsure'],
             follow:[{show:'Partially',id:'trust_funded_detail',label:'What has not yet been transferred into the trust?',type:'textarea',placeholder:''}]},
           {show:'Yes',id:'trust_reviewed',label:'When was the trust last reviewed?',type:'select',options:['','Within the last year','1-3 years ago','More than 3 years ago','Never reviewed']},
         ]},
-      {id:'has_poa',label:'Do you have powers of attorney and healthcare directives in place?',type:'radio',options:['Yes - both in place','Partially','No'],
+      {id:'has_poa',label:'Do you have powers of attorney and healthcare directives in place?',type:'radio',options:['Yes — both in place','Partially','No'],
         follow:[{show:'Partially',id:'poa_missing',label:'What is currently missing?',type:'text',placeholder:'e.g. financial POA, healthcare directive...'}]},
-      {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies recently?',type:'radio',options:['Yes - within the last year','No - has been a while','Never reviewed','Not sure what I have']},
-      {id:'estate_size_concern',label:'Is estate or inheritance tax a concern for you?',type:'radio',options:['Yes - estate likely exceeds exemption','Possibly - not sure','No - estate is below exemption threshold','Unsure of current exemption levels']},
-      {id:'has_estate_atty',label:'Do you have an estate planning attorney?',type:'radio',options:['Yes','No - have not needed one yet','No - need to find one'],
+      {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies recently?',type:'radio',options:['Yes — within the last year','No — has been a while','Never reviewed','Not sure what I have']},
+      {id:'estate_size_concern',label:'Is estate or inheritance tax a concern for you?',type:'radio',options:['Yes — estate likely exceeds exemption','Possibly — not sure','No — estate is below exemption threshold','Unsure of current exemption levels']},
+      {id:'has_estate_atty',label:'Do you have an estate planning attorney?',type:'radio',options:["Yes","No — haven't needed one yet","No — need to find one"],
         follow:[
           {show:'Yes',id:'estate_atty_name',label:'Name / firm (optional)',type:'text',placeholder:''},
-          {show:'Yes',id:'estate_atty_current',label:'Is your estate plan current and up to date?',type:'radio',options:['Yes','No - needs updating','Unsure']},
+          {show:'Yes',id:'estate_atty_current',label:'Is your estate plan current and up to date?',type:'radio',options:['Yes','No — needs updating','Unsure']},
         ]},
     ]
   },
@@ -1067,15 +1067,15 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'radio',options:['EBITDA multiple','Revenue multiple','Asset-based','Rule of thumb for my industry','I am not sure','Never formally valued']},
           {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
           {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:'Be honest - this reveals key risks we can help address.'},
-          {show:'Yes',id:'biz_sellability',label:'Could your business operate without you for 30 days?',type:'radio',options:['Yes - fully systems-driven','Partially - some things would suffer','No - I am essential to daily operations'],
+          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:'Be candid — this reveals key risks we can help address.'},
+          {show:'Yes',id:'biz_sellability',label:'Could your business operate without you for 30 days?',type:'radio',options:['Yes — fully systems-driven','Partially — some things would suffer','No — I am essential to daily operations'],
             follow:[
-              {show:'No - I am essential to daily operations',id:'biz_sellability_plan',label:'Have you thought about how to change that?',type:'radio',options:['Yes - working on it','No - not sure where to start','It is intentional for now']},
+              {show:'No — I am essential to daily operations',id:'biz_sellability_plan',label:'Have you thought about how to change that?',type:'radio',options:['Yes — working on it','No — not sure where to start','It is intentional for now']},
             ]},
           {show:'Yes',id:'biz_priorities',label:'What are your top priorities in the business right now? (select all that apply)',type:'multicheck',options:['Revenue growth','Profit improvement','Reducing owner dependency','Building a leadership team','Preparing for exit','Improving cash flow','Reducing taxes','Protecting key employees','Hiring and retention','Systemizing operations','Increasing business value']},
-          {show:'Yes',id:'business_exit',label:'Have you defined an exit strategy?',type:'radio',options:['Yes - formal plan in place','Working on it - no formal plan yet','Not yet - focused on growth','Planning to pass to family or heirs','No plan - open to guidance'],
+          {show:'Yes',id:'business_exit',label:'Have you defined an exit strategy?',type:'radio',options:['Yes — formal plan in place','Working on it — no formal plan yet','Not yet — focused on growth','Planning to pass to family or heirs','No plan — open to guidance'],
             follow:[
-              {show:'Yes - formal plan in place',id:'biz_exit_plan_detail',label:'Briefly describe your plan',type:'textarea',placeholder:'e.g. sell to private equity in 5 years, management buyout, merger...'},
+              {show:'Yes — formal plan in place',id:'biz_exit_plan_detail',label:'Briefly describe your plan',type:'textarea',placeholder:'e.g. sell to private equity in 5 years, management buyout, merger...'},
             ]},
           {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, at age 60, when revenue reaches $X...'},
           {show:'Yes',id:'biz_exit_target_value',label:'What do you want to sell it for?',type:'currency',placeholder:'0'},
@@ -1083,35 +1083,35 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. based on EBITDA multiple, recurring revenue, customer concentration, industry comps...'},
           {show:'Yes',id:'biz_revenue_double',label:'How much additional revenue and profit do you think you could generate if your business were fully optimized?',type:'textarea',placeholder:'e.g. 30% more revenue, double the net profit...'},
           {show:'Yes',id:'biz_value_if_systemized',label:'How much more could you sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to grow your business significantly while reducing your personal hours?',type:'radio',options:['Yes - very interested','Possibly - open to learning more','Not at this time']},
+          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to grow your business significantly while reducing your personal hours?',type:'radio',options:['Yes — very interested','Possibly — open to learning more','Not at this time']},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement?',type:'radio',options:['Yes','No'],
                 follow:[
-                  {show:'Yes',id:'buysell_funded',label:'Is it funded?',type:'radio',options:['Yes - funded with life insurance','Yes - funded another way','No - not funded','Unsure']},
+                  {show:'Yes',id:'buysell_funded',label:'Is it funded?',type:'radio',options:['Yes — funded with life insurance','Yes — funded another way','No — not funded','Unsure']},
                 ]},
-              {show:'Yes',id:'partner_alignment',label:'Are you and your partners aligned on the future direction and exit of the business?',type:'radio',options:['Yes - fully aligned','Somewhat aligned','No - there are disagreements','Have not had that conversation yet']},
+              {show:'Yes',id:'partner_alignment',label:'Are you and your partners aligned on the future direction and exit of the business?',type:'radio',options:['Yes — fully aligned','Somewhat aligned','No — there are disagreements','Have not had that conversation yet']},
             ]},
           {show:'Yes',id:'business_key_person',label:'Do you have key person insurance on yourself or critical employees?',type:'radio',options:['Yes','No'],
             follow:[
-              {show:'No',id:'key_person_awareness',label:'Are you aware of the financial exposure if you or a key employee were unable to work?',type:'radio',options:['Yes - aware but no coverage','No - I had not thought about it']},
+              {show:'No',id:'key_person_awareness',label:'Are you aware of the financial exposure if you or a key employee were unable to work?',type:'radio',options:['Yes — aware but no coverage yet','No — I had not thought about it']},
             ]},
           {show:'Yes',id:'business_retirement_plan',label:'Does your business offer a retirement plan to employees?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'biz_retirement_type',label:'What type?',type:'multicheck',options:['401(k)','Safe harbor 401(k)','SEP IRA','SIMPLE IRA','Profit sharing','Defined benefit / pension']},
-              {show:'No',id:'biz_retirement_interest',label:'Are you interested in establishing one as a tax strategy?',type:'radio',options:['Yes - interested','Possibly','Not currently']},
+              {show:'No',id:'biz_retirement_interest',label:'Are you interested in establishing one as a tax strategy?',type:'radio',options:['Yes — interested','Possibly','Not currently']},
             ]},
           {show:'Yes',id:'business_health_coverage',label:'Do you offer health insurance to employees?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'business_health_cost',label:'Approximate annual cost of health benefits',type:'currency',placeholder:'0'},
-              {show:'Yes',id:'biz_health_satisfied',label:'Are you satisfied with your current health plan costs?',type:'radio',options:['Yes','No - costs are too high','No - coverage is inadequate']},
+              {show:'Yes',id:'biz_health_satisfied',label:'Are you satisfied with your current health plan costs?',type:'radio',options:['Yes','No — costs are too high','No — coverage is inadequate']},
             ]},
-          {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized - proactive advisor involved','Adequate - basic planning only','Reactive - mostly just filing','Not sure what I am missing'],
+          {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized — proactive advisor involved','Adequate — basic planning only','Reactive — mostly just filing','Not sure what I am missing'],
             follow:[
               {show:'Not sure what I am missing',id:'biz_tax_open',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
-              {show:'Reactive - mostly just filing',id:'biz_tax_open2',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
+              {show:'Reactive — mostly just filing',id:'biz_tax_open2',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
             ]},
-          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','Defined company culture','5-year business plan','Operations manual / playbook','Business software / operating system','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard - marketing, sales, financials','Recruiting and onboarding process','Employee handbook','Training and development plan','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
+          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','5-year business plan','Operations manual / playbook','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard','Recruiting and onboarding process','Employee handbook','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
           {show:'Yes',id:'biz_infrastructure_gaps',label:'How much more revenue and profit could you generate if everything above were fully in place?',type:'textarea',placeholder:'e.g. could double revenue, reduce my hours by 50%...'},
         ]},
     ]
@@ -1125,11 +1125,10 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'wealth_mgr_name',label:'Firm / advisor name',type:'text',placeholder:''},
           {show:'Yes',id:'wealth_mgr_satisfied',label:'How satisfied are you with that relationship?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied','Looking for alternatives']},
           {show:'Yes',id:'wealth_mgr_gaps',label:'What, if anything, feels missing from that relationship?',type:'textarea',placeholder:'e.g. not proactive enough, no tax coordination, limited investment options...'},
-          {show:'No',id:'no_advisor_reason',label:'Have you worked with a financial advisor in the past?',type:'radio',options:['Yes - but no longer','No - this is new for me']},
         ]},
-      {id:'advisory_gaps',label:'Which of the following do you feel are currently underserved in your financial life? (select all that apply)',type:'multicheck',options:['Tax planning and reduction','Investment management','Insurance and protection','Estate planning','Retirement planning','Business planning','Charitable giving','Cash flow management','None - I feel well covered']},
+      {id:'advisory_gaps',label:'Which of the following do you feel are currently underserved in your financial life? (select all that apply)',type:'multicheck',options:['Tax planning and reduction','Investment management','Insurance and protection','Estate planning','Retirement planning','Business planning','Charitable giving','Cash flow management','None — I feel well covered']},
       {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family, build generational wealth...'},
-      {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:'Be candid - this helps us focus on what matters most to you.'},
+      {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:'Be candid — this helps us focus on what matters most to you.'},
       {id:'success_definition',label:'How do you define financial success for yourself and your family?',type:'textarea',placeholder:'e.g. financial independence by age 55, leaving a legacy, never having to worry about money...'},
     ]
   },
@@ -1137,7 +1136,7 @@ const FORM_SECTIONS = [
     id:'conclusion', title:'Final thoughts',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>',
     fields:[
-      {id:'additional_info',label:'Is there anything else important for us to know about your financial situation?',type:'textarea',placeholder:'No detail is too small - we want to understand your full picture.'},
+      {id:'additional_info',label:'Is there anything else important for us to know about your financial situation?',type:'textarea',placeholder:'No detail is too small — we want to understand your full picture.'},
       {id:'comments',label:'Any questions or concerns you would like us to address in our first meeting?',type:'textarea',placeholder:''},
     ]
   },
