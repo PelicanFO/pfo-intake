@@ -1222,8 +1222,22 @@ function renderField(f) {
   else if (f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${o||'Select…'}</option>`).join('');inner=`<select id="cf-${f.id}" onchange="saveField('${f.id}',this.value)">${opts}</select>`;}
   else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}"><input type="radio" name="cf-${f.id}" value="${esc(o)}" onchange="saveField('${f.id}',this.value);triggerCond('${f.id}',this.value);updateRadioStyle('${f.id}')"/> ${esc(o)}</label>`).join('')}</div>`;
   else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}"><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onchange="saveMulti('${f.id}');updateCheckStyle('${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}',this.checked)"/> ${esc(o)}</label>`).join('')}</div>`;
+  // Group follow fields by their show value — all with same show go in ONE container
   let followHtml = '';
-  if (f.follow) f.follow.forEach(ff=>{ followHtml+=`<div class="conditional-field" id="cond-${f.id}-${ff.show.replace(/[^a-z0-9]/gi,'_')}">${renderField(ff)}</div>`; });
+  if (f.follow) {
+    // Build a map: showVal -> [fields]
+    const groups = {};
+    const order = [];
+    f.follow.forEach(ff => {
+      if (!groups[ff.show]) { groups[ff.show] = []; order.push(ff.show); }
+      groups[ff.show].push(ff);
+    });
+    order.forEach(showVal => {
+      const key = 'cond-'+f.id+'-'+showVal.replace(/[^a-z0-9]/gi,'_');
+      const inner = groups[showVal].map(ff => renderField(ff)).join('');
+      followHtml += `<div class="conditional-field" id="${key}">${inner}</div>`;
+    });
+  }
   const hint = f.hint ? `<p class="field-hint">${esc(f.hint)}</p>` : '';
   return `<div class="field-group"><label class="field-label" for="cf-${f.id}">${esc(f.label)}${req}</label>${inner}${hint}${followHtml}</div>`;
 }
@@ -1336,20 +1350,26 @@ function triggerCond(fid, val) {
     if (field) break;
   }
   if (!field || !field.follow) return;
+
+  // Collect unique show-values and which fields belong to each
+  const groups = {};
   field.follow.forEach(ff => {
-    const key = 'cond-'+fid+'-'+ff.show.replace(/[^a-z0-9]/gi,'_');
+    const k = ff.show.replace(/[^a-z0-9]/gi,'_');
+    if (!groups[k]) groups[k] = { show: ff.show, fields: [] };
+    groups[k].fields.push(ff);
+  });
+
+  Object.values(groups).forEach(group => {
+    const key = 'cond-'+fid+'-'+group.show.replace(/[^a-z0-9]/gi,'_');
     const el = document.getElementById(key);
     if (!el) return;
-    const show = val === ff.show;
-    el.classList.toggle('show', show);
-    // When showing a nested section, re-trigger its own conditionals from saved data
-    if (show && ff.follow) {
-      const savedVal = currentFormData[ff.id];
-      if (savedVal) triggerCond(ff.id, savedVal);
-      // Also recurse into any deeper nesting
-      ff.follow.forEach(fff => {
-        const savedFff = currentFormData[fff.id];
-        if (savedFff) triggerCond(fff.id, savedFff);
+    const showing = val === group.show;
+    el.classList.toggle('show', showing);
+    // When showing, cascade into each child field's own conditionals
+    if (showing) {
+      group.fields.forEach(ff => {
+        const savedVal = currentFormData[ff.id];
+        if (savedVal && ff.follow) triggerCond(ff.id, savedVal);
       });
     }
   });
