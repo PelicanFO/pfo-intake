@@ -31,7 +31,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 .gate-field label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:5px;}
 .gate-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;background:var(--cream);}
 .gate-input:focus{border-color:var(--navy-light);box-shadow:0 0 0 3px rgba(26,58,92,.1);background:#fff;}
-.gate-input-code{text-align:center;letter-spacing:.1em;}
+.gate-input-code{letter-spacing:.05em;}
 .gate-error{font-size:12px;color:var(--red-s);margin-bottom:.75rem;display:none;text-align:left;}
 
 /* LAYOUT */
@@ -137,12 +137,13 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .item-del-cell{display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
 /* NOTES */
-.item-notes-area{padding:0 14px 7px 54px;transition:background .15s;line-height:1;}
+.item-notes-area{padding:0 14px 8px 54px;transition:background .15s;}
+.item-notes-area.has-content{padding-top:2px;}
 .item-notes-area.status-critical{background:var(--green-row);}
 .item-notes-area.status-optional{background:var(--grey-row);}
 .item-notes-area.status-bypass{background:var(--red-row);}
 .item-notes-area.status-none{background:var(--white);}
-.notes-toggle-link{font-size:11px;color:var(--text-light);cursor:pointer;background:none;border:none;padding:0;text-decoration:underline;font-family:'DM Sans',sans-serif;transition:color .12s;}
+.notes-toggle-link{font-size:11px;color:var(--text-light);cursor:pointer;background:none;border:none;padding:3px 0 0 0;display:block;text-decoration:underline;font-family:'DM Sans',sans-serif;transition:color .12s;}
 .notes-toggle-link:hover{color:var(--text-muted);}
 .notes-field-wrap{display:none;margin-top:4px;display:flex;align-items:center;gap:6px;}
 .notes-field-wrap.hidden{display:none;}
@@ -788,7 +789,7 @@ async function renderClientList() {
           </div>
         </div>
         <div style="flex:1;min-width:180px;">
-          <button class="client-notes-toggle" data-action="toggle-client-status" data-id="${esc(String(c.id))}">${hasStatus ? '● ' + esc(c.client_status) : '+ Status'}</button>
+          <button class="client-notes-toggle" data-action="toggle-client-status" data-id="${esc(String(c.id))}">${hasStatus ? '✎ Status' : '+ Status'}</button>
           <div class="client-notes-field${hasStatus?' open':''}" id="csf-${esc(String(c.id))}">
             <input class="client-status-input" type="text" placeholder="e.g. Awaiting documents, In review…" data-id="${esc(String(c.id))}" value="${esc(c.client_status||'')}" style="width:100%;border:none;border-bottom:1px solid var(--border);background:transparent;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;padding:3px 0;outline:none;"/>
           </div>
@@ -813,8 +814,7 @@ async function renderClientList() {
         else if (action === 'toggle-client-status') {
           const field = document.getElementById('csf-'+id);
           const isOpen = field.classList.toggle('open');
-          const curVal = card.querySelector('.client-status-input')?.value.trim();
-          btn.textContent = isOpen ? '● Status' : (curVal ? '● '+curVal : '+ Status');
+          btn.textContent = isOpen ? '✎ Status' : '+ Status';
           if (isOpen) field.querySelector('input').focus();
         }
       });
@@ -853,8 +853,6 @@ async function renderClientList() {
         clearTimeout(statusTimer);
         statusTimer = setTimeout(async () => {
           await dbUpdate(TBL_CLIENTS, si.dataset.id, {client_status: si.value});
-          const toggle = card.querySelector('[data-action="toggle-client-status"]');
-          if (toggle) toggle.textContent = si.value.trim() ? '● '+si.value.trim() : '+ Status';
         }, 800);
       });
     }
@@ -1120,7 +1118,7 @@ const FORM_SECTIONS = [
               {show:'Not sure what I am missing',id:'biz_tax_open',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
               {show:'Reactive — mostly just filing',id:'biz_tax_open2',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
             ]},
-          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','5-year business plan','Operations manual / playbook','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard','Recruiting and onboarding process','Employee handbook','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
+          {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place?',type:'textarea',placeholder:'e.g. operations manual, CRM, business budget, defined leadership team, employee handbook...'},
         ]},
     ]
   },
@@ -1443,7 +1441,7 @@ async function getIntakeForClient(clientId) {
 async function runAnalysisBackground(clientId) {
   // Silently refresh AI items without disrupting the prioritizer
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -1455,7 +1453,7 @@ async function runAnalysisBackground(clientId) {
 
 async function runAnalysisAndPopulate(clientId) {
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -1519,85 +1517,101 @@ function buildPrompt(fd) {
   const yn = v => v || 'N/A';
   const arr = v => Array.isArray(v) ? (v.join(', ') || 'None') : (v || 'N/A');
   const cur = v => v ? '$'+Number(v).toLocaleString() : 'N/A';
-  return `CLIENT FINANCIAL PROFILE
-PERSONAL: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}
-Children: ${yn(fd.children)} ${fd.children_ages?'(ages: '+fd.children_ages+')':''} | To college: ${yn(fd.children_college)}
+  const pct = v => v || 'N/A';
 
-INCOME (prior year): W2: ${cur(fd.w2_income)} | Business: ${cur(fd.business_income)} | ST gains: ${cur(fd.st_cap_gains)} | LT gains: ${cur(fd.lt_cap_gains)} | Investment income: ${cur(fd.investment_income)} | Other: ${cur(fd.other_income)} | TOTAL: ${cur(fd.total_income_display)} | Tax liability: ${cur(fd.tax_liability)} | Projected: ${cur(fd.projected_income)}
-Notes: ${yn(fd.income_notes)}
+  const profile = `CLIENT FINANCIAL PROFILE — USE ALL DATA BELOW TO GENERATE HIGHLY SPECIFIC PRIORITIES
 
-NET WORTH: ${cur(fd.net_worth)} | Liquid: ${cur(fd.liquid_assets)} | Primary home: ${cur(fd.real_estate_primary_value)}
+PERSONAL
+Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}
+Dependents: ${yn(fd.children)}${fd.children_ages?' (ages '+fd.children_ages+')':''}
+
+INCOME (prior year)
+W-2/salary: ${cur(fd.w2_income)} | Business income: ${cur(fd.business_income)} | ST capital gains: ${cur(fd.st_cap_gains)} | LT capital gains: ${cur(fd.lt_cap_gains)}
+Investment income: ${cur(fd.investment_income)} | Other income: ${cur(fd.other_income)} | TOTAL: ${cur(fd.total_income_display)}
+Federal+state tax liability: ${cur(fd.tax_liability)} | Effective tax rate: ${pct(fd.effective_tax_rate_display)}
+Projected income (current year): ${cur(fd.projected_income)}
+Income notes: ${yn(fd.income_notes)}
+
+NET WORTH & ASSETS
+Total net worth: ${cur(fd.net_worth)} | Liquid/investable: ${cur(fd.liquid_assets)} | Primary home: ${cur(fd.real_estate_primary_value)}
 Allocation: ${yn(fd.net_worth_desc)}
-Real estate beyond primary: ${yn(fd.real_estate)} ${fd.real_estate_type?'('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)} | Depreciation: ${yn(fd.real_estate_depreciation)}
+Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)} | Taking depreciation: ${yn(fd.real_estate_depreciation)}
 Major asset plans: ${yn(fd.major_assets_planned)} ${fd.major_assets_detail||fd.major_assets_maybe||''}
 Inheritance expected: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
 
-INVESTMENTS: Has taxable account: ${yn(fd.has_investments)} | Value: ${cur(fd.investment_value)} | Managed: ${yn(fd.investment_managed)} | Satisfied: ${yn(fd.investment_satisfied)}
-Risk tolerance: ${yn(fd.risk_tolerance)} | Horizon: ${yn(fd.investment_horizon)}
-Concerns: ${arr(fd.investment_concerns)}
-Concentrated position: ${yn(fd.concentrated_position)} ${fd.concentrated_detail||''}
-Alternative investments: ${yn(fd.alternative_investments)} ${fd.alt_investments_detail?'('+arr(fd.alt_investments_detail)+')':''}
+INVESTMENTS
+Has taxable brokerage: ${yn(fd.has_investments)} | Value: ${cur(fd.investment_value)} | Managed: ${yn(fd.investment_managed)} | Satisfied: ${yn(fd.investment_satisfied)}
+Risk tolerance: ${yn(fd.risk_tolerance)} | Concerns: ${arr(fd.investment_concerns)}
+Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' — '+fd.concentrated_detail:''} | Cost basis: ${cur(fd.concentrated_tax_basis)}
+Alternative investments: ${yn(fd.alternative_investments)}${fd.alt_investments_detail?' ('+arr(fd.alt_investments_detail)+')':''}
 
-TAX: Has CPA: ${yn(fd.has_cpa)} ${fd.cpa_name?'('+fd.cpa_name+')':''} | Satisfied: ${yn(fd.cpa_satisfied)} | Planning approach: ${yn(fd.tax_planning)} | CPA coordinates with advisor: ${yn(fd.cpa_coordinates)}
-Unrealized gains: ${yn(fd.unrealized_gains)} ${cur(fd.unrealized_gains_detail)} | Plan for gains: ${yn(fd.unrealized_gains_plan)}
-Stock options/RSUs: ${yn(fd.stock_options)} ${fd.stock_options_detail||''}
-Tax frustration: ${yn(fd.tax_pain)}
-Advanced strategies used: ${yn(fd.tax_strategies_tried)} ${fd.tax_strategies_detail||''} | Interest if not: ${yn(fd.tax_strategies_interest)}
-Charitable giving: ${yn(fd.charitable_giving)} | Annual: ${cur(fd.charitable_amount)} | Method: ${arr(fd.charitable_strategy)}
+TAX
+Has CPA: ${yn(fd.has_cpa)}${fd.cpa_name?' ('+fd.cpa_name+')':''} | Tax frustration: ${yn(fd.tax_pain)}
+Unrealized gains: ${yn(fd.unrealized_gains)}${fd.unrealized_gains_detail?' — approx '+cur(fd.unrealized_gains_detail):''}  | Has plan: ${yn(fd.unrealized_gains_plan)}
+Stock options/RSUs: ${yn(fd.stock_options)}${fd.stock_options_detail?' — '+fd.stock_options_detail:''} | Strategy: ${yn(fd.stock_options_strategy)}
+Advanced tax strategies used: ${yn(fd.tax_strategies_tried)}${fd.tax_strategies_detail?' — '+fd.tax_strategies_detail:''} | Interest if no: ${yn(fd.tax_strategies_interest)}
+Charitable giving: ${yn(fd.charitable_giving)} | Annual: ${cur(fd.charitable_amount)} | Method: ${arr(fd.charitable_strategy)} | Tax-optimized: ${yn(fd.charitable_tax_optimized)}
 
-RETIREMENT: Target age: ${yn(fd.retirement_target_age)} | Income needed: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
-Accounts: ${arr(fd.retirement_accts)} | Maximizing: ${yn(fd.max_contributions)}
-SS strategy: ${yn(fd.social_security)} | Planned start age: ${yn(fd.ss_start_age)}
+RETIREMENT
+Target retirement age: ${yn(fd.retirement_target_age)} | Annual income needed: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
+Accounts: ${arr(fd.retirement_accts)} | Maximizing contributions: ${yn(fd.max_contributions)}
 Pension: ${yn(fd.has_pension)} | Value: ${cur(fd.pension_value)} | Monthly: ${cur(fd.pension_monthly)}
-Annuities: ${yn(fd.has_annuities)} ${fd.annuity_type?'('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
+Annuities: ${yn(fd.has_annuities)}${fd.annuity_type?' ('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
 
-INSURANCE: Life insurance: ${yn(fd.has_life_ins)} | Types: ${arr(fd.life_ins_types)} | Coverage: ${cur(fd.life_ins_coverage)} | Cash value: ${cur(fd.life_ins_cash_value)} | Reviewed: ${yn(fd.life_ins_reviewed)} | Adequate: ${yn(fd.life_ins_adequate)}
-Disability: ${yn(fd.has_disability)} | Monthly benefit: ${cur(fd.disability_monthly)}
-LTC: ${yn(fd.has_ltc)} ${fd.ltc_daily_benefit||''}
-Umbrella: ${yn(fd.has_umbrella)} | Coverage: ${cur(fd.umbrella_coverage)}
-P&C reviewed: ${yn(fd.pc_insurance)}
+INSURANCE
+Life insurance: ${yn(fd.has_life_ins)}${fd.life_ins_types?' ('+arr(fd.life_ins_types)+')':''} | Coverage: ${cur(fd.life_ins_coverage)} | Cash value: ${cur(fd.life_ins_cash_value)} | Last reviewed: ${yn(fd.life_ins_reviewed)} | Adequate: ${yn(fd.life_ins_adequate)}
+Has insurance agent: ${yn(fd.has_insurance_agent)}${fd.insurance_agent_detail?' ('+fd.insurance_agent_detail+')':''}
 
-ESTATE: Will: ${yn(fd.has_will)} | Last updated: ${yn(fd.will_last_updated)} | Changes needed: ${yn(fd.will_changes_needed)}
-Trust: ${yn(fd.has_trust)} | Types: ${arr(fd.trust_type)} | Funded: ${yn(fd.trust_funded)} | Reviewed: ${yn(fd.trust_reviewed)}
+ESTATE PLANNING
+Has will: ${yn(fd.has_will)} | Last updated: ${yn(fd.will_last_updated)} | Changes needed: ${yn(fd.will_changes_needed)}
+Has trust: ${yn(fd.has_trust)}${fd.trust_type?' ('+arr(fd.trust_type)+')':''} | Funded: ${yn(fd.trust_funded)} | Last reviewed: ${yn(fd.trust_reviewed)}
 POA/directives: ${yn(fd.has_poa)} | Beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
 Estate tax concern: ${yn(fd.estate_size_concern)} | Estate attorney: ${yn(fd.has_estate_atty)}
 
-BUSINESS: Owns business: ${yn(fd.has_business)}
-${fd.has_business==='Yes'?`Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)} | Years: ${yn(fd.business_years)} | Employees: ${yn(fd.business_employees)}
-Revenue: ${cur(fd.biz_revenue)} | Gross profit: ${cur(fd.biz_gross_profit)} | Net profit: ${cur(fd.biz_net_profit)} | Value: ${cur(fd.business_est_value)}
-Hours/week: ${yn(fd.biz_hours_week)} | Vacation weeks: ${yn(fd.biz_weeks_vacation)}
-If owner unable to work: ${yn(fd.biz_owner_dependent)}
-Exit strategy: ${yn(fd.business_exit)} | Timeline: ${yn(fd.biz_exit_timeline)} | Target value: ${cur(fd.biz_exit_target_value)}
-Succession steps: ${yn(fd.biz_succession_steps)} | Buyer valuation view: ${yn(fd.biz_buyer_valuation)}
-Runs without owner: ${yn(fd.biz_sellability)}
-Revenue/value if optimized: ${yn(fd.biz_revenue_double)} / ${yn(fd.biz_value_double)}
-Partners: ${yn(fd.business_partners)} | Buy-sell: ${yn(fd.business_buysell)} | Partner alignment: ${yn(fd.partner_alignment)}
-Key person: ${yn(fd.business_key_person)} | Employee retirement: ${yn(fd.business_retirement_plan)} | Health: ${yn(fd.business_health_coverage)}
+BUSINESS OWNERSHIP
+Owns business: ${yn(fd.has_business)}
+${fd.has_business==='Yes'?`Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)} | Years owned: ${yn(fd.business_years)} | Employees: ${yn(fd.business_employees)}
+Revenue: ${cur(fd.biz_revenue)} | Gross profit: ${cur(fd.biz_gross_profit)} | Net profit: ${cur(fd.biz_net_profit)} | Estimated value: ${cur(fd.business_est_value)} | Valuation method: ${yn(fd.biz_value_method)}
+Hours/week: ${yn(fd.biz_hours_week)} | Vacation weeks/year: ${yn(fd.biz_weeks_vacation)}
+If owner unable to work 90 days: ${yn(fd.biz_owner_dependent)}
+Top priorities: ${arr(fd.biz_priorities)}
+Exit strategy: ${yn(fd.business_exit)} | Timeline: ${yn(fd.biz_exit_timeline)} | Target sale price: ${cur(fd.biz_exit_target_value)}
+Succession steps taken: ${yn(fd.biz_succession_steps)}
+Revenue if optimized: ${yn(fd.biz_revenue_double)} | Value if systemized: ${yn(fd.biz_value_if_systemized)}
+Business partners: ${yn(fd.business_partners)} | Buy-sell agreement: ${yn(fd.business_buysell)}${fd.buysell_funded?' ('+fd.buysell_funded+')':''} | Partner alignment: ${yn(fd.partner_alignment)}
+Key person insurance: ${yn(fd.business_key_person)} | Employee retirement plan: ${yn(fd.business_retirement_plan)} | Health coverage: ${yn(fd.business_health_coverage)}
 Tax strategy: ${yn(fd.business_tax_strategy)}
-Concerns: ${arr(fd.business_concerns)}
-Infrastructure in place: ${arr(fd.biz_infrastructure)}
-Growth interest: ${yn(fd.biz_help_interest)}`:'Not a business owner'}
+Infrastructure notes: ${yn(fd.biz_infrastructure)}`:'Not a business owner'}
 
-ADVISORY & GOALS: Wealth manager: ${yn(fd.has_wealth_mgr)} ${fd.wealth_mgr_name?'('+fd.wealth_mgr_name+')':''} | Satisfied: ${yn(fd.wealth_mgr_satisfied)} | Gaps: ${yn(fd.wealth_mgr_gaps)}
-Underserved: ${arr(fd.advisory_gaps)} | Goals: ${yn(fd.financial_goals)} | Biggest concern: ${yn(fd.biggest_concern)} | Success definition: ${yn(fd.success_definition)}
+GOALS & CONCERNS
+Wealth manager: ${yn(fd.has_wealth_mgr)}${fd.wealth_mgr_name?' ('+fd.wealth_mgr_name+')':''} | Satisfied: ${yn(fd.wealth_mgr_satisfied)} | Gaps: ${yn(fd.wealth_mgr_gaps)}
+Underserved areas: ${arr(fd.advisory_gaps)}
+Financial goals: ${yn(fd.financial_goals)}
+Biggest concern: ${yn(fd.biggest_concern)}
+Definition of success: ${yn(fd.success_definition)}
+Additional info: ${yn(fd.additional_info)}`;
+
+  return `${profile}
 
 ---
-You are a senior financial planner at Pelican Family Office. Generate a ranked list of the most important focus areas for this client's initial advisory meeting.
+You are a senior advisor at Pelican Family Office reviewing this client intake form before their first meeting. Your job is to generate a prioritized list of 8–15 specific focus areas for this client.
 
-GUIDELINES:
-- Generate between 8 and 15 priorities. Only include areas with genuine relevance. Do not pad.
-- Be highly specific — reference their actual numbers, gaps, and situation.
-- Draw from (but are NOT limited to): Advanced Personal Tax Strategies Review, Asset Protection Review, Cost Segregation Review, Safe Money Options Review, Investment Review, Premium Finance Review, Retirement Review, Trust & Estate Planning Review, Premium Funded Review, Annuity Products Review, Life Insurance Review, College Expenses Review, Long Term Care Review, Charitable Planning Review, Advanced Business Tax Strategies Review, Business Health Coverage Review, Employee Retirement Plans, Business Health Costs Review, Business Exit Planning Review, Social Security Review, Business Insurance Review, Disability Insurance Review, Buy/Sell Agreement Review, Business Operating Costs Review, Key Person Coverage Review, Property & Casualty Insurance Review, Business Finance Review, CFO Outsourcing / KPIs / Financial Forecasting, Personal Asset Valuation, Leadership / Cultural Change, Digital Employees and Robotics.
-- For business owners, include multiple business-specific priorities.
-- Each rationale: ONE sentence, max 12 words, tied to a specific data point.
+CRITICAL RULES:
+1. READ ALL THE DATA. Every number, concern, and gap mentioned above must inform your output.
+2. BE HYPER-SPECIFIC. Do not write generic titles. Reference their actual situation — their income level, their specific gap, their stated concern, their business type, their estate value, etc. A title like "Tax Strategy Review" is too vague. "Tax Minimization Strategy — $${fd.tax_liability ? Number(fd.tax_liability).toLocaleString() : 'high'} annual liability" is specific.
+3. ONLY INCLUDE WHAT APPLIES. If they don't own a business, exclude all business topics. If they have no real estate, don't mention cost segregation. If they're 35 with no estate concern, don't flag estate tax.
+4. COVER THE REAL GAPS. If their will is outdated, flag it. If they're paying a high effective tax rate with no advanced strategies, that's a top priority. If their life insurance hasn't been reviewed in years, flag it. If their brokerage is self-directed and they're unsatisfied, flag it.
+5. FOR BUSINESS OWNERS: include 3–6 business-specific priorities based on their actual numbers (revenue, profit, exit timeline, key person risk, employee benefits, tax strategy, buy-sell status, etc.)
+6. RATIONALE: one sentence, 15 words max, citing a specific data point from their profile.
+7. ORDER by urgency and impact for THIS specific client.
 
-Return ONLY valid JSON array, no markdown:
-[{"rank":1,"title":"Service name","rationale":"One sentence max 12 words."},...]`;
+Return ONLY a valid JSON array, no markdown, no explanation:
+[{"rank":1,"title":"Specific focus area title","rationale":"One sentence citing specific data."},...]`;
 }
 
 async function runAnalysis(clientId) {
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -1889,14 +1903,14 @@ function buildPDFPreview() {
   }).join('');
 
   const sc=(n,l,bg,col)=>n?`<div style="flex:1;min-width:76px;border-radius:8px;padding:10px 14px;text-align:center;background:${bg};color:${col};"><span style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;display:block;">${n}</span><span style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Sans',sans-serif;">${l}</span></div>`:'';
-  const staffLine = staffName ? `<div style="font-size:12px;color:#aaa;font-family:'DM Sans',sans-serif;margin-top:2px;">Prepared by: ${esc(staffName)}</div>` : '';
+  const staffLine = '';
 
   document.getElementById('pdf-preview').innerHTML=`<div style="font-family:'Cormorant Garamond',serif;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:2px solid #0f2535;">
       <div style="display:flex;align-items:center;gap:14px;">
         <img src="data:image/png;base64,${LOGO_B64}" style="width:68px;height:68px;object-fit:contain;"/>
         <div><div style="font-size:11px;color:#bbb;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px;font-family:'DM Sans',sans-serif;">Pelican Family Office — Focus Prioritizer</div>
-        <div style="font-size:26px;font-weight:600;color:#0f2535;">${esc(client)}</div>${staffLine}</div>
+        <div style="font-size:26px;font-weight:600;color:#0f2535;">${esc(client)}</div></div>
       </div>
       <div style="text-align:right;font-size:13px;color:#aaa;font-family:'DM Sans',sans-serif;padding-top:4px;"><div>${today}</div><div style="margin-top:3px;">${pItems.length} focus area${pItems.length!==1?'s':''}</div></div>
     </div>
@@ -2057,7 +2071,7 @@ async function sendEmail() {
     +'<div style="background:#fff;border-radius:0 0 12px 12px;padding:28px;border:1px solid rgba(15,37,53,.1);border-top:none;">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #0f2535;">'
     +'<div><div style="font-size:20px;font-weight:bold;color:#0f2535;">'+escPlain(currentClientName)+'</div>'
-    +(staffName?'<div style="font-size:12px;color:#888;margin-top:3px;">Prepared by: '+escPlain(staffName)+'</div>':'')+'</div>'
+    +'</div>'
     +'<div style="text-align:right;font-size:12px;color:#aaa;">'+today+'</div></div>'
     +'<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">'
     +'<thead><tr style="background:#f7f4ef;"><th style="padding:7px 10px;font-size:10px;color:#aaa;font-weight:normal;text-align:center;font-family:Arial,sans-serif;">#</th>'
