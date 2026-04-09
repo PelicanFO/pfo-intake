@@ -750,14 +750,17 @@ async function renderClientList() {
     card.className = 'card';
     card.style.marginBottom = '10px';
 
-    const cpaInfo = c.cpa_code ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">CPA: <strong style="font-weight:500;color:var(--navy);">${esc(c.cpa_code)}</strong></span>` : '';
+    const cpaInfo = c.cpa_code && userRole !== 'admin'
+      ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">CPA: <strong style="font-weight:500;color:var(--navy);">${esc(c.cpa_code)}</strong></span>`
+      : '';
     const hasNotes = c.staff_notes && c.staff_notes.trim();
 
-    // CPA assignment dropdown (admin only)
+    // CPA assignment dropdown (admin only) — styled as a pill badge
     const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'No CPA Assigned'}</option>`).join('');
     const cpaAssign = userRole==='admin'
-      ? `<div style="display:inline-flex;align-items:center;gap:6px;margin-left:8px;vertical-align:middle;">
-          <select class="cpa-assign-select" data-id="${esc(String(c.id))}" style="font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--cream);font-family:'DM Sans',sans-serif;cursor:pointer;">${cpaOpts}</select>
+      ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-left:8px;vertical-align:middle;">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-light);flex-shrink:0;"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+          <select class="cpa-assign-select" data-id="${esc(String(c.id))}" style="font-size:12px;font-weight:500;padding:3px 24px 3px 8px;border:1.5px solid ${c.cpa_code ? 'var(--navy)' : 'var(--border)'};border-radius:20px;background:${c.cpa_code ? 'var(--navy)' : 'var(--cream)'};color:${c.cpa_code ? '#fff' : 'var(--text-muted)'};font-family:'DM Sans',sans-serif;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='${c.cpa_code ? '%23ffffff' : '%239b9790'}' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 7px center;">${cpaOpts}</select>
          </div>`
       : '';
 
@@ -806,6 +809,10 @@ async function renderClientList() {
       cpaSelect.addEventListener('change', async () => {
         const newCode = cpaSelect.value || null;
         await dbUpdate(TBL_CLIENTS, cpaSelect.dataset.id, {cpa_code: newCode});
+        // Restyle pill
+        cpaSelect.style.background = newCode ? 'var(--navy)' : 'var(--cream)';
+        cpaSelect.style.color = newCode ? '#fff' : 'var(--text-muted)';
+        cpaSelect.style.border = newCode ? '1.5px solid var(--navy)' : '1.5px solid var(--border)';
         toast(newCode ? `Assigned to ${newCode}` : 'CPA assignment cleared');
       });
     }
@@ -915,7 +922,6 @@ const FORM_SECTIONS = [
             follow:[{show:'No',id:'investment_dissatisfied_reason',label:'What concerns you most about your current investments?',type:'textarea',placeholder:'e.g. underperformance, high fees, lack of tax strategy...'}]},
         ]},
       {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative — preserve capital, minimal risk','Moderate — balanced growth and protection','Growth-oriented — comfortable with market swings','Aggressive — maximize long-term growth']},
-      {id:'investment_horizon',label:'What is your primary investment time horizon?',type:'radio',options:['Less than 5 years','5-10 years','10-20 years','20+ years']},
       {id:'investment_concerns',label:'Which of the following investment concerns apply to you? (select all that apply)',type:'multicheck',options:['Market volatility','Sequence of returns risk','Not generating enough income','Too concentrated in one stock or sector','High fees or costs','Tax drag on returns','Inflation eroding purchasing power','Not sure if I am on track for retirement']},
       {id:'concentrated_position',label:'Do you have a large concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
         follow:[
@@ -923,7 +929,7 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'concentrated_tax_basis',label:'What is the approximate cost basis?',type:'currency',placeholder:'0'},
           {show:'Yes',id:'concentrated_plan',label:'Do you have a plan to diversify without triggering a large tax event?',type:'radio',options:['Yes','No — looking for guidance','Not yet thinking about it']},
         ]},
-      {id:'alternative_investments',label:'Do you invest in alternative assets?',type:'radio',options:['Yes','No','Interested in learning more'],
+      {id:'alternative_investments',label:'Do you invest in alternative assets?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'alt_investments_detail',label:'What types? (select all that apply)',type:'multicheck',options:['Private equity','Hedge funds','Real estate syndications','Commodities / precious metals','Cryptocurrency','Private lending','Oil and gas','Other']}]},
     ]
   },
@@ -956,7 +962,6 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone, backdoor Roth...'},
           {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning what options may apply to your situation?',type:'radio',options:['Yes — very interested','Possibly','Not at this time']},
-          {show:'Unsure what is available to me',id:'tax_strategies_open',label:'Are you open to a tax minimization review?',type:'radio',options:['Yes — absolutely','Possibly','Not right now']},
         ]},
       {id:'charitable_giving',label:'Do you make charitable contributions?',type:'radio',options:['Yes','No'],
         follow:[
@@ -975,7 +980,6 @@ const FORM_SECTIONS = [
       {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Solo 401(k)','Pension / defined benefit','457 plan','None']},
       {id:'max_contributions',label:'Are you maximizing contributions to all available plans?',type:'radio',options:['Yes','No','Unsure'],
         follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:'e.g. cash flow constraints, unsure of limits...'}]},
-      {id:'roth_conversion',label:'Have you considered Roth conversion strategies?',type:'radio',options:['Yes — already doing it','Open to it','No — not sure if it applies to me']},
       {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes — confident','Somewhat — could be better','No — concerned I am behind','Unsure — have not calculated it']},
       {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
         follow:[
@@ -1015,7 +1019,6 @@ const FORM_SECTIONS = [
         ]},
       {id:'has_umbrella',label:'Do you have an umbrella / excess liability policy?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'umbrella_coverage',label:'Coverage amount',type:'currency',placeholder:'0'}]},
-      {id:'pc_insurance',label:'Have you recently reviewed your property and casualty insurance?',type:'radio',options:['Yes — reviewed within the last year','No — has not been reviewed recently','Unsure']},
       {id:'has_insurance_agent',label:'Do you work with an insurance agent or advisor?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'insurance_agent_detail',label:'Name / firm',type:'text',placeholder:''}]},
     ]
@@ -1028,7 +1031,7 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'will_last_updated',label:'What year was it last updated?',type:'number',placeholder:'e.g. 2019'},
         ]},
-      {id:'has_trust',label:'Do you have a trust?',type:'radio',options:['Yes','No — considering one','No'],
+      {id:'has_trust',label:'Do you have a trust?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'trust_type',label:'What type? (select all that apply)',type:'multicheck',options:['Revocable living trust','Irrevocable trust','Charitable trust','Special needs trust','Asset protection trust','Other']},
           {show:'Yes',id:'trust_funded',label:'Is the trust fully funded?',type:'radio',options:['Yes','Partially','Unsure'],
@@ -1037,8 +1040,8 @@ const FORM_SECTIONS = [
         ]},
       {id:'has_poa',label:'Do you have powers of attorney and healthcare directives in place?',type:'radio',options:['Yes — both in place','Partially','No'],
         follow:[{show:'Partially',id:'poa_missing',label:'What is currently missing?',type:'text',placeholder:'e.g. financial POA, healthcare directive...'}]},
-      {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies recently?',type:'radio',options:['Yes — within the last year','No — has been a while','Never reviewed','Not sure what I have']},
-      {id:'estate_size_concern',label:'Is estate or inheritance tax a concern for you?',type:'radio',options:['Yes — estate likely exceeds exemption','Possibly — not sure','No — estate is below exemption threshold','Unsure of current exemption levels']},
+      {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies recently?',type:'radio',options:['Yes','No — has been a while','Not sure what I have']},
+      {id:'estate_size_concern',label:'Is estate or inheritance tax a concern for you?',type:'radio',options:['Yes — estate likely exceeds exemption','Possibly — not sure','No — estate is below exemption threshold']},
       {id:'has_estate_atty',label:'Do you have an estate planning attorney?',type:'radio',options:["Yes","No — haven't needed one yet","No — need to find one"],
         follow:[
           {show:'Yes',id:'estate_atty_name',label:'Name / firm (optional)',type:'text',placeholder:''},
@@ -1173,6 +1176,10 @@ function renderCFSection() {
   (function wireAll(fields) {
     fields.forEach(f => {
       if (f.type === 'radio') wireRadio(f);
+      else if (f.type === 'select' && f.follow) {
+        const el = document.getElementById('cf-'+f.id);
+        if (el) el.addEventListener('change', () => triggerCond(f.id, el.value));
+      }
       if (f.follow) wireAll(f.follow);
     });
   })(sec.fields);
@@ -1224,9 +1231,19 @@ function renderField(f) {
 function restoreVal(f) {
   const v = currentFormData[f.id]; if(v===undefined)return;
   const el = document.getElementById('cf-'+f.id); if(!el)return;
-  if(f.type==='radio'){document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(r=>{r.checked=r.value===v;});updateRadioStyle(f.id);if(f.follow)triggerCond(f.id,v);}
-  else if(f.type==='multicheck'){const arr=Array.isArray(v)?v:[];document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(c=>{c.checked=arr.includes(c.value);updateCheckStyle(f.id,c.value.replace(/[^a-z0-9]/gi,'_'),c.checked);});}
-  else el.value=v;
+  if(f.type==='radio'){
+    document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(r=>{r.checked=r.value===v;});
+    updateRadioStyle(f.id);
+    if(f.follow) triggerCond(f.id,v);
+  } else if(f.type==='multicheck'){
+    const arr=Array.isArray(v)?v:[];
+    document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(c=>{c.checked=arr.includes(c.value);updateCheckStyle(f.id,c.value.replace(/[^a-z0-9]/gi,'_'),c.checked);});
+  } else if(f.type==='select'){
+    el.value=v;
+    if(f.follow) triggerCond(f.id,v);
+  } else {
+    el.value=v;
+  }
 }
 function updateRadioStyle(fid){const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);document.querySelectorAll(`#rg-${fid} .radio-item`).forEach(el=>el.classList.remove('checked'));if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}}
 function updateCheckStyle(fid,okey,checked){const el=document.getElementById(`cc-${fid}-${okey}`);if(el)el.classList.toggle('checked',checked);}
@@ -1271,13 +1288,26 @@ function wireRadio(f) {
     r.addEventListener('change', () => { triggerCond(f.id, r.value); updateRadioStyle(f.id); });
   });
   if (currentFormData[f.id]) triggerCond(f.id, currentFormData[f.id]);
-  // Recursively wire any nested follow fields that are radio type
+  // Fully recursive — wire all nested follow fields regardless of depth
   if (f.follow) {
     f.follow.forEach(ff => {
       if (ff.type === 'radio') wireRadio(ff);
-      if (ff.follow) ff.follow.forEach(fff => { if (fff.type === 'radio') wireRadio(fff); });
+      if (ff.follow) wireFollowDeep(ff.follow);
     });
   }
+}
+
+function wireFollowDeep(fields) {
+  fields.forEach(f => {
+    if (f.type === 'radio') wireRadio(f);
+    if (f.type === 'select') {
+      const el = document.getElementById('cf-'+f.id);
+      if (el && f.follow) {
+        el.addEventListener('change', () => triggerCond(f.id, el.value));
+      }
+    }
+    if (f.follow) wireFollowDeep(f.follow);
+  });
 }
 
 function afterSectionRender() {
@@ -1309,7 +1339,19 @@ function triggerCond(fid, val) {
   field.follow.forEach(ff => {
     const key = 'cond-'+fid+'-'+ff.show.replace(/[^a-z0-9]/gi,'_');
     const el = document.getElementById(key);
-    if (el) el.classList.toggle('show', val === ff.show);
+    if (!el) return;
+    const show = val === ff.show;
+    el.classList.toggle('show', show);
+    // When showing a nested section, re-trigger its own conditionals from saved data
+    if (show && ff.follow) {
+      const savedVal = currentFormData[ff.id];
+      if (savedVal) triggerCond(ff.id, savedVal);
+      // Also recurse into any deeper nesting
+      ff.follow.forEach(fff => {
+        const savedFff = currentFormData[fff.id];
+        if (savedFff) triggerCond(fff.id, savedFff);
+      });
+    }
   });
 }
 
