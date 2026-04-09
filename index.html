@@ -19,7 +19,7 @@
   --red-s:#b80008;--red-bg:#ffb3b6;--red-row:#fff0f1;--red-chip:#800006;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;font-size:15px;}
 
 /* ACCESS GATE */
 #access-gate{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;}
@@ -46,7 +46,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 .sidebar-tagline{font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;}
 .sidebar-section{padding:.9rem 1rem .4rem;}
 .sidebar-section-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:5px;padding:0 4px;}
-.nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;background:none;border:none;border-radius:7px;color:rgba(255,255,255,.55);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-align:left;margin-bottom:2px;transition:all .15s;white-space:nowrap;}
+.nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:none;border:none;border-radius:7px;color:rgba(255,255,255,.55);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;text-align:left;margin-bottom:2px;transition:all .15s;white-space:nowrap;letter-spacing:.01em;}
 .nav-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
 .nav-btn.active{background:var(--gold);color:var(--navy);font-weight:500;}
 .sidebar-footer{margin-top:auto;padding:.9rem 1rem;border-top:1px solid rgba(255,255,255,.06);}
@@ -60,27 +60,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 .main{padding:2.25rem 2.5rem 4rem;max-width:900px;min-width:0;}
 .shell.collapsed .main{padding-left:56px;}
 .page-header{margin-bottom:1.5rem;}
-.page-header h2{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);margin-bottom:3px;}
+.page-header h2{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:var(--navy);margin-bottom:3px;}
 .page-header p{font-size:14px;color:var(--text-muted);}
-.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem;box-shadow:var(--shadow);}
-.card-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--navy);margin-bottom:1rem;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1.6rem;margin-bottom:1.25rem;box-shadow:var(--shadow);}
+.card-title{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy);margin-bottom:1rem;}
 
 /* FORM ELEMENTS */
-.field-group{margin-bottom:1.1rem;}
-.field-label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;display:block;}
+.field-group{margin-bottom:1.2rem;}
+.field-label{font-size:11.5px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px;display:block;}
 .field-label .req{color:var(--red-s);margin-left:2px;}
-input[type=text],input[type=email],input[type=tel],input[type=number],textarea,select{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--cream);transition:border-color .15s,box-shadow .15s;outline:none;}
+input[type=text],input[type=email],input[type=tel],input[type=number],textarea,select{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:var(--cream);transition:border-color .15s,box-shadow .15s;outline:none;}
 input:focus,textarea:focus,select:focus{border-color:var(--navy-light);box-shadow:0 0 0 3px rgba(26,58,92,.1);background:#fff;}
 textarea{resize:vertical;line-height:1.7;}
 select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239b9790' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
 .field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .field-hint{font-size:12px;color:var(--text-light);margin-top:4px;}
 .radio-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-.radio-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:6px 14px;transition:all .12s;}
+.radio-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:7px 14px;transition:all .12s;}
 .radio-item.checked{background:var(--navy);color:#fff;border-color:var(--navy);}
 .radio-item input{display:none;}
 .multi-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;}
-.check-card{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13.5px;background:var(--white);transition:all .12s;}
+.check-card{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;background:var(--white);transition:all .12s;}
 .check-card.checked{background:var(--cream-dark);border-color:var(--navy-light);}
 .check-card input{accent-color:var(--navy);cursor:pointer;flex-shrink:0;}
 .conditional-field{display:none;margin-top:10px;padding:12px 16px;background:var(--cream);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;}
@@ -90,7 +90,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .currency-wrap input{padding-left:26px;}
 .form-section-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;}
 .form-section-icon{width:32px;height:32px;border-radius:8px;background:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.form-section-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--navy);}
+.form-section-title{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:600;color:var(--navy);}
 .cf-progress{height:4px;background:var(--cream-dark);border-radius:99px;margin-bottom:2rem;overflow:hidden;}
 .cf-progress-bar{height:100%;background:var(--gold);border-radius:99px;transition:width .4s ease;}
 
@@ -513,7 +513,7 @@ async function dbInsert(tbl, payload) {
   try {
     // Strip cpa_code from payload if column doesn't exist yet
     const safe = {...payload};
-    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) delete safe.cpa_code;
+    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) { delete safe.cpa_code; delete safe.client_status; }
     const {data,error}=await db.from(tbl).insert(safe).select().single();
     if(error) throw error;
     return data.id;
@@ -527,7 +527,7 @@ async function dbUpdate(tbl, id, payload) {
   if (!useCloud) { const k=String(id); const ex=JSON.parse(localStorage.getItem(k)||'{}'); localStorage.setItem(k,JSON.stringify({...ex,...payload,id:k})); return; }
   try {
     const safe = {...payload};
-    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) delete safe.cpa_code;
+    if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) { delete safe.cpa_code; delete safe.client_status; }
     const {error}=await db.from(tbl).update(safe).eq('id',id);
     if(error) throw error;
   } catch(e) {
@@ -723,6 +723,7 @@ async function startSession() {
     staff_name: staffName,
     cpa_code: cpaCode,
     staff_notes: '',
+    client_status: '',
     created_at: Date.now()
   });
   if (!id) return;
@@ -751,37 +752,46 @@ async function renderClientList() {
     card.style.marginBottom = '10px';
 
     const cpaInfo = c.cpa_code && userRole !== 'admin'
-      ? `<span style="font-size:12px;color:var(--text-light);margin-left:8px;">CPA: <strong style="font-weight:500;color:var(--navy);">${esc(c.cpa_code)}</strong></span>`
+      ? `<span style="font-size:12px;color:var(--text-muted);margin-left:8px;">CPA: <strong style="font-weight:500;color:var(--navy);">${esc(c.cpa_code)}</strong></span>`
       : '';
     const hasNotes = c.staff_notes && c.staff_notes.trim();
+    const hasStatus = c.client_status && c.client_status.trim();
 
-    // CPA assignment dropdown (admin only) — styled as a pill badge
-    const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'No CPA Assigned'}</option>`).join('');
+    // CPA assignment dropdown (admin only)
+    const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'Unassigned'}</option>`).join('');
     const cpaAssign = userRole==='admin'
-      ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-left:8px;vertical-align:middle;">
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-light);flex-shrink:0;"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
-          <select class="cpa-assign-select" data-id="${esc(String(c.id))}" style="font-size:12px;font-weight:500;padding:3px 24px 3px 8px;border:1.5px solid ${c.cpa_code ? 'var(--navy)' : 'var(--border)'};border-radius:20px;background:${c.cpa_code ? 'var(--navy)' : 'var(--cream)'};color:${c.cpa_code ? '#fff' : 'var(--text-muted)'};font-family:'DM Sans',sans-serif;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='${c.cpa_code ? '%23ffffff' : '%239b9790'}' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 7px center;">${cpaOpts}</select>
-         </div>`
+      ? `<span style="font-size:12px;color:var(--text-muted);margin-left:8px;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+          CPA:
+          <select class="cpa-assign-select" data-id="${esc(String(c.id))}" style="font-size:12px;font-weight:500;padding:2px 18px 2px 5px;border:1px solid var(--border);border-radius:5px;background:var(--cream);color:${c.cpa_code?'var(--navy)':'var(--text-light)'};font-family:'DM Sans',sans-serif;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%239b9790' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 4px center;outline:none;">${cpaOpts}</select>
+         </span>`
       : '';
 
     card.innerHTML =
       `<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
         <div>
-          <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
           <span class="cf-tag ${complete?'cf-tag-complete':'cf-tag-pending'}">${complete?'Complete':'Pending'}</span>
           ${cpaInfo}${cpaAssign}
-          <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">${date}</div>
+          <div style="font-size:12px;color:var(--text-light);margin-top:3px;">${date}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
           ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review →</button>`:''}
           ${userRole==='admin'?`<button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>`:''}
         </div>
       </div>
-      <div class="client-notes-area">
-        <button class="client-notes-toggle" data-action="toggle-client-notes" data-id="${esc(String(c.id))}">${hasNotes ? '✎ Staff notes' : 'add staff notes'}</button>
-        <div class="client-notes-field${hasNotes?' open':''}" id="cnf-${esc(String(c.id))}">
-          <textarea class="client-notes-textarea" rows="2" placeholder="Notes…" data-id="${esc(String(c.id))}">${esc(c.staff_notes||'')}</textarea>
+      <div class="client-notes-area" style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:180px;">
+          <button class="client-notes-toggle" data-action="toggle-client-notes" data-id="${esc(String(c.id))}">${hasNotes ? '✎ Staff notes' : '+ Staff notes'}</button>
+          <div class="client-notes-field${hasNotes?' open':''}" id="cnf-${esc(String(c.id))}">
+            <textarea class="client-notes-textarea" rows="2" placeholder="Notes…" data-id="${esc(String(c.id))}">${esc(c.staff_notes||'')}</textarea>
+          </div>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <button class="client-notes-toggle" data-action="toggle-client-status" data-id="${esc(String(c.id))}">${hasStatus ? '● ' + esc(c.client_status) : '+ Status'}</button>
+          <div class="client-notes-field${hasStatus?' open':''}" id="csf-${esc(String(c.id))}">
+            <input class="client-status-input" type="text" placeholder="e.g. Awaiting documents, In review…" data-id="${esc(String(c.id))}" value="${esc(c.client_status||'')}" style="width:100%;border:none;border-bottom:1px solid var(--border);background:transparent;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;padding:3px 0;outline:none;"/>
+          </div>
         </div>
       </div>`;
 
@@ -797,8 +807,15 @@ async function renderClientList() {
         else if (action === 'toggle-client-notes') {
           const field = document.getElementById('cnf-'+id);
           const isOpen = field.classList.toggle('open');
-          btn.textContent = isOpen ? '✎ Staff notes' : 'add staff notes';
+          btn.textContent = isOpen ? '✎ Staff notes' : '+ Staff notes';
           if (isOpen) field.querySelector('textarea').focus();
+        }
+        else if (action === 'toggle-client-status') {
+          const field = document.getElementById('csf-'+id);
+          const isOpen = field.classList.toggle('open');
+          const curVal = card.querySelector('.client-status-input')?.value.trim();
+          btn.textContent = isOpen ? '● Status' : (curVal ? '● '+curVal : '+ Status');
+          if (isOpen) field.querySelector('input').focus();
         }
       });
     });
@@ -809,10 +826,7 @@ async function renderClientList() {
       cpaSelect.addEventListener('change', async () => {
         const newCode = cpaSelect.value || null;
         await dbUpdate(TBL_CLIENTS, cpaSelect.dataset.id, {cpa_code: newCode});
-        // Restyle pill
-        cpaSelect.style.background = newCode ? 'var(--navy)' : 'var(--cream)';
-        cpaSelect.style.color = newCode ? '#fff' : 'var(--text-muted)';
-        cpaSelect.style.border = newCode ? '1.5px solid var(--navy)' : '1.5px solid var(--border)';
+        cpaSelect.style.color = newCode ? 'var(--navy)' : 'var(--text-light)';
         toast(newCode ? `Assigned to ${newCode}` : 'CPA assignment cleared');
       });
     }
@@ -825,9 +839,23 @@ async function renderClientList() {
         clearTimeout(noteTimer);
         noteTimer = setTimeout(async () => {
           await dbUpdate(TBL_CLIENTS, ta.dataset.id, {staff_notes: ta.value});
-          const toggle = card.querySelector('.client-notes-toggle');
-          if (toggle) toggle.textContent = ta.value.trim() ? '✎ Staff notes' : 'add staff notes';
+          const toggle = card.querySelector('[data-action="toggle-client-notes"]');
+          if (toggle) toggle.textContent = ta.value.trim() ? '✎ Staff notes' : '+ Staff notes';
         }, 1000);
+      });
+    }
+
+    // Auto-save client status on input
+    const si = card.querySelector('.client-status-input');
+    if (si) {
+      let statusTimer;
+      si.addEventListener('input', () => {
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(async () => {
+          await dbUpdate(TBL_CLIENTS, si.dataset.id, {client_status: si.value});
+          const toggle = card.querySelector('[data-action="toggle-client-status"]');
+          if (toggle) toggle.textContent = si.value.trim() ? '● '+si.value.trim() : '+ Status';
+        }, 800);
       });
     }
 
@@ -856,8 +884,6 @@ const FORM_SECTIONS = [
       {id:'children',label:'Do you have children or dependents?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'children_ages',label:'Ages of children / dependents',type:'text',placeholder:'e.g. 8, 14, 22'},
-          {show:'Yes',id:'children_college',label:'Are any heading to college in the next 10 years?',type:'radio',options:['Yes','No'],
-            follow:[{show:'Yes',id:'children_college_detail',label:'How many and approximate timeline?',type:'text',placeholder:'e.g. 2 children, ages 10 and 14'}]},
           {show:'Yes',id:'children_special_needs',label:'Do any have special financial planning needs?',type:'radio',options:['Yes','No'],
             follow:[{show:'Yes',id:'special_needs_detail',label:'Please describe',type:'textarea',placeholder:''}]},
         ]},
@@ -874,6 +900,7 @@ const FORM_SECTIONS = [
       {id:'investment_income',label:'Interest & dividend income (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'other_income',label:'Other income — rental, K-1, royalties, etc. (prior year)',type:'currency',placeholder:'0',half:true},
       {id:'total_income_display',label:'Total income (prior year — calculated)',type:'calc',placeholder:''},
+      {id:'effective_tax_rate_display',label:'Effective tax rate (prior year — calculated)',type:'calc',placeholder:''},
       {id:'tax_liability',label:'Total federal + state tax liability (prior year)',type:'currency',placeholder:'0'},
       {id:'projected_income',label:'Projected total income (current year)',type:'currency',placeholder:'0'},
       {id:'income_notes',label:'Anything notable about your income this year vs. last year?',type:'textarea',placeholder:'e.g. expecting a large bonus, selling a property, receiving an inheritance...'},
@@ -940,14 +967,8 @@ const FORM_SECTIONS = [
       {id:'has_cpa',label:'Do you have a CPA or tax preparer?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'cpa_name',label:'Name / firm',type:'text',placeholder:''},
-          {show:'Yes',id:'cpa_satisfied',label:'Are you satisfied with your current tax strategy?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied — open to a second opinion']},
-          {show:'Yes',id:'tax_planning',label:'How proactive is your current tax planning?',type:'radio',options:['Purely reactive — I just file each year','Some planning — occasional conversations','Very proactive — year-round strategy in place']},
-          {show:'Yes',id:'cpa_coordinates',label:'Does your CPA coordinate with your financial advisor?',type:'radio',options:['Yes','No','I do not have a financial advisor']},
-          {show:'No',id:'no_cpa_reason',label:'How do you currently handle your taxes?',type:'radio',options:['I prepare them myself','I use tax software (TurboTax, etc.)','I have been meaning to find someone','Other']},
         ]},
-      {id:'tax_pain',label:'What is your biggest tax frustration or concern right now?',type:'textarea',placeholder:'e.g. I feel like I pay too much, I have a large gain to manage, I have no visibility until April...'},
-      {id:'tax_rate_awareness',label:'Do you know approximately what effective tax rate you paid last year?',type:'radio',options:['Yes','No — not sure'],
-        follow:[{show:'Yes',id:'tax_effective_rate',label:'Approximate effective federal tax rate',type:'text',placeholder:'e.g. 28%'}]},
+      {id:'tax_pain',label:'What is your biggest tax frustration or concern right now?',type:'textarea',placeholder:'e.g. I feel like I pay too much every year, I have a large gain I need to manage...'},
       {id:'unrealized_gains',label:'Do you have significant unrealized capital gains in taxable accounts?',type:'radio',options:['Yes','No','Unsure'],
         follow:[
           {show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'},
@@ -958,9 +979,9 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'stock_options_detail',label:'Please describe (type, vesting timeline, approximate value)',type:'textarea',placeholder:'e.g. ISOs vesting over 4 years, approx. $200K value'},
           {show:'Yes',id:'stock_options_strategy',label:'Do you have a strategy for when and how to exercise or sell?',type:'radio',options:['Yes','No — need guidance','Partially']},
         ]},
-      {id:'tax_strategies_tried',label:'Have you ever implemented any advanced tax reduction strategies?',type:'radio',options:['Yes','No','Unsure what is available to me'],
+      {id:'tax_strategies_tried',label:'Have you ever implemented any advanced tax strategies?',type:'radio',options:['Yes','No','Unsure what is available to me'],
         follow:[
-          {show:'Yes',id:'tax_strategies_detail',label:'What strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone, backdoor Roth...'},
+          {show:'Yes',id:'tax_strategies_detail',label:'Which strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, opportunity zone, backdoor Roth...'},
           {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning what options may apply to your situation?',type:'radio',options:['Yes — very interested','Possibly','Not at this time']},
         ]},
       {id:'charitable_giving',label:'Do you make charitable contributions?',type:'radio',options:['Yes','No'],
@@ -1007,18 +1028,9 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_coverage',label:'Total death benefit coverage amount',type:'currency',placeholder:'0'},
           {show:'Yes',id:'life_ins_cash_value',label:'Approximate total cash value (if permanent policy)',type:'currency',placeholder:'0'},
           {show:'Yes',id:'life_ins_reviewed',label:'When was it last reviewed?',type:'select',options:['','Within the last year','1-3 years ago','More than 3 years ago','Never reviewed']},
-          {show:'Yes',id:'life_ins_purpose',label:'Primary purpose of your coverage (select all that apply)',type:'multicheck',options:['Income replacement','Estate liquidity','Business protection','Key person','Buy-sell funding','Wealth transfer','Cash value accumulation']},
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
           {show:'No',id:'life_ins_why_not',label:'Have you considered getting life insurance?',type:'radio',options:['Yes — open to reviewing options','Not at this time','I do not believe I need it']},
         ]},
-      {id:'has_disability',label:'Do you have disability insurance?',type:'radio',options:['Yes','No']},
-      {id:'has_ltc',label:'Do you have long-term care coverage?',type:'radio',options:['Yes','No — planning to get it','No — not concerned','No — open to reviewing options'],
-        follow:[
-          {show:'Yes',id:'ltc_daily_benefit',label:'Daily or monthly benefit amount',type:'text',placeholder:'e.g. $200/day'},
-          {show:'Yes',id:'ltc_benefit_period',label:'Benefit period',type:'text',placeholder:'e.g. 3 years, lifetime'},
-        ]},
-      {id:'has_umbrella',label:'Do you have an umbrella / excess liability policy?',type:'radio',options:['Yes','No'],
-        follow:[{show:'Yes',id:'umbrella_coverage',label:'Coverage amount',type:'currency',placeholder:'0'}]},
       {id:'has_insurance_agent',label:'Do you work with an insurance agent or advisor?',type:'radio',options:['Yes','No'],
         follow:[{show:'Yes',id:'insurance_agent_detail',label:'Name / firm',type:'text',placeholder:''}]},
     ]
@@ -1071,10 +1083,6 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
           {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
           {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:'Be candid — this reveals key risks we can help address.'},
-          {show:'Yes',id:'biz_sellability',label:'Could your business operate without you for 30 days?',type:'radio',options:['Yes — fully systems-driven','Partially — some things would suffer','No — I am essential to daily operations'],
-            follow:[
-              {show:'No — I am essential to daily operations',id:'biz_sellability_plan',label:'Have you thought about how to change that?',type:'radio',options:['Yes — working on it','No — not sure where to start','It is intentional for now']},
-            ]},
           {show:'Yes',id:'biz_priorities',label:'What are your top priorities in the business right now? (select all that apply)',type:'multicheck',options:['Revenue growth','Profit improvement','Reducing owner dependency','Building a leadership team','Preparing for exit','Improving cash flow','Reducing taxes','Protecting key employees','Hiring and retention','Systemizing operations','Increasing business value']},
           {show:'Yes',id:'business_exit',label:'Have you defined an exit strategy?',type:'radio',options:['Yes — formal plan in place','Working on it — no formal plan yet','Not yet — focused on growth','Planning to pass to family or heirs','No plan — open to guidance'],
             follow:[
@@ -1083,10 +1091,8 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'biz_exit_timeline',label:'When do you plan to exit the business?',type:'text',placeholder:'e.g. in 5 years, at age 60, when revenue reaches $X...'},
           {show:'Yes',id:'biz_exit_target_value',label:'What do you want to sell it for?',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_succession_steps',label:'What steps have you already taken toward succession or exit preparation?',type:'textarea',placeholder:'e.g. hired a COO, working with a broker, set up a buy-sell agreement, began gifting shares to family...'},
-          {show:'Yes',id:'biz_buyer_valuation',label:'How do you think potential buyers will value your business?',type:'textarea',placeholder:'e.g. based on EBITDA multiple, recurring revenue, customer concentration, industry comps...'},
           {show:'Yes',id:'biz_revenue_double',label:'How much additional revenue and profit do you think you could generate if your business were fully optimized?',type:'textarea',placeholder:'e.g. 30% more revenue, double the net profit...'},
           {show:'Yes',id:'biz_value_if_systemized',label:'How much more could you sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_help_interest',label:'Would you be interested in exploring how to grow your business significantly while reducing your personal hours?',type:'radio',options:['Yes — very interested','Possibly — open to learning more','Not at this time']},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement?',type:'radio',options:['Yes','No'],
@@ -1115,7 +1121,6 @@ const FORM_SECTIONS = [
               {show:'Reactive — mostly just filing',id:'biz_tax_open2',label:'What is your biggest tax concern in the business?',type:'textarea',placeholder:'e.g. high pass-through income, self-employment taxes, payroll costs, profit I cannot shelter...'},
             ]},
           {show:'Yes',id:'biz_infrastructure',label:'Which of the following does your business currently have in place? (select all that apply)',type:'multicheck',options:['Vision and mission statement','5-year business plan','Operations manual / playbook','Marketing plan and defined process','Sales plan and defined process','CRM system','Business budget','Monthly financial review process','Cash flow management system','Performance scoreboard','Recruiting and onboarding process','Employee handbook','Organizational chart with job descriptions','Annual performance review process','Incentive-based compensation plans','A defined leadership team','Consistent team meetings']},
-          {show:'Yes',id:'biz_infrastructure_gaps',label:'How much more revenue and profit could you generate if everything above were fully in place?',type:'textarea',placeholder:'e.g. could double revenue, reduce my hours by 50%...'},
         ]},
     ]
   },
@@ -1140,7 +1145,6 @@ const FORM_SECTIONS = [
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>',
     fields:[
       {id:'additional_info',label:'Is there anything else important for us to know about your financial situation?',type:'textarea',placeholder:'No detail is too small — we want to understand your full picture.'},
-      {id:'comments',label:'Any questions or concerns you would like us to address in our first meeting?',type:'textarea',placeholder:''},
     ]
   },
 ]
@@ -1281,6 +1285,19 @@ function updateCalcFields() {
   if (el) {
     el.textContent = total > 0 ? '$' + total.toLocaleString('en-US') : '—';
     currentFormData['total_income_display'] = total > 0 ? String(total) : '';
+  }
+  // Auto-calculate effective tax rate
+  const taxes = parseNum('tax_liability');
+  const rateEl = document.getElementById('cf-effective_tax_rate_display');
+  if (rateEl) {
+    if (total > 0 && taxes > 0) {
+      const rate = ((taxes / total) * 100).toFixed(1);
+      rateEl.textContent = rate + '%';
+      currentFormData['effective_tax_rate_display'] = rate + '%';
+    } else {
+      rateEl.textContent = '—';
+      currentFormData['effective_tax_rate_display'] = '';
+    }
   }
 }
 
