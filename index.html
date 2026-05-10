@@ -213,6 +213,61 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
 #pdf-preview{border:1px solid var(--border);border-radius:10px;padding:2.5rem;background:#fff;box-shadow:var(--shadow);}
 
+/* SORT TABS */
+.sort-tab{padding:5px 14px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text-muted);cursor:pointer;transition:all .15s;}
+.sort-tab:hover{border-color:rgba(15,37,53,.22);color:var(--text);}
+.sort-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* TAX SLIDER */
+.tax-slider-wrap{margin-top:6px;}
+.tax-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.tax-slider-input{flex:1;accent-color:var(--navy);height:4px;cursor:pointer;}
+.tax-slider-val{font-size:14px;font-weight:500;color:var(--navy);min-width:90px;text-align:right;}
+.tax-rating-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+.tax-rating-pip{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:2px solid var(--border);background:var(--cream-dark);color:var(--text-muted);transition:all .2s;}
+.tax-rating-pip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.tax-rating-label{font-size:12px;color:var(--text-muted);margin-left:4px;}
+
+/* COVERAGE ANALYSIS BADGE */
+.coverage-analysis-box{padding:12px 16px;background:var(--cream);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;color:var(--text-muted);line-height:1.6;margin-top:4px;}
+.coverage-analysis-box strong{color:var(--navy);}
+
+/* ADVISOR CHECKBOX BLOCK */
+.advisor-check-list{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+.advisor-check-item{border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s;}
+.advisor-check-item.checked{border-color:var(--navy-light);}
+.advisor-check-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--white);}
+.advisor-check-header input[type=checkbox]{accent-color:var(--navy);width:16px;height:16px;flex-shrink:0;cursor:pointer;}
+.advisor-check-header span{font-size:14px;color:var(--text);}
+.advisor-check-body{padding:0 14px 12px 40px;display:none;background:var(--cream);}
+.advisor-check-body.open{display:block;}
+.advisor-slider-row{margin-bottom:8px;}
+.advisor-slider-label{font-size:11.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;display:block;}
+.advisor-slider-track{display:flex;align-items:center;gap:10px;}
+.advisor-slider-track input[type=range]{flex:1;accent-color:var(--navy);}
+.advisor-slider-track .slider-num{font-size:13px;font-weight:500;color:var(--navy);min-width:24px;text-align:right;}
+.advisor-dissatisfied{margin-top:8px;}
+.advisor-dissatisfied textarea{width:100%;border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white);resize:vertical;outline:none;transition:border-color .15s;}
+.advisor-dissatisfied textarea:focus{border-color:var(--navy-light);}
+
+/* MULTI-BIZ BLOCK */
+.multibiz-wrap{margin-top:6px;}
+.multibiz-entry{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;}
+.multibiz-entry input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--cream);outline:none;}
+.multibiz-entry input:focus{border-color:var(--navy-light);background:#fff;}
+.multibiz-currency-wrap{position:relative;flex:1;}
+.multibiz-currency-wrap::before{content:'$';position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;}
+.multibiz-currency-wrap input{padding-left:24px;}
+.multibiz-del{background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;padding:5px 7px;border-radius:5px;line-height:1;transition:all .12s;}
+.multibiz-del:hover{color:var(--red-s);background:var(--red-bg);}
+.multibiz-add{font-size:12px;color:var(--navy-light);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+
+/* BIZ LARGEST HEADER */
+.biz-largest-header{margin:1rem 0 .75rem;padding:10px 14px;background:var(--navy);border-radius:8px;color:#fff;font-size:13px;font-weight:500;line-height:1.5;}
+
+/* QUESTION NUMBERS */
+.field-qnum{font-size:11px;font-weight:600;color:var(--text-light);letter-spacing:.04em;display:block;margin-bottom:2px;}
+
 @media(max-width:700px){
   .shell{grid-template-columns:1fr;}.sidebar{display:none;}.main{padding:1.25rem 1rem;}
   .items-head,.item-row{grid-template-columns:34px 1fr 36px;}
@@ -302,7 +357,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
     <!-- CLIENTS LIST -->
     <div id="view-clients" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
         <div>
           <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);margin-bottom:3px;">All clients</h2>
           <p style="font-size:14px;color:var(--text-muted);">Select a client to continue their session.</p>
@@ -311,6 +366,11 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
           Export all to XLSX
         </button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text-muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase;">Sort by</span>
+        <button class="sort-tab active" id="sort-tab-recent" onclick="setClientSort('recent')">Most recent</button>
+        <button class="sort-tab" id="sort-tab-alpha" onclick="setClientSort('alpha')">Last name A–Z</button>
       </div>
       <div id="client-list-container">
         <div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>
@@ -605,6 +665,7 @@ let pItems = [], pItemCounter = 0, pCurrentId = null, pClientFormData = {};
 let pSessionComplete = false; // true when reviewing completed client — enables progress tracking
 let pendingDeleteId = null;
 let responsesOpen = false, pResponsesOpen = false;
+let clientSortMode = 'recent'; // 'recent' | 'alpha'
 
 // ══════════════════════════════════
 //  ACCESS GATE
@@ -756,14 +817,35 @@ async function startSession() {
   showView('intake');
 }
 
+function setClientSort(mode) {
+  clientSortMode = mode;
+  document.getElementById('sort-tab-recent').classList.toggle('active', mode === 'recent');
+  document.getElementById('sort-tab-alpha').classList.toggle('active', mode === 'alpha');
+  renderClientList();
+}
+
 // ══════════════════════════════════
 //  CLIENT LIST
 // ══════════════════════════════════
 async function renderClientList() {
   const container = document.getElementById('client-list-container');
   container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>';
-  const clients = await dbGetAll(TBL_CLIENTS);
+  let clients = await dbGetAll(TBL_CLIENTS);
   if (!clients.length) { container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">No clients yet.</div>'; return; }
+
+  // Apply sort
+  if (clientSortMode === 'alpha') {
+    clients = [...clients].sort((a, b) => {
+      // Extract last name: last word of client_name
+      const lastName = name => {
+        const parts = (name || '').trim().split(/\s+/);
+        return parts[parts.length - 1].toLowerCase();
+      };
+      return lastName(a.client_name).localeCompare(lastName(b.client_name));
+    });
+  }
+  // 'recent' order comes from dbGetAll which already returns newest-first
+
   container.innerHTML = '';
 
   // Load intakes to show progress on cards
@@ -952,6 +1034,7 @@ const FORM_SECTIONS = [
       {id:'total_income_display',label:'Total income (prior year — calculated)',type:'calc',placeholder:''},
       {id:'tax_liability',label:'Total federal + state tax liability',type:'currency',placeholder:'0'},
       {id:'effective_tax_rate_display',label:'Effective tax rate (prior year — calculated)',type:'calc',placeholder:''},
+      {id:'ideal_tax_slider',label:'Ideally, how much tax would you like to have paid?',type:'taxslider',placeholder:''},
       {id:'income_header_current',label:'Current Tax Year',type:'sectionheader'},
       {id:'projected_income',label:'Projected total income',type:'currency',placeholder:'0'},
       {id:'income_notes',label:'Any notable changes to your income this year?',type:'textarea',placeholder:'e.g. expecting a large bonus, selling a property, receiving an inheritance...'},
@@ -1034,24 +1117,18 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'retirement', title:'Retirement planning',
+    id:'retirement', title:'Financial Freedom Point',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>',
     fields:[
-      {id:'retirement_target_age',label:'At what age do you hope to retire?',type:'number',placeholder:'e.g. 65',half:true},
+      {id:'retirement_target_age',label:'At what age do you hope to reach financial freedom?',type:'number',placeholder:'e.g. 65',half:true},
       {id:'retirement_income_need',label:'Annual income needed in retirement',type:'currency',placeholder:'0',half:true},
       {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Other']},
       {id:'max_contributions',label:'Are you maximizing contributions to all of your retirement accounts?',type:'radio',options:['Yes','No','Unsure'],
         follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:''}]},
-      {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes','Somewhat','No','Unsure']},
+      {id:'retirement_on_track',label:'Do you feel you are on track for financial freedom?',type:'radio',options:['Yes','Somewhat','No','Unsure']},
       {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'pension_monthly',label:'Estimated monthly benefit at retirement',type:'currency',placeholder:'0'},
-        ]},
-      {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Variable','Indexed','Immediate','Deferred','Other']},
-          {show:'Yes',id:'annuity_start_age',label:'At what age do you begin receiving benefits?',type:'text',placeholder:''},
-          {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected monthly benefit',type:'currency',placeholder:'0'},
         ]},
     ]
   },
@@ -1063,10 +1140,16 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Yes',id:'life_ins_types',label:'What type(s)?',type:'multicheck',options:['Term','Whole life','Universal life','Variable life','Other']},
           {show:'Yes',id:'life_ins_coverage',label:'Total death benefit coverage amount',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'life_ins_coverage_reason',label:'How did you choose this coverage amount?',type:'textarea',placeholder:'e.g. rule of thumb, advisor recommendation, based on income replacement needs...'},
+          {show:'Yes',id:'life_ins_coverage_analysis',label:'',type:'coverageanalysis'},
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
         ]},
-      {id:'has_insurance_agent',label:'Do you work with an insurance agent or advisor?',type:'radio',options:['Yes','No'],
-        follow:[{show:'Yes',id:'insurance_agent_detail',label:'Name / firm',type:'text',placeholder:''}]},
+      {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Variable','Indexed','Immediate','Deferred','Other']},
+          {show:'Yes',id:'annuity_start_age',label:'At what age do you begin receiving benefits?',type:'text',placeholder:''},
+          {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected monthly benefit',type:'currency',placeholder:'0'},
+        ]},
     ]
   },
   {
@@ -1096,6 +1179,27 @@ const FORM_SECTIONS = [
     fields:[
       {id:'has_business',label:'Do you have any ownership interest in a private business?',type:'radio',options:['Yes','No'],
         follow:[
+          {show:'Yes',id:'business_count',label:'How many private businesses do you have an ownership interest in?',type:'number',placeholder:'e.g. 1',
+            follow:[
+              {show:'1',id:'business_name',label:'Business name',type:'text',placeholder:''},
+              {show:'1',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
+              {show:'1',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
+              {show:'1',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
+              {show:'1',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:'e.g. recurring subscriptions, project-based, product sales...'},
+              {show:'1',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
+              {show:'1',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
+              {show:'1',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
+              {show:'1',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
+              {show:'1',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
+              {show:'1',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
+              {show:'1',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
+              {show:'1',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
+              {show:'1',id:'biz_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
+              {show:'1',id:'biz_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
+              {show:'1',id:'biz_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
+            ]},
+          {show:'Yes',id:'multi_business_list',label:'Please list each business ownership interest and its prior year net income',type:'multibizblock',placeholder:''},
+          {show:'Yes',id:'biz_largest_header',label:'For the business with the largest prior year net income, please complete the following:',type:'bizlargestheader'},
           {show:'Yes',id:'business_name',label:'Business name',type:'text',placeholder:''},
           {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
           {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
@@ -1120,6 +1224,7 @@ const FORM_SECTIONS = [
                 ]},
               {show:'Yes',id:'partner_alignment',label:'Are you and your partners aligned on the future direction and exit of the business?',type:'radio',options:['Yes — fully aligned','Somewhat aligned','No — there are disagreements','Have not had that conversation yet']},
             ]},
+          {show:'Yes',id:'business_defined_benefit',label:'Does your business have a defined benefit plan in place?',type:'radio',options:['Yes','No','Not sure']},
           {show:'Yes',id:'business_retirement_plan',label:'Does your business offer a retirement plan to employees?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'biz_retirement_type',label:'What type?',type:'multicheck',options:['401(k)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Defined benefit / pension','Other']},
@@ -1134,22 +1239,18 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'advisors', title:'Advisory relationships & goals',
+    id:'advisors', title:'Advisory relationships',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>',
     fields:[
-      {id:'has_wealth_mgr',label:'Do you currently work with a wealth manager or financial advisor?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'wealth_mgr_name',label:'Firm / advisor name',type:'text',placeholder:''},
-          {show:'Yes',id:'wealth_mgr_satisfied',label:'How satisfied are you with that relationship?',type:'radio',options:['Very satisfied','Somewhat satisfied','Not satisfied']},
-        ]},
-      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family, build generational wealth...'},
-      {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:''},
+      {id:'advisory_relationships',label:'Which of the following advisory relationships do you currently have in place?',type:'advisorcheck',options:['CPA','Estate Planning Attorney','Financial Planner','Business Advisor','Insurance Agent']},
     ]
   },
   {
     id:'conclusion', title:'Final thoughts',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>',
     fields:[
+      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family, build generational wealth...'},
+      {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:''},
       {id:'additional_info',label:'Is there anything else important for us to know about your financial profile?',type:'textarea',placeholder:''},
     ]
   },
@@ -1170,12 +1271,30 @@ function renderCFSection() {
   const sec = FORM_SECTIONS[cfSection];
   document.getElementById('cf-progress-bar').style.width = Math.round(((cfSection+1)/FORM_SECTIONS.length)*100)+'%';
   let html = `<div class="card"><div class="form-section-header"><div class="form-section-icon">${sec.icon}</div><div class="form-section-title">${sec.title}</div></div>`;
-  let i = 0;
-  while (i < sec.fields.length) {
-    const f = sec.fields[i], nx = sec.fields[i+1];
-    if (f.half && nx && nx.half) { html += '<div class="field-row-2">'+renderField(f)+renderField(nx)+'</div>'; i+=2; }
-    else { html += renderField(f); i++; }
+  // Count questions in this section for numbering (only top-level non-special fields)
+  let qNum = 0;
+  const specialTypes = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck'];
+  function countAndRender(fields, inFollow) {
+    let out = '';
+    let i = 0;
+    while (i < fields.length) {
+      const f = fields[i];
+      const nx = fields[i+1];
+      if (!inFollow && !specialTypes.includes(f.type)) qNum++;
+      const num = (!inFollow && !specialTypes.includes(f.type)) ? qNum : null;
+      if (!inFollow && f.half && nx && nx.half) {
+        const nx2 = fields[i+1];
+        if (!specialTypes.includes(nx2.type)) qNum++;
+        out += '<div class="field-row-2">'+renderField(f,num)+renderField(nx2,qNum)+'</div>';
+        i += 2;
+      } else {
+        out += renderField(f, num);
+        i++;
+      }
+    }
+    return out;
   }
+  html += countAndRender(sec.fields, false);
   html += '</div>';
   document.getElementById('cf-form-body').innerHTML = html;
   // Recursively restore and wire all fields at any nesting depth
@@ -1195,6 +1314,12 @@ function renderCFSection() {
       if (f.follow) wireAll(f.follow);
     });
   })(sec.fields);
+  // Wire special field types
+  wireTaxSlider();
+  wireCoverageAnalysis();
+  wireAdvisorChecks();
+  wireMultiBiz();
+  wireBusinessCount();
   afterSectionRender();
   const isLast = cfSection === FORM_SECTIONS.length-1;
   const nav = document.getElementById('cf-nav-buttons');
@@ -1204,21 +1329,22 @@ function renderCFSection() {
     b.addEventListener('click',()=>{ cfSection=Math.max(cfSection-1,0); renderCFSection(); window.scrollTo(0,0); });
     nav.appendChild(b);
   }
-  const f = document.createElement('button');
-  f.className = isLast ? 'btn btn-gold' : 'btn btn-primary';
-  f.textContent = isLast ? 'Save & continue →' : 'Next →';
-  f.addEventListener('click', isLast ? cfSubmit : ()=>{ cfSection=Math.min(cfSection+1,FORM_SECTIONS.length-1); renderCFSection(); window.scrollTo(0,0); });
-  nav.appendChild(f);
+  const f2 = document.createElement('button');
+  f2.className = isLast ? 'btn btn-gold' : 'btn btn-primary';
+  f2.textContent = isLast ? 'Save & continue →' : 'Next →';
+  f2.addEventListener('click', isLast ? cfSubmit : ()=>{ cfSection=Math.min(cfSection+1,FORM_SECTIONS.length-1); renderCFSection(); window.scrollTo(0,0); });
+  nav.appendChild(f2);
 }
 
-function renderField(f) {
+function renderField(f, qNum) {
   const req = f.required ? '<span class="req">*</span>' : '';
+  const qNumHtml = qNum ? `<span class="field-qnum">${qNum}.</span>` : '';
   let inner = '';
   // Special: will year check — inject hidden follow-up container after rendering
   if (f.id==='will_last_updated') {
     const willFollowHtml = '<div class="conditional-field" id="old-will-followup"><div class="field-group"><label class="field-label">Any changes needed?</label><div class="radio-group" id="rg-will_changes_needed"><label class="check-card" style="cursor:pointer;" onclick="saveField(\'will_changes_needed\',\'Yes\');this.classList.add(\'checked\');this.nextElementSibling.classList.remove(\'checked\')">Yes — needs updating</label><label class="check-card" onclick="saveField(\'will_changes_needed\',\'No\');this.classList.add(\'checked\');this.previousElementSibling.classList.remove(\'checked\')">No — still current</label></div></div></div>';
     const willInputId = 'cf-'+f.id;
-    return '<div class="field-group"><label class="field-label">'+esc(f.label)+'</label>'
+    return '<div class="field-group">'+qNumHtml+'<label class="field-label">'+esc(f.label)+'</label>'
       +'<input type="number" id="'+willInputId+'" placeholder="'+esc(f.placeholder||'')+'" '
       +'oninput="saveField(\''+f.id+'\',this.value);checkWillYear()"/>'
       +(f.hint?'<p class="field-hint">'+esc(f.hint)+'</p>':'')
@@ -1229,7 +1355,69 @@ function renderField(f) {
   }
   if (f.type==='calc') {
     inner = '<div style="padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--cream-dark);font-size:14px;color:var(--navy);font-weight:500;" id="cf-'+f.id+'">—</div>';
-    return '<div class="field-group"><label class="field-label">'+esc(f.label)+'</label>'+inner+'</div>';
+    return '<div class="field-group">'+qNumHtml+'<label class="field-label">'+esc(f.label)+'</label>'+inner+'</div>';
+  }
+  if (f.type==='taxslider') {
+    return `<div class="field-group" id="taxslider-wrap" style="display:none;">
+      <label class="field-label">${esc(f.label)||'Ideally, how much tax would you like to have paid?'}</label>
+      <div class="tax-slider-wrap">
+        <div class="tax-slider-row">
+          <input type="range" class="tax-slider-input" id="cf-ideal_tax_slider" min="0" max="100" value="0" step="1"/>
+          <span class="tax-slider-val" id="ideal_tax_val">$0</span>
+        </div>
+        <div class="tax-rating-bar">
+          <span style="font-size:12px;color:var(--text-muted);margin-right:4px;">Tax Planning Focus Rating:</span>
+          ${[1,2,3,4,5].map(n=>`<div class="tax-rating-pip" id="trp-${n}">${n}</div>`).join('')}
+          <span class="tax-rating-label" id="tax-rating-desc"></span>
+        </div>
+        <p class="field-hint" style="margin-top:8px;">The less you want to pay, the higher your focus rating — indicating tax reduction is a key priority.</p>
+      </div>
+    </div>`;
+  }
+  if (f.type==='coverageanalysis') {
+    return `<div class="field-group" id="coverage-analysis-wrap" style="display:none;">
+      <div class="coverage-analysis-box" id="coverage-analysis-box"></div>
+    </div>`;
+  }
+  if (f.type==='multibizblock') {
+    return `<div class="field-group" id="multibiz-wrap" style="display:none;">
+      <label class="field-label">${esc(f.label)}</label>
+      <div class="multibiz-wrap" id="multibiz-entries"></div>
+      <button class="multibiz-add" type="button" onclick="addMultiBizEntry()">+ Add another business</button>
+    </div>`;
+  }
+  if (f.type==='bizlargestheader') {
+    return `<div id="biz-largest-header-wrap" style="display:none;"><div class="biz-largest-header">📋 For the business with the largest prior year net income, please complete the following:</div></div>`;
+  }
+  if (f.type==='advisorcheck') {
+    const opts = f.options || [];
+    return `<div class="field-group">
+      ${qNumHtml}<label class="field-label">${esc(f.label)}</label>
+      <div class="advisor-check-list" id="advisor-check-list">
+        ${opts.map(o => {
+          const key = o.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+          return `<div class="advisor-check-item" id="adv-item-${key}">
+            <div class="advisor-check-header" onclick="toggleAdvisor('${key}','${esc(o)}')">
+              <input type="checkbox" id="adv-cb-${key}" data-advisor="${esc(o)}" onchange="event.stopPropagation();toggleAdvisor('${key}','${esc(o)}')"/>
+              <span>${esc(o)}</span>
+            </div>
+            <div class="advisor-check-body" id="adv-body-${key}">
+              <div class="advisor-slider-row">
+                <span class="advisor-slider-label">Satisfaction (1 = Very dissatisfied, 10 = Very satisfied)</span>
+                <div class="advisor-slider-track">
+                  <input type="range" min="1" max="10" value="7" id="adv-slider-${key}" oninput="updateAdvisorSlider('${key}','${esc(o)}')"/>
+                  <span class="slider-num" id="adv-snum-${key}">7</span>
+                </div>
+              </div>
+              <div class="advisor-dissatisfied" id="adv-dissatisfied-${key}" style="display:none;">
+                <span class="advisor-slider-label">What do you wish was different about the relationship?</span>
+                <textarea rows="2" placeholder="Please describe…" id="adv-diff-${key}" oninput="saveAdvisorData('${esc(o)}')"></textarea>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
   }
   if (['text','email','tel','number'].includes(f.type)) inner=`<input type="${f.type}" id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" oninput="saveField('${f.id}',this.value);updateCalcFields()"/>`;
   else if (f.type==='currency') inner=`<div class="currency-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value);updateCalcFields()"/></div>`;
@@ -1249,12 +1437,12 @@ function renderField(f) {
     });
     order.forEach(showVal => {
       const key = 'cond-'+f.id+'-'+showVal.replace(/[^a-z0-9]/gi,'_');
-      const inner = groups[showVal].map(ff => renderField(ff)).join('');
-      followHtml += `<div class="conditional-field" id="${key}">${inner}</div>`;
+      const innerHtml = groups[showVal].map(ff => renderField(ff)).join('');
+      followHtml += `<div class="conditional-field" id="${key}">${innerHtml}</div>`;
     });
   }
   const hint = f.hint ? `<p class="field-hint">${esc(f.hint)}</p>` : '';
-  return `<div class="field-group"><label class="field-label" for="cf-${f.id}">${esc(f.label)}${req}</label>${inner}${hint}${followHtml}</div>`;
+  return `<div class="field-group"><label class="field-label" for="cf-${f.id}">${qNumHtml}${esc(f.label)}${req}</label>${inner}${hint}${followHtml}</div>`;
 }
 
 function restoreVal(f) {
@@ -1312,6 +1500,10 @@ function updateCalcFields() {
       currentFormData['effective_tax_rate_display'] = '';
     }
   }
+  // Update tax slider visibility when tax_liability changes
+  updateTaxSliderVisibility();
+  // Update coverage analysis when income changes
+  updateCoverageAnalysis();
 }
 
 function checkWillYear() {
@@ -1354,9 +1546,250 @@ function wireFollowDeep(fields) {
   });
 }
 
+// ── TAX SLIDER ──────────────────────────────────────────────────
+function wireTaxSlider() {
+  const wrap = document.getElementById('taxslider-wrap');
+  if (!wrap) return;
+  // Show/hide based on whether tax_liability has a value
+  updateTaxSliderVisibility();
+  const slider = document.getElementById('cf-ideal_tax_slider');
+  if (!slider) return;
+  // Restore saved value
+  const saved = currentFormData['ideal_tax_slider'];
+  if (saved !== undefined) slider.value = saved;
+  updateTaxSliderDisplay();
+  slider.addEventListener('input', () => {
+    saveField('ideal_tax_slider', slider.value);
+    updateTaxSliderDisplay();
+  });
+}
+
+function updateTaxSliderVisibility() {
+  const wrap = document.getElementById('taxslider-wrap');
+  if (!wrap) return;
+  const taxVal = parseNum('tax_liability');
+  wrap.style.display = taxVal > 0 ? '' : 'none';
+}
+
+function updateTaxSliderDisplay() {
+  const slider = document.getElementById('cf-ideal_tax_slider');
+  if (!slider) return;
+  const maxTax = parseNum('tax_liability');
+  const pct = parseInt(slider.value) || 0; // slider is 0-100 = percent of max they'd want to pay
+  const dollarAmt = Math.round((pct / 100) * maxTax);
+  const valEl = document.getElementById('ideal_tax_val');
+  if (valEl) valEl.textContent = '$' + dollarAmt.toLocaleString('en-US');
+  // Rating: 0% of taxes paid = rating 5 (want to pay nothing = highly focused), 100% = rating 1
+  const rating = Math.max(1, 5 - Math.round((pct / 100) * 4));
+  const descs = {5:'Highly focused — tax reduction is a top priority',4:'Strong focus — very motivated to reduce tax burden',3:'Moderate focus — interested in some tax reduction',2:'Low focus — generally comfortable with current taxes',1:'Minimal focus — happy with current tax situation'};
+  for (let i=1;i<=5;i++) {
+    const pip = document.getElementById('trp-'+i);
+    if (pip) pip.classList.toggle('active', i===rating);
+  }
+  const descEl = document.getElementById('tax-rating-desc');
+  if (descEl) descEl.textContent = descs[rating] || '';
+  // Save rating
+  currentFormData['tax_planning_rating'] = rating;
+  currentFormData['ideal_tax_amount'] = dollarAmt;
+  autosave();
+}
+
+// ── COVERAGE ANALYSIS ────────────────────────────────────────────
+function wireCoverageAnalysis() {
+  updateCoverageAnalysis();
+}
+
+function updateCoverageAnalysis() {
+  const wrap = document.getElementById('coverage-analysis-wrap');
+  if (!wrap) return;
+  const coverageEl = document.getElementById('cf-life_ins_coverage');
+  if (!coverageEl) { wrap.style.display='none'; return; }
+  const coverage = parseFloat((coverageEl.value||'0').replace(/[^0-9.-]/g,'')) || 0;
+  const annualIncome = parseNum('w2_income') + parseNum('business_income') + parseNum('other_income') + parseNum('interest_income') + parseNum('qualified_dividends') + parseNum('nonqualified_dividends') + parseNum('st_cap_gains') + parseNum('lt_cap_gains');
+  if (!coverage || !annualIncome) { wrap.style.display='none'; return; }
+  wrap.style.display = '';
+  const neededCoverage = annualIncome * 20;
+  const proportion = Math.round((coverage / neededCoverage) * 100);
+  const box = document.getElementById('coverage-analysis-box');
+  if (box) {
+    const fmtCur = n => '$' + Math.round(n).toLocaleString('en-US');
+    const propColor = proportion >= 100 ? 'var(--green)' : proportion >= 60 ? 'var(--gold)' : 'var(--red-s)';
+    box.innerHTML = `Coverage of <strong>${fmtCur(neededCoverage)}</strong> is needed to protect your annual income of <strong>${fmtCur(annualIncome)}</strong>. Your income is <strong style="color:${propColor}">${proportion}% protected</strong>.`;
+  }
+}
+
+// Wire coverage analysis to update when coverage amount changes
+(function() {
+  const origSaveField = window.saveField;
+  window._coverageFieldsToWatch = ['life_ins_coverage','w2_income','business_income','other_income'];
+})();
+
+// ── ADVISOR CHECKS ───────────────────────────────────────────────
+function wireAdvisorChecks() {
+  // Restore saved advisor data
+  const saved = currentFormData['advisory_relationships'];
+  if (!saved || !Array.isArray(saved)) return;
+  saved.forEach(entry => {
+    const key = entry.name.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+    const cb = document.getElementById('adv-cb-'+key);
+    if (cb) {
+      cb.checked = true;
+      const item = document.getElementById('adv-item-'+key);
+      if (item) item.classList.add('checked');
+      const body = document.getElementById('adv-body-'+key);
+      if (body) body.classList.add('open');
+      const slider = document.getElementById('adv-slider-'+key);
+      if (slider && entry.satisfaction !== undefined) {
+        slider.value = entry.satisfaction;
+        const numEl = document.getElementById('adv-snum-'+key);
+        if (numEl) numEl.textContent = entry.satisfaction;
+        const dissEl = document.getElementById('adv-dissatisfied-'+key);
+        if (dissEl) dissEl.style.display = entry.satisfaction <= 6 ? '' : 'none';
+      }
+      const diffTa = document.getElementById('adv-diff-'+key);
+      if (diffTa && entry.wishes) diffTa.value = entry.wishes;
+    }
+  });
+}
+
+function toggleAdvisor(key, name) {
+  const cb = document.getElementById('adv-cb-'+key);
+  if (!cb) return;
+  // If called from header click (not the checkbox itself), toggle the checkbox
+  cb.checked = !cb.checked;
+  const item = document.getElementById('adv-item-'+key);
+  const body = document.getElementById('adv-body-'+key);
+  if (cb.checked) {
+    if (item) item.classList.add('checked');
+    if (body) body.classList.add('open');
+    // Default slider to 7
+    const slider = document.getElementById('adv-slider-'+key);
+    if (slider && !slider._wired) {
+      slider._wired = true;
+      slider.addEventListener('input', () => updateAdvisorSlider(key, name));
+    }
+  } else {
+    if (item) item.classList.remove('checked');
+    if (body) body.classList.remove('open');
+  }
+  saveAdvisorData(name);
+}
+
+function updateAdvisorSlider(key, name) {
+  const slider = document.getElementById('adv-slider-'+key);
+  if (!slider) return;
+  const val = parseInt(slider.value);
+  const numEl = document.getElementById('adv-snum-'+key);
+  if (numEl) numEl.textContent = val;
+  const dissEl = document.getElementById('adv-dissatisfied-'+key);
+  if (dissEl) dissEl.style.display = val <= 6 ? '' : 'none';
+  saveAdvisorData(name);
+}
+
+function saveAdvisorData() {
+  // Collect all checked advisors
+  const list = document.getElementById('advisor-check-list');
+  if (!list) return;
+  const advisors = [];
+  list.querySelectorAll('[id^="adv-cb-"]').forEach(cb => {
+    if (!cb.checked) return;
+    const key = cb.id.replace('adv-cb-','');
+    const name = cb.dataset.advisor;
+    const slider = document.getElementById('adv-slider-'+key);
+    const diffTa = document.getElementById('adv-diff-'+key);
+    advisors.push({
+      name,
+      satisfaction: slider ? parseInt(slider.value) : 7,
+      wishes: (diffTa && parseInt(slider?.value||'7') <= 6) ? diffTa.value : ''
+    });
+  });
+  currentFormData['advisory_relationships'] = advisors;
+  autosave();
+}
+
+// ── MULTI-BIZ BLOCK ──────────────────────────────────────────────
+let multiBizEntries = [];
+
+function wireMultiBiz() {
+  // Restore saved entries
+  const saved = currentFormData['multi_business_list'];
+  if (Array.isArray(saved)) multiBizEntries = saved;
+  else multiBizEntries = [];
+  renderMultiBizEntries();
+}
+
+function renderMultiBizEntries() {
+  const container = document.getElementById('multibiz-entries');
+  if (!container) return;
+  container.innerHTML = '';
+  if (multiBizEntries.length === 0) {
+    multiBizEntries.push({name:'',net_income:''});
+  }
+  multiBizEntries.forEach((entry, idx) => {
+    const row = document.createElement('div');
+    row.className = 'multibiz-entry';
+    row.innerHTML = `<input type="text" placeholder="Business name" value="${esc(entry.name||'')}" data-idx="${idx}" data-field="name"/>
+      <div class="multibiz-currency-wrap"><input type="text" inputmode="numeric" placeholder="Prior year net income" value="${esc(entry.net_income||'')}" data-idx="${idx}" data-field="net_income"/></div>
+      ${multiBizEntries.length > 1 ? `<button class="multibiz-del" onclick="removeMultiBizEntry(${idx})">×</button>` : ''}`;
+    row.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        multiBizEntries[parseInt(inp.dataset.idx)][inp.dataset.field] = inp.value;
+        currentFormData['multi_business_list'] = multiBizEntries;
+        autosave();
+      });
+    });
+    container.appendChild(row);
+  });
+}
+
+function addMultiBizEntry() {
+  multiBizEntries.push({name:'',net_income:''});
+  renderMultiBizEntries();
+}
+
+function removeMultiBizEntry(idx) {
+  multiBizEntries.splice(idx,1);
+  currentFormData['multi_business_list'] = multiBizEntries;
+  renderMultiBizEntries();
+  autosave();
+}
+
+// ── BUSINESS COUNT LOGIC ─────────────────────────────────────────
+function wireBusinessCount() {
+  const countEl = document.getElementById('cf-business_count');
+  if (!countEl) return;
+  countEl.addEventListener('input', applyBusinessCountLogic);
+  // Restore
+  if (currentFormData['business_count']) applyBusinessCountLogic();
+}
+
+function applyBusinessCountLogic() {
+  const countEl = document.getElementById('cf-business_count');
+  if (!countEl) return;
+  const val = parseInt(countEl.value) || 0;
+  const multiBizWrap = document.getElementById('multibiz-wrap');
+  const bizLargestWrap = document.getElementById('biz-largest-header-wrap');
+  // Containers for the single-business conditional (show:'1')
+  const singleCond = document.getElementById('cond-business_count-1');
+  if (val === 1) {
+    if (singleCond) singleCond.classList.add('show');
+    if (multiBizWrap) multiBizWrap.style.display = 'none';
+    if (bizLargestWrap) bizLargestWrap.style.display = 'none';
+  } else if (val > 1) {
+    if (singleCond) singleCond.classList.remove('show');
+    if (multiBizWrap) multiBizWrap.style.display = '';
+    if (bizLargestWrap) bizLargestWrap.style.display = '';
+  } else {
+    if (singleCond) singleCond.classList.remove('show');
+    if (multiBizWrap) multiBizWrap.style.display = 'none';
+    if (bizLargestWrap) bizLargestWrap.style.display = 'none';
+  }
+  saveField('business_count', countEl.value);
+}
+
 function afterSectionRender() {
   // Recalculate displayed totals after section loads
-  setTimeout(()=>{updateCalcFields();checkWillYear();},50);
+  setTimeout(()=>{updateCalcFields();checkWillYear();updateTaxSliderVisibility();updateCoverageAnalysis();},50);
 }
 // Find a field definition anywhere in the form (including nested follow fields)
 function findFieldDef(fid, fields) {
@@ -1779,12 +2212,18 @@ function renderPForm() {
 
   pItems.forEach((item, idx) => {
     const sc = item.status ? 'status-'+item.status : 'status-none';
+    // Map status to its background color so the block container is fully colored — no gap
+    const statusBg = item.status === 'critical' ? 'var(--green-row)'
+                   : item.status === 'optional'  ? 'var(--grey-row)'
+                   : item.status === 'bypass'    ? 'var(--red-row)'
+                   : 'var(--white)';
     const block = document.createElement('div');
     block.className = 'item-block';
     block.draggable = true;
     block.dataset.idx = idx;
     block.style.cursor = 'grab';
     block.style.transition = 'opacity 0.15s';
+    block.style.background = statusBg;
 
     block.addEventListener('dragstart', e => {
       pDragSrc = idx; block.style.opacity = '0.4'; e.dataTransfer.effectAllowed = 'move';
@@ -1810,6 +2249,7 @@ function renderPForm() {
     const row = document.createElement('div');
     row.className = 'item-row '+sc;
     row.style.gridTemplateColumns = gridCols;
+    row.style.background = 'transparent';
 
     const progressCellHtml = pSessionComplete ? (() => {
       const chips = PROGRESS_STAGES.map(s =>
@@ -1865,10 +2305,11 @@ function renderPForm() {
       renderPForm(); autosavePrioritizer();
     });
 
-    // Notes + Progress Notes
+    // Notes area — background is transparent; the parent block carries the color
     const hasNotes = item.notes && item.notes.trim();
     const notesArea = document.createElement('div');
-    notesArea.className = 'item-notes-area '+sc;
+    notesArea.className = 'item-notes-area';
+    notesArea.style.background = 'transparent';
 
     const notesFieldHtml = hasNotes
       ? `<div class="notes-field-wrap" id="nfw-${item.id}"><input class="notes-input" type="text" placeholder="Notes\u2026" value="${esc(item.notes)}"/><button class="notes-clear-btn" title="Clear">\u2715</button></div>`
