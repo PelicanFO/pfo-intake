@@ -196,10 +196,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .client-notes-textarea:focus{border-color:var(--navy-light);}
 
 /* RESPONSE DISPLAY */
-.response-section-title{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin-bottom:.35rem;margin-top:.75rem;}
-.response-row{display:flex;gap:12px;font-size:13px;margin-bottom:.25rem;line-height:1.5;}
-.response-label{color:var(--text-muted);flex-shrink:0;min-width:175px;}
-.response-value{color:var(--text);}
 
 /* CLIENT STATUS TAGS */
 .cf-tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:500;margin-left:8px;vertical-align:middle;letter-spacing:.02em;}
@@ -221,9 +217,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white);}
 .plan-col{display:flex;flex-direction:column;border-right:1px solid var(--border);}
 .plan-col:last-child{border-right:none;}
-.plan-col-header{padding:14px 16px;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.plan-col-header{padding:13px 16px;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .plan-col-header .plan-col-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.plan-col-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:300px;}
 .plan-item{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.5;position:relative;cursor:text;transition:border-color .15s;min-height:38px;caret-color:var(--navy);}
 .plan-item:hover{border-color:rgba(15,37,53,.22);}
 .plan-item:focus{outline:2px solid var(--navy-light);outline-offset:1px;background:#fff;color:var(--text);caret-color:var(--navy);}
@@ -252,9 +247,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 #pdf-preview{border:1px solid var(--border);border-radius:12px;padding:2.75rem;background:#fff;box-shadow:0 1px 4px rgba(15,37,53,.05),0 4px 20px rgba(15,37,53,.04);}
 
 /* SORT TABS */
-.sort-tab{padding:5px 14px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text-muted);cursor:pointer;transition:all .15s;}
-.sort-tab:hover{border-color:rgba(15,37,53,.22);color:var(--text);}
-.sort-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
 /* TAX SLIDER */
 .tax-slider-wrap{margin-top:6px;}
@@ -317,16 +309,41 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
 /* View transitions */
 #view-home,#view-clients,#view-intake,#view-analysis,#view-prioritizer,#view-plan,#view-export{
-  animation:fadeIn .18s ease;
+  animation:fadeIn .2s ease;
 }
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 
 /* Client cards */
-#client-list-container .card{transition:box-shadow .15s,border-color .15s;}
-#client-list-container .card:hover{box-shadow:0 2px 12px rgba(15,37,53,.09);border-color:rgba(15,37,53,.15);}
+#client-list-container .card{transition:box-shadow .18s,border-color .18s;cursor:default;}
+#client-list-container .card:hover{box-shadow:0 2px 16px rgba(15,37,53,.1);border-color:rgba(15,37,53,.16);}
 
-/* Intake nav section step indicator */
-.section-step-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);background:var(--cream-dark);border-radius:99px;padding:3px 10px;}
+/* Responses collapse toggle */
+#responses-toggle,#p-responses-toggle{user-select:none;}
+#responses-toggle:hover .card-title,#p-responses-toggle:hover .card-title{color:var(--navy-light);}
+
+/* Plan column body scrollable when tall */
+.plan-col-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:600px;overflow-y:auto;}
+.plan-col-body::-webkit-scrollbar{width:4px;}
+.plan-col-body::-webkit-scrollbar-track{background:transparent;}
+.plan-col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+
+/* Response display section titles */
+.response-section-title{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-light);margin-bottom:.35rem;margin-top:.85rem;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.response-row{display:flex;gap:12px;font-size:12.5px;margin-bottom:.25rem;line-height:1.5;}
+.response-label{color:var(--text-muted);flex-shrink:0;min-width:170px;}
+.response-value{color:var(--text);}
+
+/* Sort tabs */
+.sort-tab{padding:5px 14px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text-muted);cursor:pointer;transition:all .13s;letter-spacing:.01em;}
+.sort-tab:hover{border-color:rgba(15,37,53,.22);color:var(--text);}
+.sort-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* Section jump nav */
+.section-nav{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1.25rem;}
+.section-nav-btn{padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-muted);cursor:pointer;transition:all .13s;white-space:nowrap;line-height:1.4;}
+.section-nav-btn:hover{border-color:rgba(15,37,53,.22);color:var(--text);background:var(--cream-dark);}
+.section-nav-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500;}
+.section-nav-btn.visited{color:var(--navy-light);border-color:rgba(42,82,128,.3);}
 
 </style>
 </head>
@@ -415,14 +432,14 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
     <!-- CLIENTS LIST -->
     <div id="view-clients" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px;">
         <div>
-          <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);margin-bottom:3px;">All clients</h2>
-          <p style="font-size:14px;color:var(--text-muted);">Select a client to continue their session.</p>
+          <h2 style="font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;color:var(--navy);margin-bottom:4px;letter-spacing:.01em;">All clients</h2>
+          <p style="font-size:13px;color:var(--text-muted);">Select a client to continue their session.</p>
         </div>
         <button class="btn btn-sm admin-only" id="export-csv-btn">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
-          Export all to XLSX
+          Export XLSX
         </button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;">
@@ -448,7 +465,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         </div>
         <button class="btn btn-ghost btn-sm" id="intake-back-btn">← Back</button>
       </div>
-      <div class="cf-progress" style="margin-bottom:1.75rem;"><div class="cf-progress-bar" id="cf-progress-bar" style="width:2%;"></div></div>
+      <div class="cf-progress" style="margin-bottom:1rem;"><div class="cf-progress-bar" id="cf-progress-bar" style="width:2%;"></div></div>
+      <div class="section-nav" id="cf-section-nav"></div>
       <div id="cf-form-body"></div>
       <div style="display:flex;gap:8px;margin-top:1.75rem;flex-wrap:wrap;" id="cf-nav-buttons"></div>
     </div>
@@ -530,11 +548,14 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
     <!-- SAVE & SHARE -->
     <div id="view-export" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
-        <div class="page-header" style="margin:0;"><h2>Save &amp; share results</h2></div>
-        <button class="btn btn-sm" id="back-to-p-btn">← Back</button>
+        <div>
+          <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);letter-spacing:.01em;">Review &amp; Share</h2>
+          <p style="font-size:13px;color:var(--text-muted);margin-top:3px;" id="export-client-subtitle"></p>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="back-to-p-btn">← Back to priorities</button>
       </div>
       <!-- Action buttons -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;align-items:center;">
         <button class="btn btn-primary" id="print-btn">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
           Download / Print PDF
@@ -1379,6 +1400,24 @@ function getCumulativeStart(sectionIdx) {
   return start;
 }
 
+function renderSectionNav() {
+  const nav = document.getElementById('cf-section-nav');
+  if (!nav) return;
+  nav.innerHTML = '';
+  FORM_SECTIONS.forEach((sec, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'section-nav-btn' +
+      (idx === cfSection ? ' active' : idx < cfSection ? ' visited' : '');
+    btn.textContent = sec.title;
+    btn.addEventListener('click', () => {
+      cfSection = idx;
+      renderCFSection();
+      window.scrollTo(0, 0);
+    });
+    nav.appendChild(btn);
+  });
+}
+
 function renderCFSection() {
   const sec = FORM_SECTIONS[cfSection];
   const totalQ = getTotalQuestions();
@@ -1386,6 +1425,7 @@ function renderCFSection() {
   const pct = Math.round(((cfSection) / FORM_SECTIONS.length) * 100);
   document.getElementById('cf-progress-bar').style.width = Math.max(2, pct) + '%';
   document.getElementById('cf-progress-label').textContent = 'Section ' + (cfSection + 1) + ' of ' + FORM_SECTIONS.length + '  ·  ' + completedQ + ' / ' + totalQ + ' questions';
+  renderSectionNav();
 
   let html = `<div class="card"><div class="form-section-header"><div class="form-section-icon">${sec.icon}</div><div class="form-section-title">${sec.title}</div></div>`;
   // Cumulative question numbering starting from where this section begins
@@ -2042,6 +2082,13 @@ async function cfSubmit() {
   goDirectToPrioritizer(currentClientId);
 }
 
+function updatePlanBtnLabel() {
+  const btn = document.getElementById('export-btn');
+  if (!btn) return;
+  const hasPlan = planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length);
+  btn.textContent = hasPlan ? 'View action plan →' : 'Build action plan →';
+}
+
 async function goDirectToPrioritizer(clientId) {
   // Check for existing saved intake
   const existing = await getIntakeForClient(clientId);
@@ -2055,7 +2102,13 @@ async function goDirectToPrioritizer(clientId) {
     document.getElementById('p-responses-body').style.display='none';
     document.getElementById('p-responses-toggle-label').textContent='Show \u25be';
     aiItems = existing.ai_items || [];
+    // Restore plan data so button label reflects reality
+    const savedPlan = existing.form_data?.__plan_data;
+    if (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length)) {
+      planData = savedPlan;
+    }
     renderPForm(); showView('prioritizer');
+    updatePlanBtnLabel();
     // Do NOT regenerate AI — preserve what has already been reviewed and prioritized
   } else {
     // No saved intake — generate AI for the first time
@@ -2066,6 +2119,7 @@ async function goDirectToPrioritizer(clientId) {
     document.getElementById('p-responses-body').style.display='none';
     document.getElementById('p-responses-toggle-label').textContent='Show \u25be';
     showView('prioritizer');
+    updatePlanBtnLabel();
     document.getElementById('p-items-container').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);font-size:14px;"><div class="loading-pulse"><span></span><span></span><span></span></div><div style="margin-top:1rem;">Generating focus areas…</div></div>';
     document.getElementById('p-saved-status').textContent = 'Generating\u2026';
     await runAnalysisAndPopulate(clientId);
@@ -2603,21 +2657,20 @@ async function goToPlan() {
   document.getElementById('plan-client-title').textContent = currentClientName;
   document.getElementById('plan-saved-status').textContent = '';
 
-  // Load existing plan — never regenerate
+  // Load existing plan — never regenerate if one exists
   const existingIntake = await getIntakeForClient(currentClientId);
   const savedPlan = existingIntake?.form_data?.__plan_data;
   if (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length)) {
     planData = savedPlan;
+    renderPlanView(false);
+    showView('plan');
   } else {
-    // First time: generate with AI once
+    // First time only: generate with AI
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
     renderPlanView(true);
     showView('plan');
     await generatePlanWithAI();
-    return;
   }
-  renderPlanView(false);
-  showView('plan');
 }
 
 // Entry from client card "View Plan" button
@@ -2706,6 +2759,7 @@ async function generatePlanWithAI() {
     planData.accomplished = planData.accomplished || [];
     await savePlanData();
     renderPlanView(false);
+    updatePlanBtnLabel();
   } catch(e) {
     console.error('Plan AI failed:', e);
     renderPlanView(false, true); // show error state
@@ -2958,6 +3012,9 @@ async function goToExport() {
 function buildPDFPreview() {
   const client = currentClientName||'—';
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  // Update subtitle
+  const sub = document.getElementById('export-client-subtitle');
+  if (sub) sub.textContent = client + '  ·  ' + today;
   const critical=pItems.filter(i=>i.status==='critical').length;
   const optional=pItems.filter(i=>i.status==='optional').length;
   const bypass=pItems.filter(i=>i.status==='bypass').length;
@@ -2994,8 +3051,8 @@ function buildPDFPreview() {
       <tbody>${rows}</tbody>
     </table>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2rem;">${sc(critical,'Critical','#b6f2cc','#0d5229')}${sc(optional,'Optional','#d8d8d8','#3a3a3a')}${sc(bypass,'Bypass','#ffb3b6','#800006')}${sc(unset,'Unset','#f0ede6','#999')}</div>
-    ${buildPDFResponsesHTML(pClientFormData)}
     ${buildPDFPlanHTML()}
+    ${buildPDFResponsesHTML(pClientFormData)}
     <div style="border-top:1px solid #ede9e0;padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:#ccc;font-family:'DM Sans',sans-serif;margin-top:1rem;"><span>Pelican Family Office — Confidential</span><span>Generated ${today}</span></div>
   </div>`;
 }
