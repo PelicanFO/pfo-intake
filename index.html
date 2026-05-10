@@ -266,10 +266,10 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .advisor-check-list{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
 .advisor-check-item{border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .15s;}
 .advisor-check-item.checked{border-color:var(--navy-light);}
-.advisor-check-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--white);}
+.advisor-check-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--white) !important;}
 .advisor-check-header input[type=checkbox]{accent-color:var(--navy);width:16px;height:16px;flex-shrink:0;cursor:pointer;}
 .advisor-check-header span{font-size:14px;color:var(--text);}
-.advisor-check-body{padding:0 14px 12px 40px;display:none;background:var(--white);}
+.advisor-check-body{padding:0 14px 12px 40px;display:none;background:var(--white) !important;}
 .advisor-check-body.open{display:block;}
 .advisor-slider-row{margin-bottom:8px;}
 .advisor-slider-label{font-size:11.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;display:block;}
@@ -653,6 +653,8 @@ async function dbInsert(tbl, payload) {
     // Strip cpa_code from payload if column doesn't exist yet
     const safe = {...payload};
     if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) { delete safe.cpa_code; delete safe.client_status; }
+    // plan_data is NOT a real column — strip it if accidentally present
+    if (tbl===TBL_INTAKES) { delete safe.plan_data; }
     const {data,error}=await db.from(tbl).insert(safe).select().single();
     if(error) throw error;
     return data.id;
@@ -667,6 +669,8 @@ async function dbUpdate(tbl, id, payload) {
   try {
     const safe = {...payload};
     if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) { delete safe.cpa_code; delete safe.client_status; }
+    // plan_data is NOT a real column — it lives inside form_data.__plan_data. Strip it if accidentally present.
+    if (tbl===TBL_INTAKES) { delete safe.plan_data; }
     const {error}=await db.from(tbl).update(safe).eq('id',id);
     if(error) throw error;
   } catch(e) {
@@ -985,7 +989,8 @@ async function renderClientList() {
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
           ${complete?`<button class="btn btn-xs" data-action="open-priorities" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View priorities</button>`:''}
-          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Review →</button>`:''}
+          ${complete?`<button class="btn btn-xs" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View plan</button>`:''}
+          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-export" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Review →</button>`:''}
           ${userRole==='admin'?`<button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>`:''}
         </div>
       </div>
@@ -1014,6 +1019,7 @@ async function renderClientList() {
         else if (action === 'open-analysis') openAnalysisById(id);
         else if (action === 'open-priorities') openPrioritiesById(id);
         else if (action === 'open-plan') openPlanById(id, btn.dataset.name||'');
+        else if (action === 'open-export') openExportById(id, btn.dataset.name||'');
         else if (action === 'delete-client') { pendingDeleteId = id; document.getElementById('delete-modal').classList.add('open'); }
         else if (action === 'toggle-client-notes') {
           const field = document.getElementById('cnf-'+id);
@@ -1482,7 +1488,7 @@ function renderField(f, qNum) {
           const key = o.replace(/[^a-z0-9]/gi,'_').toLowerCase();
           return `<div class="advisor-check-item" id="adv-item-${key}">
             <div class="advisor-check-header" onclick="toggleAdvisor('${key}','${esc(o)}')">
-              <input type="checkbox" id="adv-cb-${key}" data-advisor="${esc(o)}" onchange="event.stopPropagation();toggleAdvisor('${key}','${esc(o)}')"/>
+              <input type="checkbox" id="adv-cb-${key}" data-advisor="${esc(o)}" onchange="event.stopPropagation();toggleAdvisorFromCheckbox('${key}','${esc(o)}')"/>
               <span>${esc(o)}</span>
             </div>
             <div class="advisor-check-body" id="adv-body-${key}">
@@ -1786,11 +1792,22 @@ function wireAdvisorChecks() {
 function toggleAdvisor(key, name) {
   const cb = document.getElementById('adv-cb-'+key);
   if (!cb) return;
-  // If called from header click (not the checkbox itself), toggle the checkbox
+  // Called from header click — toggle the checkbox
   cb.checked = !cb.checked;
+  _applyAdvisorState(key, name, cb.checked);
+}
+
+function toggleAdvisorFromCheckbox(key, name) {
+  const cb = document.getElementById('adv-cb-'+key);
+  if (!cb) return;
+  // Called from checkbox onchange — checkbox already has the new value
+  _applyAdvisorState(key, name, cb.checked);
+}
+
+function _applyAdvisorState(key, name, isChecked) {
   const item = document.getElementById('adv-item-'+key);
   const body = document.getElementById('adv-body-'+key);
-  if (cb.checked) {
+  if (isChecked) {
     if (item) item.classList.add('checked');
     if (body) body.classList.add('open');
     // Default slider to 7
@@ -1895,7 +1912,14 @@ function wireBusinessCount() {
   // Hide multi-business-only fields initially (the list entry and header)
   _hideMultiBizFields();
 
-  countEl.addEventListener('input', applyBusinessCountLogic);
+  countEl.addEventListener('input', () => {
+    // Ensure parent container stays visible while editing count
+    const bizParent = document.getElementById('cond-has_business-Yes');
+    if (bizParent && currentFormData['has_business'] === 'Yes') {
+      bizParent.classList.add('show');
+    }
+    applyBusinessCountLogic();
+  });
   // Restore on section render
   if (currentFormData['business_count']) {
     countEl.value = currentFormData['business_count'];
@@ -1928,6 +1952,11 @@ function applyBusinessCountLogic() {
     // For 1 business (or blank): just use the single set of fields that are always visible
     if (mw) mw.style.display = 'none';
     if (bh) bh.style.display = 'none';
+  }
+  // Ensure the parent has_business conditional is still showing (do not let count changes collapse it)
+  const bizParent = document.getElementById('cond-has_business-Yes');
+  if (bizParent && currentFormData['has_business'] === 'Yes') {
+    bizParent.classList.add('show');
   }
 }
 
@@ -2598,6 +2627,36 @@ async function openPlanById(clientId, clientName) {
   showView('plan');
 }
 
+// Open the Save & Share page directly (Review button from client list)
+async function openExportById(clientId, clientName) {
+  const rec = await dbGet(TBL_CLIENTS, clientId);
+  if (!rec) { toast('Could not load client.'); return; }
+  currentClientId = clientId;
+  currentClientName = clientName || rec.client_name || '';
+  currentFormData = rec.form_data || {};
+
+  const intake = await getIntakeForClient(clientId);
+  if (!intake) { toast('No data found. Complete the prioritizer first.'); return; }
+
+  // Restore prioritizer state
+  pCurrentId = intake.id;
+  pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
+  pClientFormData = intake.form_data || currentFormData;
+  aiItems = intake.ai_items || [];
+  pSessionComplete = true;
+  planClientId = clientId;
+
+  // Restore plan data
+  const savedPlan = intake.form_data?.__plan_data;
+  planData = (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length))
+    ? savedPlan
+    : { goals:[], friction:[], actions:[], accomplished:[] };
+
+  buildPDFPreview();
+  showView('export');
+}
+
+
 async function generatePlanWithAI() {
   try {
     const prompt = buildPlanPrompt();
@@ -2840,7 +2899,18 @@ async function goToExport() {
   if (pItems.length) sortItems();
   const statusEl = document.getElementById('p-saved-status');
   if (statusEl) statusEl.textContent = 'Saving…';
-  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:pClientFormData, staff_name:staffName, saved_at:Date.now()};
+  // Load any existing plan data from intake (in case we arrived from prioritizer directly)
+  if (!planData.goals?.length && !planData.friction?.length && !planData.actions?.length) {
+    const existingIntake = await getIntakeForClient(currentClientId);
+    const savedPlan = existingIntake?.form_data?.__plan_data;
+    if (savedPlan) planData = savedPlan;
+  }
+  // Preserve __plan_data in form_data when saving
+  const formDataWithPlan = {...(pClientFormData||{})};
+  if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
+    formDataWithPlan.__plan_data = JSON.parse(JSON.stringify(planData));
+  }
+  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataWithPlan, staff_name:staffName, saved_at:Date.now()};
   if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
   else pCurrentId = await dbInsert(TBL_INTAKES, payload);
   if (statusEl) statusEl.textContent = 'Saved ✓';
@@ -2920,6 +2990,8 @@ function buildPDFPlanHTML() {
     <div style="display:flex;gap:10px;">${colsHtml}</div>
   </div>`;
 }
+
+function buildPDFResponsesHTML(fd) {
   if (!fd||!Object.keys(fd).length) return '';
   const fmt=v=>Array.isArray(v)?(v.join(', ')||'—'):(v||'—');
   let html=`<div style="margin-bottom:1.5rem;"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #ede9e0;">Client profile</div>`;
