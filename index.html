@@ -269,7 +269,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .advisor-check-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--white);}
 .advisor-check-header input[type=checkbox]{accent-color:var(--navy);width:16px;height:16px;flex-shrink:0;cursor:pointer;}
 .advisor-check-header span{font-size:14px;color:var(--text);}
-.advisor-check-body{padding:0 14px 12px 40px;display:none;background:var(--cream);}
+.advisor-check-body{padding:0 14px 12px 40px;display:none;background:var(--white);}
 .advisor-check-body.open{display:block;}
 .advisor-slider-row{margin-bottom:8px;}
 .advisor-slider-label{font-size:11.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;display:block;}
@@ -984,8 +984,8 @@ async function renderClientList() {
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
-          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review →</button>`:''}
-          ${complete?`<button class="btn btn-xs" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">📋 View Plan</button>`:''}
+          ${complete?`<button class="btn btn-xs" data-action="open-priorities" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View priorities</button>`:''}
+          ${complete?`<button class="btn btn-xs btn-primary" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Review →</button>`:''}
           ${userRole==='admin'?`<button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>`:''}
         </div>
       </div>
@@ -1012,6 +1012,7 @@ async function renderClientList() {
         const id = btn.dataset.id;
         if (action === 'open-form') openIntakeById(id, btn.dataset.name||'');
         else if (action === 'open-analysis') openAnalysisById(id);
+        else if (action === 'open-priorities') openPrioritiesById(id);
         else if (action === 'open-plan') openPlanById(id, btn.dataset.name||'');
         else if (action === 'delete-client') { pendingDeleteId = id; document.getElementById('delete-modal').classList.add('open'); }
         else if (action === 'toggle-client-notes') {
@@ -1254,43 +1255,25 @@ const FORM_SECTIONS = [
     fields:[
       {id:'has_business',label:'Do you have any ownership interest in a private business?',type:'radio',options:['Yes','No'],
         follow:[
-          {show:'Yes',id:'business_count',label:'How many private businesses do you have an ownership interest in?',type:'number',placeholder:'e.g. 1',
-            follow:[
-              {show:'1',id:'business_name',label:'Business name',type:'text',placeholder:''},
-              {show:'1',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
-              {show:'1',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
-              {show:'1',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
-              {show:'1',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
-              {show:'1',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
-              {show:'1',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
-              {show:'1',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
-              {show:'1',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
-              {show:'1',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
-              {show:'1',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
-              {show:'1',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-              {show:'1',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
-              {show:'1',id:'biz_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
-              {show:'1',id:'biz_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
-              {show:'1',id:'biz_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
-            ]},
+          {show:'Yes',id:'business_count',label:'How many private businesses do you have an ownership interest in?',type:'number',placeholder:'e.g. 1'},
           {show:'Yes',id:'multi_business_list',label:'Please list each business ownership interest and its prior year net income',type:'multibizblock',placeholder:''},
           {show:'Yes',id:'biz_largest_header',label:'',type:'bizlargestheader'},
-          {show:'Yes',id:'biz_multi_name',label:'Business name',type:'text',placeholder:''},
-          {show:'Yes',id:'biz_multi_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
-          {show:'Yes',id:'biz_multi_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
-          {show:'Yes',id:'biz_multi_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
-          {show:'Yes',id:'biz_multi_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
-          {show:'Yes',id:'biz_multi_employees',label:'Number of employees',type:'number',placeholder:''},
-          {show:'Yes',id:'biz_multi_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_multi_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_multi_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_multi_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_multi_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
-          {show:'Yes',id:'biz_multi_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-          {show:'Yes',id:'biz_multi_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_multi_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_multi_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_multi_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'business_name',label:'Business name',type:'text',placeholder:''},
+          {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
+          {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
+          {show:'Yes',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
+          {show:'Yes',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
+          {show:'Yes',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
+          {show:'Yes',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
+          {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
+          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement?',type:'radio',options:['Yes','No'],
@@ -1909,7 +1892,7 @@ function wireBusinessCount() {
   const countEl = document.getElementById('cf-business_count');
   if (!countEl) return;
 
-  // Always start by hiding multi-business fields — they only show when count > 1
+  // Hide multi-business-only fields initially (the list entry and header)
   _hideMultiBizFields();
 
   countEl.addEventListener('input', applyBusinessCountLogic);
@@ -1921,19 +1904,6 @@ function wireBusinessCount() {
 }
 
 function _hideMultiBizFields() {
-  // Hide multi-business field groups by finding their parent field-group containers
-  const multiFieldIds = ['cf-biz_multi_name','cf-biz_multi_entity','cf-biz_multi_role','cf-biz_multi_industry',
-    'cf-biz_multi_revenue_model','cf-biz_multi_employees','cf-biz_multi_revenue',
-    'cf-biz_multi_net_profit','cf-biz_multi_est_value','cf-biz_multi_value_method',
-    'cf-biz_multi_hours_week','cf-biz_multi_weeks_vacation','cf-biz_multi_owner_dependent',
-    'cf-biz_multi_key_goals','cf-biz_multi_exit_plan','cf-biz_multi_value_if_systemized'];
-  multiFieldIds.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      const fg = el.closest('.field-group');
-      if (fg) fg.style.display = 'none';
-    }
-  });
   const mw = document.getElementById('multibiz-wrap');
   if (mw) mw.style.display = 'none';
   const bh = document.getElementById('biz-largest-header-wrap');
@@ -1946,47 +1916,17 @@ function applyBusinessCountLogic() {
   const val = parseInt(countEl.value) || 0;
   saveField('business_count', countEl.value);
 
-  // Single business conditional (show:'1' nested under business_count)
-  const singleCond = document.getElementById('cond-business_count-1');
+  // Multi-business list entry fields only appear when count > 1
+  const mw = document.getElementById('multibiz-wrap');
+  const bh = document.getElementById('biz-largest-header-wrap');
 
-  // Multi-business elements: these are show:'Yes' siblings that should only show when count > 1
-  const multiIds = ['multibiz-wrap','biz-largest-header-wrap',
-    'cf-biz_multi_name','cf-biz_multi_entity','cf-biz_multi_role','cf-biz_multi_industry',
-    'cf-biz_multi_revenue_model','cf-biz_multi_employees','cf-biz_multi_revenue',
-    'cf-biz_multi_net_profit','cf-biz_multi_est_value','cf-biz_multi_value_method',
-    'cf-biz_multi_hours_week','cf-biz_multi_weeks_vacation','cf-biz_multi_owner_dependent',
-    'cf-biz_multi_key_goals','cf-biz_multi_exit_plan','cf-biz_multi_value_if_systemized'];
-
-  // Find all field-group wrappers for multi-business fields
-  const multiFieldGroups = multiIds.map(id => {
-    const el = document.getElementById(id);
-    return el ? (el.closest('.field-group') || el.closest('.conditional-field') || el) : null;
-  }).filter(Boolean);
-
-  if (val === 1) {
-    // Show single-business questions, hide multi-business elements
-    if (singleCond) singleCond.classList.add('show');
-    multiFieldGroups.forEach(el => el.style.display = 'none');
-    const mw = document.getElementById('multibiz-wrap');
-    if (mw) mw.style.display = 'none';
-    const bh = document.getElementById('biz-largest-header-wrap');
-    if (bh) bh.style.display = 'none';
-  } else if (val > 1) {
-    // Hide single-business questions, show multi-business elements
-    if (singleCond) singleCond.classList.remove('show');
-    const mw = document.getElementById('multibiz-wrap');
+  if (val > 1) {
+    // Show the multi-business list and header (for entering each business)
     if (mw) mw.style.display = '';
-    const bh = document.getElementById('biz-largest-header-wrap');
     if (bh) bh.style.display = '';
-    // Show multi field groups
-    multiFieldGroups.forEach(el => el.style.display = '');
   } else {
-    // No value — hide everything
-    if (singleCond) singleCond.classList.remove('show');
-    multiFieldGroups.forEach(el => el.style.display = 'none');
-    const mw = document.getElementById('multibiz-wrap');
+    // For 1 business (or blank): just use the single set of fields that are always visible
     if (mw) mw.style.display = 'none';
-    const bh = document.getElementById('biz-largest-header-wrap');
     if (bh) bh.style.display = 'none';
   }
 }
@@ -2060,11 +2000,11 @@ async function goDirectToPrioritizer(clientId) {
     pResponsesOpen = false;
     document.getElementById('p-responses-body').style.display='none';
     document.getElementById('p-responses-toggle-label').textContent='Show \u25be';
+    aiItems = existing.ai_items || [];
     renderPForm(); showView('prioritizer');
-    // Regenerate AI in background to refresh
-    runAnalysisBackground(clientId);
+    // Do NOT regenerate AI — preserve what has already been reviewed and prioritized
   } else {
-    // Show loading state in prioritizer while AI runs
+    // No saved intake — generate AI for the first time
     pItems = []; pCurrentId = null; pClientFormData = currentFormData;
     document.getElementById('p-client-title').textContent = currentClientName;
     document.getElementById('p-responses-body').innerHTML = buildResponsesHTML(pClientFormData);
@@ -2157,6 +2097,17 @@ function buildResponsesHTML(fd) {
 //  ANALYSIS — loads saved or generates new
 // ══════════════════════════════════
 async function openAnalysisById(clientId) {
+  const rec = await dbGet(TBL_CLIENTS, clientId);
+  if (!rec) { toast('Could not load client.'); return; }
+  currentClientId = clientId;
+  currentClientName = rec.client_name || '';
+  currentFormData = rec.form_data || {};
+  pSessionComplete = true;
+  await goDirectToPrioritizer(clientId);
+}
+
+// Open priorities view directly (without going to plan)
+async function openPrioritiesById(clientId) {
   const rec = await dbGet(TBL_CLIENTS, clientId);
   if (!rec) { toast('Could not load client.'); return; }
   currentClientId = clientId;
@@ -2598,14 +2549,11 @@ async function goToPlan() {
   document.getElementById('plan-client-title').textContent = currentClientName;
   document.getElementById('plan-saved-status').textContent = '';
 
-  // Check if plan already exists for this client
+  // Check if plan already exists (stored in intake's form_data.__plan_data)
   const existingIntake = await getIntakeForClient(currentClientId);
-  if (existingIntake && existingIntake.plan_data && (
-    existingIntake.plan_data.goals?.length ||
-    existingIntake.plan_data.friction?.length ||
-    existingIntake.plan_data.actions?.length
-  )) {
-    planData = existingIntake.plan_data;
+  const savedPlan = existingIntake?.form_data?.__plan_data;
+  if (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length)) {
+    planData = savedPlan;
     renderPlanView(false);
   } else {
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
@@ -2629,7 +2577,7 @@ async function openPlanById(clientId, clientName) {
 
   // Load intake + plan data
   const intake = await getIntakeForClient(clientId);
-  if (!intake) { toast('No plan data found. Complete the prioritizer first.'); return; }
+  if (!intake) { toast('No plan found. Complete the prioritizer first.'); return; }
 
   // Restore prioritizer state so Save & Share works
   pCurrentId = intake.id;
@@ -2637,12 +2585,10 @@ async function openPlanById(clientId, clientName) {
   pClientFormData = intake.form_data || currentFormData;
   aiItems = intake.ai_items || [];
 
-  if (intake.plan_data && (
-    intake.plan_data.goals?.length ||
-    intake.plan_data.friction?.length ||
-    intake.plan_data.actions?.length
-  )) {
-    planData = intake.plan_data;
+  // Read plan from intake's form_data.__plan_data
+  const savedPlan = intake.form_data?.__plan_data;
+  if (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length)) {
+    planData = savedPlan;
     renderPlanView(false);
   } else {
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
@@ -2722,12 +2668,17 @@ function uid() {
 
 async function savePlanData() {
   if (!pCurrentId) return;
-  await dbUpdate(TBL_INTAKES, pCurrentId, {plan_data: JSON.parse(JSON.stringify(planData))});
-  document.getElementById('plan-saved-status').textContent = '✓ Saved';
-  setTimeout(() => {
+  // Store plan inside the intake's form_data JSON to avoid needing a new DB column
+  try {
+    const existing = await getIntakeForClient(planClientId || currentClientId);
+    const existingFormData = (existing && existing.form_data) ? existing.form_data : {};
+    const merged = {...existingFormData, __plan_data: JSON.parse(JSON.stringify(planData))};
+    await dbUpdate(TBL_INTAKES, pCurrentId, {form_data: merged});
     const el = document.getElementById('plan-saved-status');
-    if (el) el.textContent = '';
-  }, 2000);
+    if (el) { el.textContent = '✓ Saved'; setTimeout(()=>{ if(el) el.textContent=''; }, 2000); }
+  } catch(e) {
+    console.error('Plan save error:', e);
+  }
 }
 
 let planSaveTimer;
@@ -2941,11 +2892,34 @@ function buildPDFPreview() {
     </table>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2rem;">${sc(critical,'Critical','#b6f2cc','#0d5229')}${sc(optional,'Optional','#d8d8d8','#3a3a3a')}${sc(bypass,'Bypass','#ffb3b6','#800006')}${sc(unset,'Unset','#f0ede6','#999')}</div>
     ${buildPDFResponsesHTML(pClientFormData)}
+    ${buildPDFPlanHTML()}
     <div style="border-top:1px solid #ede9e0;padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:#ccc;font-family:'DM Sans',sans-serif;margin-top:1rem;"><span>Pelican Family Office — Confidential</span><span>Generated ${today}</span></div>
   </div>`;
 }
 
-function buildPDFResponsesHTML(fd) {
+function buildPDFPlanHTML() {
+  const hasPlan = planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length || planData.accomplished?.length);
+  if (!hasPlan) return '';
+  const colDefs = [
+    {key:'goals', label:'Goals & Dreams', bg:'#eef4ff', hdr:'#1a3a6e'},
+    {key:'friction', label:'Friction Points & Opportunities', bg:'#fff8ec', hdr:'#b07030'},
+    {key:'actions', label:'Action Items', bg:'#edfaf3', hdr:'#1a7a3c'},
+    {key:'accomplished', label:'Items Accomplished', bg:'#f4f4f4', hdr:'#555'},
+  ];
+  const colsHtml = colDefs.map(c => {
+    const items = (planData[c.key]||[]).map(i =>
+      `<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:11px;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:5px;">${esc(i.text||'')}</div>`
+    ).join('');
+    return `<div style="flex:1;min-width:0;">
+      <div style="background:${c.hdr};color:#fff;padding:7px 10px;font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:600;border-radius:4px 4px 0 0;margin-bottom:5px;">${c.label}</div>
+      ${items||'<div style="font-size:10px;color:#aaa;padding:4px;">No items</div>'}
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #ede9e0;">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:1rem;">Client Action Plan</div>
+    <div style="display:flex;gap:10px;">${colsHtml}</div>
+  </div>`;
+}
   if (!fd||!Object.keys(fd).length) return '';
   const fmt=v=>Array.isArray(v)?(v.join(', ')||'—'):(v||'—');
   let html=`<div style="margin-bottom:1.5rem;"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #ede9e0;">Client profile</div>`;
@@ -3018,6 +2992,30 @@ function renderEmailTags() {
     tag.querySelector('button').addEventListener('click', () => removeEmailTag(idx));
     container.appendChild(tag);
   });
+}
+
+function buildEmailPlanHTML() {
+  const hasPlan = planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length);
+  if (!hasPlan) return '';
+  const colDefs = [
+    {key:'goals', label:'Goals & Dreams', hdr:'#1a3a6e'},
+    {key:'friction', label:'Friction Points', hdr:'#b07030'},
+    {key:'actions', label:'Action Items', hdr:'#1a7a3c'},
+    {key:'accomplished', label:'Accomplished', hdr:'#555'},
+  ];
+  const colsHtml = colDefs.map(c => {
+    const items = (planData[c.key]||[]).map(i =>
+      '<div style="padding:5px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:4px;font-size:11px;font-family:Arial,sans-serif;line-height:1.5;margin-bottom:4px;">'+escPlain(i.text||'')+'</div>'
+    ).join('');
+    return '<td style="vertical-align:top;padding:0 4px;width:25%;">'
+      +'<div style="background:'+c.hdr+';color:#fff;padding:6px 8px;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;border-radius:4px 4px 0 0;margin-bottom:4px;">'+c.label+'</div>'
+      +(items||'<div style="font-size:10px;color:#aaa;font-family:Arial,sans-serif;">No items</div>')
+      +'</td>';
+  }).join('');
+  return '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
+    +'<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:12px;font-family:Arial,sans-serif;">Client Action Plan</div>'
+    +'<table style="width:100%;border-collapse:collapse;"><tr>'+colsHtml+'</tr></table>'
+    +'</div>';
 }
 
 async function sendEmail() {
@@ -3104,6 +3102,7 @@ async function sendEmail() {
     +'<th style="padding:7px 12px;font-size:10px;color:#aaa;font-weight:normal;text-align:center;font-family:Arial,sans-serif;">Priority</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table>'
     +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
+    +buildEmailPlanHTML()
     +formSectionsHtml
     +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
     +'</div></div></body></html>';
