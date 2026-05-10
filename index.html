@@ -211,6 +211,36 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .modal h3{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);margin-bottom:.75rem;}
 .modal-actions{display:flex;gap:8px;margin-top:1.25rem;justify-content:flex-end;}
 
+/* ── CLIENT PLAN VIEW ─────────────────────────────────────────── */
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white);}
+.plan-col{display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.plan-col:last-child{border-right:none;}
+.plan-col-header{padding:14px 16px;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.plan-col-header .plan-col-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.plan-col-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:300px;}
+.plan-item{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.5;position:relative;cursor:text;transition:border-color .15s;}
+.plan-item:hover{border-color:rgba(15,37,53,.22);}
+.plan-item:focus{outline:2px solid var(--navy-light);outline-offset:1px;background:#fff;}
+.plan-item-del{position:absolute;top:5px;right:5px;background:none;border:none;color:var(--text-light);cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s;}
+.plan-item:hover .plan-item-del{opacity:1;}
+.plan-item-del:hover{color:var(--red-s);background:var(--red-bg);}
+.plan-add-btn{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px dashed var(--border);border-radius:8px;background:transparent;font-size:12px;color:var(--text-light);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;margin-top:2px;}
+.plan-add-btn:hover{border-color:var(--navy-light);color:var(--navy);background:var(--cream);}
+.plan-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1rem;gap:1rem;}
+.plan-loading p{font-size:13px;color:var(--text-muted);}
+.plan-col-goals .plan-col-header{background:#eef4ff;color:#1a3a6e;}
+.plan-col-goals .plan-col-icon{background:#1a3a6e;}
+.plan-col-friction .plan-col-header{background:#fff8ec;color:#7a4e00;}
+.plan-col-friction .plan-col-icon{background:#b07030;}
+.plan-col-actions .plan-col-header{background:#edfaf3;color:#0d5229;}
+.plan-col-actions .plan-col-icon{background:#1a7a3c;}
+.plan-col-accomplished .plan-col-header{background:#f4f4f4;color:#3a3a3a;}
+.plan-col-accomplished .plan-col-icon{background:#555;}
+.plan-item-accomplished{background:#efefef;border-color:#d0d0d0;}
+.plan-saved-badge{font-size:12px;color:var(--text-light);display:flex;align-items:center;gap:5px;}
+@media(max-width:900px){.plan-grid{grid-template-columns:1fr 1fr;}.plan-col:nth-child(2){border-right:none;}.plan-col:nth-child(3){border-top:1px solid var(--border)}.plan-col:nth-child(4){border-right:none;border-top:1px solid var(--border);}}
+@media(max-width:560px){.plan-grid{grid-template-columns:1fr;}.plan-col{border-right:none;border-top:1px solid var(--border);}.plan-col:first-child{border-top:none;}}
+
 #pdf-preview{border:1px solid var(--border);border-radius:10px;padding:2.5rem;background:#fff;box-shadow:var(--shadow);}
 
 /* SORT TABS */
@@ -247,6 +277,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .advisor-slider-track input[type=range]{flex:1;accent-color:var(--navy);}
 .advisor-slider-track .slider-num{font-size:13px;font-weight:500;color:var(--navy);min-width:24px;text-align:right;}
 .advisor-dissatisfied{margin-top:8px;}
+.advisor-name-input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white);outline:none;margin-top:3px;transition:border-color .15s;}
+.advisor-name-input:focus{border-color:var(--navy-light);}
 .advisor-dissatisfied textarea{width:100%;border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--white);resize:vertical;outline:none;transition:border-color .15s;}
 .advisor-dissatisfied textarea:focus{border-color:var(--navy-light);}
 
@@ -371,6 +403,10 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         <span style="font-size:12px;color:var(--text-muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase;">Sort by</span>
         <button class="sort-tab active" id="sort-tab-recent" onclick="setClientSort('recent')">Most recent</button>
         <button class="sort-tab" id="sort-tab-alpha" onclick="setClientSort('alpha')">Last name A–Z</button>
+        <div style="margin-left:auto;position:relative;">
+          <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none;" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/></svg>
+          <input type="text" id="client-search" placeholder="Search clients…" oninput="renderClientList()" style="padding:6px 12px 6px 30px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--cream);outline:none;width:200px;transition:border-color .15s;"/>
+        </div>
       </div>
       <div id="client-list-container">
         <div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>
@@ -386,7 +422,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         </div>
         <button class="btn btn-ghost btn-sm" id="intake-back-btn">← Back</button>
       </div>
-      <div class="cf-progress"><div class="cf-progress-bar" id="cf-progress-bar" style="width:5%;"></div></div>
+      <div class="cf-progress"><div class="cf-progress-bar" id="cf-progress-bar" style="width:2%;"></div></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:1.5rem;margin-top:4px;" id="cf-progress-label">0 / 0 questions complete</div>
       <div id="cf-form-body"></div>
       <div style="display:flex;gap:8px;margin-top:1.5rem;flex-wrap:wrap;" id="cf-nav-buttons"></div>
     </div>
@@ -434,7 +471,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" id="back-to-form-btn">← Back to form</button>
           <button class="btn btn-sm" id="sort-btn">↕ Sort</button>
-          <button class="btn btn-gold btn-sm" id="export-btn">Save →</button>
+          <button class="btn btn-gold btn-sm" id="export-btn">Next: Generate Plan →</button>
         </div>
       </div>
       <div class="card" style="margin-bottom:1.25rem;">
@@ -499,6 +536,28 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       </div>
 
       <div id="pdf-preview"></div>
+    </div>
+
+    <!-- CLIENT PLAN -->
+    <div id="view-plan" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);" id="plan-client-title"></div>
+          <div style="font-size:13px;color:var(--text-muted);">Client Action Plan</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span class="plan-saved-badge" id="plan-saved-status"></span>
+          <button class="btn btn-ghost btn-sm" id="back-to-prioritizer-btn">← Back to priorities</button>
+          <button class="btn btn-sm" id="plan-print-btn">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
+            Print
+          </button>
+          <button class="btn btn-gold btn-sm" id="plan-to-export-btn">Save &amp; Share →</button>
+        </div>
+      </div>
+      <div id="plan-content">
+        <!-- Populated by JS -->
+      </div>
     </div>
 
   </main>
@@ -666,6 +725,9 @@ let pSessionComplete = false; // true when reviewing completed client — enable
 let pendingDeleteId = null;
 let responsesOpen = false, pResponsesOpen = false;
 let clientSortMode = 'recent'; // 'recent' | 'alpha'
+// Plan state
+let planData = { goals:[], friction:[], actions:[], accomplished:[] };
+let planClientId = null;
 
 // ══════════════════════════════════
 //  ACCESS GATE
@@ -703,7 +765,7 @@ function checkLogin() {
 // ══════════════════════════════════
 //  VIEWS
 // ══════════════════════════════════
-const ALL_VIEWS = ['home','clients','intake','analysis','prioritizer','export'];
+const ALL_VIEWS = ['home','clients','intake','analysis','prioritizer','plan','export'];
 function showView(name) {
   ALL_VIEWS.forEach(v => {
     const el = document.getElementById('view-'+v);
@@ -753,10 +815,13 @@ function wireButtons() {
     else showView('home');
   });
   document.getElementById('sort-btn').addEventListener('click', () => { sortItems(); toast('Sorted ✓'); });
-  document.getElementById('export-btn').addEventListener('click', goToExport);
+  document.getElementById('export-btn').addEventListener('click', goToPlan);
   document.getElementById('add-item-btn').addEventListener('click', addPItem);
 
   document.getElementById('back-to-p-btn').addEventListener('click', () => showView('prioritizer'));
+  document.getElementById('back-to-prioritizer-btn').addEventListener('click', () => showView('prioritizer'));
+  document.getElementById('plan-to-export-btn').addEventListener('click', goToExport);
+  document.getElementById('plan-print-btn').addEventListener('click', printPlan);
   document.getElementById('email-btn').addEventListener('click', () => {
     const panel = document.getElementById('email-panel');
     const isOpen = panel.style.display === '';
@@ -831,7 +896,6 @@ async function renderClientList() {
   const container = document.getElementById('client-list-container');
   container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>';
   let clients = await dbGetAll(TBL_CLIENTS);
-  if (!clients.length) { container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">No clients yet.</div>'; return; }
 
   // Apply sort
   if (clientSortMode === 'alpha') {
@@ -845,6 +909,17 @@ async function renderClientList() {
     });
   }
   // 'recent' order comes from dbGetAll which already returns newest-first
+
+  // Apply search filter
+  const searchEl = document.getElementById('client-search');
+  const query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  if (query) {
+    clients = clients.filter(c => (c.client_name||'').toLowerCase().includes(query));
+  }
+  if (!clients.length) {
+    container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">${query ? 'No clients match your search.' : 'No clients yet.'}</div>`;
+    return;
+  }
 
   container.innerHTML = '';
 
@@ -910,6 +985,7 @@ async function renderClientList() {
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
           ${complete?`<button class="btn btn-xs btn-primary" data-action="open-analysis" data-id="${esc(String(c.id))}">Review →</button>`:''}
+          ${complete?`<button class="btn btn-xs" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">📋 View Plan</button>`:''}
           ${userRole==='admin'?`<button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>`:''}
         </div>
       </div>
@@ -936,6 +1012,7 @@ async function renderClientList() {
         const id = btn.dataset.id;
         if (action === 'open-form') openIntakeById(id, btn.dataset.name||'');
         else if (action === 'open-analysis') openAnalysisById(id);
+        else if (action === 'open-plan') openPlanById(id, btn.dataset.name||'');
         else if (action === 'delete-client') { pendingDeleteId = id; document.getElementById('delete-modal').classList.add('open'); }
         else if (action === 'toggle-client-notes') {
           const field = document.getElementById('cnf-'+id);
@@ -1071,7 +1148,7 @@ const FORM_SECTIONS = [
     id:'investments', title:'Investments & risk',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/></svg>',
     fields:[
-      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative — preserve capital, minimal risk','Moderate — balanced growth and protection','Growth-oriented — comfortable with market swings','Aggressive — maximize long-term growth']},
+      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative — preserve capital, minimal risk','Moderate — balanced growth and protection','Aggressive — maximize long-term growth']},
       {id:'investment_concerns',label:'Which of the following investment concerns apply to you?',type:'multicheck',options:['Market volatility','Sequence of returns risk','Not generating enough income','Too concentrated in one stock or sector','High fees or costs','Tax drag on returns','Inflation eroding purchasing power','Not sure if I am on track for retirement']},
       {id:'concentrated_position',label:'Do you have a concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
         follow:[
@@ -1086,13 +1163,16 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'tax', title:'Tax situation',
+    id:'advisors', title:'Advisory relationships',
+    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>',
+    fields:[
+      {id:'advisory_relationships',label:'Which of the following advisory relationships do you currently have in place?',type:'advisorcheck',options:['CPA','Estate Planning Attorney','Financial Planner','Wealth Manager','Business Advisor','Insurance Agent']},
+    ]
+  },
+  {
+    id:'tax', title:'Tax Profile',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/></svg>',
     fields:[
-      {id:'has_cpa',label:'Do you work with a CPA or tax preparer?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'cpa_name',label:'Name / firm',type:'text',placeholder:''},
-        ]},
       {id:'unrealized_gains',label:'Do you have significant unrealized capital gains in taxable accounts?',type:'radio',options:['Yes','No','Unsure'],
         follow:[
           {show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'},
@@ -1166,11 +1246,6 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'trust_reviewed',label:'What year was it last reviewed?',type:'number',placeholder:'e.g. 2020'},
         ]},
       {id:'beneficiaries_current',label:'Have you reviewed beneficiary designations on retirement accounts and insurance policies in the last 5 years?',type:'radio',options:['Yes','No — has been a while','Not sure what I have']},
-      {id:'has_estate_atty',label:'Do you have an estate planning attorney?',type:'radio',options:["Yes","No — haven't needed one yet","No — need to find one"],
-        follow:[
-          {show:'Yes',id:'estate_atty_name',label:'Name / firm (optional)',type:'text',placeholder:''},
-          {show:'Yes',id:'estate_atty_current',label:'Is your estate plan current and up to date?',type:'radio',options:['Yes','No — needs updating','Unsure']},
-        ]},
     ]
   },
   {
@@ -1185,7 +1260,7 @@ const FORM_SECTIONS = [
               {show:'1',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
               {show:'1',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
               {show:'1',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
-              {show:'1',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:'e.g. recurring subscriptions, project-based, product sales...'},
+              {show:'1',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
               {show:'1',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
               {show:'1',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
               {show:'1',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
@@ -1199,23 +1274,23 @@ const FORM_SECTIONS = [
               {show:'1',id:'biz_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
             ]},
           {show:'Yes',id:'multi_business_list',label:'Please list each business ownership interest and its prior year net income',type:'multibizblock',placeholder:''},
-          {show:'Yes',id:'biz_largest_header',label:'For the business with the largest prior year net income, please complete the following:',type:'bizlargestheader'},
-          {show:'Yes',id:'business_name',label:'Business name',type:'text',placeholder:''},
-          {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
-          {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
-          {show:'Yes',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
-          {show:'Yes',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:'e.g. recurring subscriptions, project-based, product sales...'},
-          {show:'Yes',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
-          {show:'Yes',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
-          {show:'Yes',id:'biz_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
-          {show:'Yes',id:'biz_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
-          {show:'Yes',id:'biz_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_largest_header',label:'',type:'bizlargestheader'},
+          {show:'Yes',id:'biz_multi_name',label:'Business name',type:'text',placeholder:''},
+          {show:'Yes',id:'biz_multi_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
+          {show:'Yes',id:'biz_multi_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
+          {show:'Yes',id:'biz_multi_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
+          {show:'Yes',id:'biz_multi_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
+          {show:'Yes',id:'biz_multi_employees',label:'Number of employees',type:'number',placeholder:''},
+          {show:'Yes',id:'biz_multi_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_multi_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_multi_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_multi_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_multi_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
+          {show:'Yes',id:'biz_multi_weeks_vacation',label:'How many weeks of vacation do you take per year?',type:'number',placeholder:'e.g. 2'},
+          {show:'Yes',id:'biz_multi_owner_dependent',label:'If you were unable to work for 90 days, what would happen to the business?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_multi_key_goals',label:'What are your key goals for the business?',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_multi_exit_plan',label:'Have you defined an exit strategy? If so, please elaborate.',type:'textarea',placeholder:''},
+          {show:'Yes',id:'biz_multi_value_if_systemized',label:'How much more do you think you could sell the business for if it were fully systemized and not dependent on you?',type:'textarea',placeholder:''},
           {show:'Yes',id:'business_partners',label:'Do you have business partners?',type:'radio',options:['Yes','No'],
             follow:[
               {show:'Yes',id:'business_buysell',label:'Do you have a buy-sell agreement?',type:'radio',options:['Yes','No'],
@@ -1236,13 +1311,6 @@ const FORM_SECTIONS = [
             ]},
           {show:'Yes',id:'business_tax_strategy',label:'How would you rate your current business tax strategy?',type:'radio',options:['Optimized','Adequate','Reactive — mostly just filing']},
         ]},
-    ]
-  },
-  {
-    id:'advisors', title:'Advisory relationships',
-    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>',
-    fields:[
-      {id:'advisory_relationships',label:'Which of the following advisory relationships do you currently have in place?',type:'advisorcheck',options:['CPA','Estate Planning Attorney','Financial Planner','Business Advisor','Insurance Agent']},
     ]
   },
   {
@@ -1267,25 +1335,58 @@ async function openIntakeById(clientId, clientName) {
   showView('intake');
 }
 
+// Pre-compute total top-level question count across all sections (once, after FORM_SECTIONS defined)
+const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck'];
+function countSectionQuestions(fields) {
+  let n = 0, i = 0;
+  while (i < fields.length) {
+    const f = fields[i], nx = fields[i+1];
+    if (!SPECIAL_TYPES.includes(f.type)) {
+      n++;
+      if (f.half && nx && nx.half && !SPECIAL_TYPES.includes(nx.type)) { n++; i++; }
+    }
+    i++;
+  }
+  return n;
+}
+// Section question counts and cumulative offsets, built lazily
+let _sectionQCounts = null;
+function getSectionQCounts() {
+  if (!_sectionQCounts) {
+    _sectionQCounts = FORM_SECTIONS.map(s => countSectionQuestions(s.fields));
+  }
+  return _sectionQCounts;
+}
+function getTotalQuestions() { return getSectionQCounts().reduce((a,b)=>a+b,0); }
+function getCumulativeStart(sectionIdx) {
+  const counts = getSectionQCounts();
+  let start = 0;
+  for (let i = 0; i < sectionIdx; i++) start += counts[i];
+  return start;
+}
+
 function renderCFSection() {
   const sec = FORM_SECTIONS[cfSection];
-  document.getElementById('cf-progress-bar').style.width = Math.round(((cfSection+1)/FORM_SECTIONS.length)*100)+'%';
+  const totalQ = getTotalQuestions();
+  const completedQ = getCumulativeStart(cfSection); // questions answered before this section
+  const pct = Math.round(((cfSection) / FORM_SECTIONS.length) * 100);
+  document.getElementById('cf-progress-bar').style.width = Math.max(2, pct) + '%';
+  document.getElementById('cf-progress-label').textContent = completedQ + ' / ' + totalQ + ' questions complete';
+
   let html = `<div class="card"><div class="form-section-header"><div class="form-section-icon">${sec.icon}</div><div class="form-section-title">${sec.title}</div></div>`;
-  // Count questions in this section for numbering (only top-level non-special fields)
-  let qNum = 0;
-  const specialTypes = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck'];
+  // Cumulative question numbering starting from where this section begins
+  let qNum = getCumulativeStart(cfSection);
   function countAndRender(fields, inFollow) {
     let out = '';
     let i = 0;
     while (i < fields.length) {
       const f = fields[i];
       const nx = fields[i+1];
-      if (!inFollow && !specialTypes.includes(f.type)) qNum++;
-      const num = (!inFollow && !specialTypes.includes(f.type)) ? qNum : null;
-      if (!inFollow && f.half && nx && nx.half) {
-        const nx2 = fields[i+1];
-        if (!specialTypes.includes(nx2.type)) qNum++;
-        out += '<div class="field-row-2">'+renderField(f,num)+renderField(nx2,qNum)+'</div>';
+      if (!inFollow && !SPECIAL_TYPES.includes(f.type)) qNum++;
+      const num = (!inFollow && !SPECIAL_TYPES.includes(f.type)) ? qNum : null;
+      if (!inFollow && f.half && nx && nx.half && !SPECIAL_TYPES.includes(nx.type)) {
+        qNum++;
+        out += '<div class="field-row-2">'+renderField(f,num)+renderField(nx,qNum)+'</div>';
         i += 2;
       } else {
         out += renderField(f, num);
@@ -1342,7 +1443,7 @@ function renderField(f, qNum) {
   let inner = '';
   // Special: will year check — inject hidden follow-up container after rendering
   if (f.id==='will_last_updated') {
-    const willFollowHtml = '<div class="conditional-field" id="old-will-followup"><div class="field-group"><label class="field-label">Any changes needed?</label><div class="radio-group" id="rg-will_changes_needed"><label class="check-card" style="cursor:pointer;" onclick="saveField(\'will_changes_needed\',\'Yes\');this.classList.add(\'checked\');this.nextElementSibling.classList.remove(\'checked\')">Yes — needs updating</label><label class="check-card" onclick="saveField(\'will_changes_needed\',\'No\');this.classList.add(\'checked\');this.previousElementSibling.classList.remove(\'checked\')">No — still current</label></div></div></div>';
+    const willFollowHtml = '<div class="conditional-field" id="old-will-followup"><div class="field-group"><label class="field-label">Any changes needed?</label><div class="radio-group" id="rg-will_changes_needed"><label class="radio-item" id="rl-will_changes_needed-Yes" onclick="radioToggle(event,\'will_changes_needed\',\'Yes\')"><input type="radio" name="cf-will_changes_needed" value="Yes"/> Yes — needs updating</label><label class="radio-item" id="rl-will_changes_needed-No" onclick="radioToggle(event,\'will_changes_needed\',\'No\')"><input type="radio" name="cf-will_changes_needed" value="No"/> No — still current</label><label class="radio-item" id="rl-will_changes_needed-Unsure" onclick="radioToggle(event,\'will_changes_needed\',\'Unsure\')"><input type="radio" name="cf-will_changes_needed" value="Unsure"/> Unsure</label></div></div></div>';
     const willInputId = 'cf-'+f.id;
     return '<div class="field-group">'+qNumHtml+'<label class="field-label">'+esc(f.label)+'</label>'
       +'<input type="number" id="'+willInputId+'" placeholder="'+esc(f.placeholder||'')+'" '
@@ -1370,7 +1471,7 @@ function renderField(f, qNum) {
           ${[1,2,3,4,5].map(n=>`<div class="tax-rating-pip" id="trp-${n}">${n}</div>`).join('')}
           <span class="tax-rating-label" id="tax-rating-desc"></span>
         </div>
-        <p class="field-hint" style="margin-top:8px;">The less you want to pay, the higher your focus rating — indicating tax reduction is a key priority.</p>
+        
       </div>
     </div>`;
   }
@@ -1403,6 +1504,10 @@ function renderField(f, qNum) {
             </div>
             <div class="advisor-check-body" id="adv-body-${key}">
               <div class="advisor-slider-row">
+                <span class="advisor-slider-label">Name / Firm</span>
+                <input type="text" class="advisor-name-input" id="adv-name-${key}" placeholder="e.g. John Smith, ABC Advisors" oninput="saveAdvisorData('${esc(o)}')"/>
+              </div>
+              <div class="advisor-slider-row">
                 <span class="advisor-slider-label">Satisfaction (1 = Very dissatisfied, 10 = Very satisfied)</span>
                 <div class="advisor-slider-track">
                   <input type="range" min="1" max="10" value="7" id="adv-slider-${key}" oninput="updateAdvisorSlider('${key}','${esc(o)}')"/>
@@ -1423,7 +1528,7 @@ function renderField(f, qNum) {
   else if (f.type==='currency') inner=`<div class="currency-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value);updateCalcFields()"/></div>`;
   else if (f.type==='textarea') inner=`<textarea id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" rows="3" oninput="saveField('${f.id}',this.value)"></textarea>`;
   else if (f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${o||'Select…'}</option>`).join('');inner=`<select id="cf-${f.id}" onchange="saveField('${f.id}',this.value)">${opts}</select>`;}
-  else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}"><input type="radio" name="cf-${f.id}" value="${esc(o)}" onchange="saveField('${f.id}',this.value);triggerCond('${f.id}',this.value);updateRadioStyle('${f.id}')"/> ${esc(o)}</label>`).join('')}</div>`;
+  else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="radioToggle(event,'${f.id}','${esc(o).replace(/'/g,"\\'")}')"><input type="radio" name="cf-${f.id}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div>`;
   else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}"><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onchange="saveMulti('${f.id}');updateCheckStyle('${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}',this.checked)"/> ${esc(o)}</label>`).join('')}</div>`;
   // Group follow fields by their show value — all with same show go in ONE container
   let followHtml = '';
@@ -1460,6 +1565,24 @@ function restoreVal(f) {
     if(f.follow) triggerCond(f.id,v);
   } else {
     el.value=v;
+  }
+}
+function radioToggle(e, fid, val) {
+  e.preventDefault();
+  const radios = document.querySelectorAll(`input[name="cf-${fid}"]`);
+  const target = Array.from(radios).find(r => r.value === val);
+  if (!target) return;
+  if (target.checked) {
+    // Already selected — deselect
+    target.checked = false;
+    saveField(fid, '');
+    triggerCond(fid, '');
+    updateRadioStyle(fid);
+  } else {
+    target.checked = true;
+    saveField(fid, val);
+    triggerCond(fid, val);
+    updateRadioStyle(fid);
   }
 }
 function updateRadioStyle(fid){const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);document.querySelectorAll(`#rg-${fid} .radio-item`).forEach(el=>el.classList.remove('checked'));if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}}
@@ -1597,24 +1720,47 @@ function updateTaxSliderDisplay() {
 // ── COVERAGE ANALYSIS ────────────────────────────────────────────
 function wireCoverageAnalysis() {
   updateCoverageAnalysis();
+  // Re-run whenever coverage field changes (it may be in a conditional that just opened)
+  const coverageEl = document.getElementById('cf-life_ins_coverage');
+  if (coverageEl) {
+    coverageEl.addEventListener('input', updateCoverageAnalysis);
+  }
+  // Also hook into the has_life_ins radio so analysis shows when 'Yes' is clicked
+  document.querySelectorAll('input[name="cf-has_life_ins"]').forEach(r => {
+    r.addEventListener('change', () => setTimeout(updateCoverageAnalysis, 50));
+  });
 }
 
 function updateCoverageAnalysis() {
   const wrap = document.getElementById('coverage-analysis-wrap');
   if (!wrap) return;
   const coverageEl = document.getElementById('cf-life_ins_coverage');
-  if (!coverageEl) { wrap.style.display='none'; return; }
-  const coverage = parseFloat((coverageEl.value||'0').replace(/[^0-9.-]/g,'')) || 0;
-  const annualIncome = parseNum('w2_income') + parseNum('business_income') + parseNum('other_income') + parseNum('interest_income') + parseNum('qualified_dividends') + parseNum('nonqualified_dividends') + parseNum('st_cap_gains') + parseNum('lt_cap_gains');
-  if (!coverage || !annualIncome) { wrap.style.display='none'; return; }
+  // Read coverage from field if present, else from saved form data
+  const rawCov = coverageEl ? coverageEl.value : (currentFormData['life_ins_coverage'] || '');
+  const coverage = parseFloat(String(rawCov).replace(/[^0-9.-]/g,'')) || 0;
+  if (!coverage) { wrap.style.display='none'; return; }
+
+  // Read income from current fields OR saved form data (prior section)
+  const incomeFields = ['w2_income','business_income','other_income','interest_income','qualified_dividends','nonqualified_dividends','st_cap_gains','lt_cap_gains'];
+  const annualIncome = incomeFields.reduce((sum, fid) => {
+    const el = document.getElementById('cf-'+fid);
+    const val = el ? parseFloat(String(el.value||'0').replace(/[^0-9.-]/g,'')) || 0
+                   : parseFloat(String(currentFormData[fid]||'0').replace(/[^0-9.-]/g,'')) || 0;
+    return sum + val;
+  }, 0);
+
   wrap.style.display = '';
-  const neededCoverage = annualIncome * 20;
-  const proportion = Math.round((coverage / neededCoverage) * 100);
   const box = document.getElementById('coverage-analysis-box');
   if (box) {
     const fmtCur = n => '$' + Math.round(n).toLocaleString('en-US');
-    const propColor = proportion >= 100 ? 'var(--green)' : proportion >= 60 ? 'var(--gold)' : 'var(--red-s)';
-    box.innerHTML = `Coverage of <strong>${fmtCur(neededCoverage)}</strong> is needed to protect your annual income of <strong>${fmtCur(annualIncome)}</strong>. Your income is <strong style="color:${propColor}">${proportion}% protected</strong>.`;
+    if (annualIncome > 0) {
+      const neededCoverage = annualIncome * 20;
+      const proportion = Math.round((coverage / neededCoverage) * 100);
+      const propColor = proportion >= 100 ? 'var(--green)' : proportion >= 60 ? 'var(--gold)' : 'var(--red-s)';
+      box.innerHTML = `Coverage of <strong>${fmtCur(neededCoverage)}</strong> is needed to protect your annual income of <strong>${fmtCur(annualIncome)}</strong>. Your income is <strong style="color:${propColor}">${proportion}% protected</strong>.`;
+    } else {
+      box.innerHTML = `Current coverage: <strong>${fmtCur(coverage)}</strong>. Complete the income section to see your coverage analysis.`;
+    }
   }
 }
 
@@ -1638,6 +1784,8 @@ function wireAdvisorChecks() {
       if (item) item.classList.add('checked');
       const body = document.getElementById('adv-body-'+key);
       if (body) body.classList.add('open');
+      const nameEl = document.getElementById('adv-name-'+key);
+      if (nameEl && entry.firm) nameEl.value = entry.firm;
       const slider = document.getElementById('adv-slider-'+key);
       if (slider && entry.satisfaction !== undefined) {
         slider.value = entry.satisfaction;
@@ -1695,10 +1843,12 @@ function saveAdvisorData() {
     if (!cb.checked) return;
     const key = cb.id.replace('adv-cb-','');
     const name = cb.dataset.advisor;
+    const nameEl = document.getElementById('adv-name-'+key);
     const slider = document.getElementById('adv-slider-'+key);
     const diffTa = document.getElementById('adv-diff-'+key);
     advisors.push({
       name,
+      firm: nameEl ? nameEl.value : '',
       satisfaction: slider ? parseInt(slider.value) : 7,
       wishes: (diffTa && parseInt(slider?.value||'7') <= 6) ? diffTa.value : ''
     });
@@ -1758,33 +1908,87 @@ function removeMultiBizEntry(idx) {
 function wireBusinessCount() {
   const countEl = document.getElementById('cf-business_count');
   if (!countEl) return;
+
+  // Always start by hiding multi-business fields — they only show when count > 1
+  _hideMultiBizFields();
+
   countEl.addEventListener('input', applyBusinessCountLogic);
-  // Restore
-  if (currentFormData['business_count']) applyBusinessCountLogic();
+  // Restore on section render
+  if (currentFormData['business_count']) {
+    countEl.value = currentFormData['business_count'];
+    applyBusinessCountLogic();
+  }
+}
+
+function _hideMultiBizFields() {
+  // Hide multi-business field groups by finding their parent field-group containers
+  const multiFieldIds = ['cf-biz_multi_name','cf-biz_multi_entity','cf-biz_multi_role','cf-biz_multi_industry',
+    'cf-biz_multi_revenue_model','cf-biz_multi_employees','cf-biz_multi_revenue',
+    'cf-biz_multi_net_profit','cf-biz_multi_est_value','cf-biz_multi_value_method',
+    'cf-biz_multi_hours_week','cf-biz_multi_weeks_vacation','cf-biz_multi_owner_dependent',
+    'cf-biz_multi_key_goals','cf-biz_multi_exit_plan','cf-biz_multi_value_if_systemized'];
+  multiFieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const fg = el.closest('.field-group');
+      if (fg) fg.style.display = 'none';
+    }
+  });
+  const mw = document.getElementById('multibiz-wrap');
+  if (mw) mw.style.display = 'none';
+  const bh = document.getElementById('biz-largest-header-wrap');
+  if (bh) bh.style.display = 'none';
 }
 
 function applyBusinessCountLogic() {
   const countEl = document.getElementById('cf-business_count');
   if (!countEl) return;
   const val = parseInt(countEl.value) || 0;
-  const multiBizWrap = document.getElementById('multibiz-wrap');
-  const bizLargestWrap = document.getElementById('biz-largest-header-wrap');
-  // Containers for the single-business conditional (show:'1')
-  const singleCond = document.getElementById('cond-business_count-1');
-  if (val === 1) {
-    if (singleCond) singleCond.classList.add('show');
-    if (multiBizWrap) multiBizWrap.style.display = 'none';
-    if (bizLargestWrap) bizLargestWrap.style.display = 'none';
-  } else if (val > 1) {
-    if (singleCond) singleCond.classList.remove('show');
-    if (multiBizWrap) multiBizWrap.style.display = '';
-    if (bizLargestWrap) bizLargestWrap.style.display = '';
-  } else {
-    if (singleCond) singleCond.classList.remove('show');
-    if (multiBizWrap) multiBizWrap.style.display = 'none';
-    if (bizLargestWrap) bizLargestWrap.style.display = 'none';
-  }
   saveField('business_count', countEl.value);
+
+  // Single business conditional (show:'1' nested under business_count)
+  const singleCond = document.getElementById('cond-business_count-1');
+
+  // Multi-business elements: these are show:'Yes' siblings that should only show when count > 1
+  const multiIds = ['multibiz-wrap','biz-largest-header-wrap',
+    'cf-biz_multi_name','cf-biz_multi_entity','cf-biz_multi_role','cf-biz_multi_industry',
+    'cf-biz_multi_revenue_model','cf-biz_multi_employees','cf-biz_multi_revenue',
+    'cf-biz_multi_net_profit','cf-biz_multi_est_value','cf-biz_multi_value_method',
+    'cf-biz_multi_hours_week','cf-biz_multi_weeks_vacation','cf-biz_multi_owner_dependent',
+    'cf-biz_multi_key_goals','cf-biz_multi_exit_plan','cf-biz_multi_value_if_systemized'];
+
+  // Find all field-group wrappers for multi-business fields
+  const multiFieldGroups = multiIds.map(id => {
+    const el = document.getElementById(id);
+    return el ? (el.closest('.field-group') || el.closest('.conditional-field') || el) : null;
+  }).filter(Boolean);
+
+  if (val === 1) {
+    // Show single-business questions, hide multi-business elements
+    if (singleCond) singleCond.classList.add('show');
+    multiFieldGroups.forEach(el => el.style.display = 'none');
+    const mw = document.getElementById('multibiz-wrap');
+    if (mw) mw.style.display = 'none';
+    const bh = document.getElementById('biz-largest-header-wrap');
+    if (bh) bh.style.display = 'none';
+  } else if (val > 1) {
+    // Hide single-business questions, show multi-business elements
+    if (singleCond) singleCond.classList.remove('show');
+    const mw = document.getElementById('multibiz-wrap');
+    if (mw) mw.style.display = '';
+    const bh = document.getElementById('biz-largest-header-wrap');
+    if (bh) bh.style.display = '';
+    // Show multi field groups
+    multiFieldGroups.forEach(el => el.style.display = '');
+  } else {
+    // No value — hide everything
+    if (singleCond) singleCond.classList.remove('show');
+    multiFieldGroups.forEach(el => el.style.display = 'none');
+    const mw = document.getElementById('multibiz-wrap');
+    if (mw) mw.style.display = 'none';
+    const bh = document.getElementById('biz-largest-header-wrap');
+    if (bh) bh.style.display = 'none';
+  }
 }
 
 function afterSectionRender() {
@@ -2376,13 +2580,319 @@ function addPItem() {
   setTimeout(()=>{ const displays=document.querySelectorAll('.item-text-display'); if(displays.length) displays[displays.length-1].click(); },40);
 }
 
-async function goToExport() {
+// ══════════════════════════════════
+//  CLIENT PLAN
+// ══════════════════════════════════
+
+// Entry from prioritizer after items are saved
+async function goToPlan() {
   sortItems();
   document.getElementById('p-saved-status').textContent = 'Saving…';
   const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:pClientFormData, staff_name:staffName, saved_at:Date.now()};
   if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
   else pCurrentId = await dbInsert(TBL_INTAKES, payload);
   document.getElementById('p-saved-status').textContent = 'Saved ✓';
+  setSyncStatus('connected','Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+
+  planClientId = currentClientId;
+  document.getElementById('plan-client-title').textContent = currentClientName;
+  document.getElementById('plan-saved-status').textContent = '';
+
+  // Check if plan already exists for this client
+  const existingIntake = await getIntakeForClient(currentClientId);
+  if (existingIntake && existingIntake.plan_data && (
+    existingIntake.plan_data.goals?.length ||
+    existingIntake.plan_data.friction?.length ||
+    existingIntake.plan_data.actions?.length
+  )) {
+    planData = existingIntake.plan_data;
+    renderPlanView(false);
+  } else {
+    planData = { goals:[], friction:[], actions:[], accomplished:[] };
+    renderPlanView(true); // true = show loading, trigger AI
+    await generatePlanWithAI();
+  }
+  showView('plan');
+}
+
+// Entry from client card "View Plan" button
+async function openPlanById(clientId, clientName) {
+  const rec = await dbGet(TBL_CLIENTS, clientId);
+  if (!rec) { toast('Could not load client.'); return; }
+  currentClientId = clientId;
+  currentClientName = clientName || rec.client_name || '';
+  currentFormData = rec.form_data || {};
+  planClientId = clientId;
+
+  document.getElementById('plan-client-title').textContent = currentClientName;
+  document.getElementById('plan-saved-status').textContent = '';
+
+  // Load intake + plan data
+  const intake = await getIntakeForClient(clientId);
+  if (!intake) { toast('No plan data found. Complete the prioritizer first.'); return; }
+
+  // Restore prioritizer state so Save & Share works
+  pCurrentId = intake.id;
+  pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
+  pClientFormData = intake.form_data || currentFormData;
+  aiItems = intake.ai_items || [];
+
+  if (intake.plan_data && (
+    intake.plan_data.goals?.length ||
+    intake.plan_data.friction?.length ||
+    intake.plan_data.actions?.length
+  )) {
+    planData = intake.plan_data;
+    renderPlanView(false);
+  } else {
+    planData = { goals:[], friction:[], actions:[], accomplished:[] };
+    renderPlanView(true);
+    await generatePlanWithAI();
+  }
+  showView('plan');
+}
+
+async function generatePlanWithAI() {
+  try {
+    const prompt = buildPlanPrompt();
+    const res = await fetch(PROXY_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:2000,
+        messages:[{role:'user', content:prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON in response');
+    const parsed = JSON.parse(match[0]);
+    planData.goals = (parsed.goals || []).map(t => ({id: uid(), text: t}));
+    planData.friction = (parsed.friction || []).map(t => ({id: uid(), text: t}));
+    planData.actions = (parsed.actions || []).map(t => ({id: uid(), text: t}));
+    planData.accomplished = planData.accomplished || [];
+    await savePlanData();
+    renderPlanView(false);
+  } catch(e) {
+    console.error('Plan AI failed:', e);
+    renderPlanView(false, true); // show error state
+  }
+}
+
+function buildPlanPrompt() {
+  const fd = pClientFormData || currentFormData || {};
+  const critItems = pItems.filter(i => i.status === 'critical').map((i,n) => `${n+1}. ${i.text}`).join('\n');
+  const optItems  = pItems.filter(i => i.status === 'optional').map((i,n) => `${n+1}. ${i.text}`).join('\n');
+
+  return `You are a senior financial advisor generating a concise client action plan for ${fd.fname||''} ${fd.lname||''} based on their financial intake and prioritized focus areas.
+
+CRITICAL FOCUS AREAS:
+${critItems || 'None set'}
+
+OPTIONAL FOCUS AREAS:
+${optItems || 'None set'}
+
+KEY FINANCIAL FACTS:
+- Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${fd.tax_liability ? '$'+Number(fd.tax_liability).toLocaleString() : 'N/A'}
+- Net worth: ${fd.net_worth ? '$'+Number(fd.net_worth).toLocaleString() : 'N/A'}
+- Business owner: ${fd.has_business === 'Yes' ? 'Yes' : 'No'}
+- Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
+- Goals: ${fd.financial_goals || 'N/A'}
+- Biggest concern: ${fd.biggest_concern || 'N/A'}
+
+Generate a professional client action plan with exactly three columns. Each item should be a short, specific, actionable phrase (10–20 words max). Generate 4–7 items per column.
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "goals": ["item1","item2",...],
+  "friction": ["item1","item2",...],
+  "actions": ["item1","item2",...]
+}
+
+Goals & Dreams: what the client wants to achieve — aspirational and motivating.
+Friction Points & Opportunities: specific obstacles, gaps, or underutilized opportunities in their current situation.
+Action Items: concrete next steps for the advisor and client to take together, derived from the critical focus areas.`;
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2,10);
+}
+
+async function savePlanData() {
+  if (!pCurrentId) return;
+  await dbUpdate(TBL_INTAKES, pCurrentId, {plan_data: JSON.parse(JSON.stringify(planData))});
+  document.getElementById('plan-saved-status').textContent = '✓ Saved';
+  setTimeout(() => {
+    const el = document.getElementById('plan-saved-status');
+    if (el) el.textContent = '';
+  }, 2000);
+}
+
+let planSaveTimer;
+function schedulePlanSave() {
+  clearTimeout(planSaveTimer);
+  planSaveTimer = setTimeout(savePlanData, 1000);
+}
+
+function renderPlanView(loading, error) {
+  const container = document.getElementById('plan-content');
+
+  if (loading) {
+    container.innerHTML = `
+      <div class="card">
+        <div class="plan-loading">
+          <div class="loading-pulse"><span></span><span></span><span></span></div>
+          <p>Generating your client action plan…</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const cols = [
+    { key:'goals', label:'Goals & Dreams', cls:'plan-col-goals',
+      icon:'<svg width="13" height="13" viewBox="0 0 16 16" fill="white"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/></svg>',
+      headerBg:'#1a3a6e', editable:true },
+    { key:'friction', label:'Friction Points & Opportunities', cls:'plan-col-friction',
+      icon:'<svg width="13" height="13" viewBox="0 0 16 16" fill="white"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>',
+      headerBg:'#b07030', editable:true },
+    { key:'actions', label:'Action Items', cls:'plan-col-actions',
+      icon:'<svg width="13" height="13" viewBox="0 0 16 16" fill="white"><path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/><path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.235.235 0 0 1 .02-.022z"/></svg>',
+      headerBg:'#1a7a3c', editable:true },
+    { key:'accomplished', label:'Items Accomplished', cls:'plan-col-accomplished',
+      icon:'<svg width="13" height="13" viewBox="0 0 16 16" fill="white"><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/></svg>',
+      headerBg:'#555', editable:true },
+  ];
+
+  const errorBanner = error
+    ? `<div style="padding:10px 16px;background:var(--red-bg);color:var(--red-s);border-radius:8px;font-size:13px;margin-bottom:1rem;">AI generation failed. You can add items manually below.</div>`
+    : '';
+
+  container.innerHTML = errorBanner + `<div class="plan-grid" id="plan-grid"></div>`;
+
+  const grid = document.getElementById('plan-grid');
+  cols.forEach(col => {
+    const items = planData[col.key] || [];
+    const colEl = document.createElement('div');
+    colEl.className = `plan-col ${col.cls}`;
+
+    colEl.innerHTML = `
+      <div class="plan-col-header">
+        <div class="plan-col-icon" style="background:${col.headerBg};">${col.icon}</div>
+        <span>${col.label}</span>
+      </div>
+      <div class="plan-col-body" id="plan-body-${col.key}"></div>
+    `;
+    grid.appendChild(colEl);
+    renderPlanColumn(col.key);
+  });
+}
+
+function renderPlanColumn(key) {
+  const body = document.getElementById('plan-body-'+key);
+  if (!body) return;
+  const items = planData[key] || [];
+  body.innerHTML = '';
+
+  items.forEach((item, idx) => {
+    const isAccomplished = key === 'accomplished';
+    const div = document.createElement('div');
+    div.className = 'plan-item' + (isAccomplished ? ' plan-item-accomplished' : '');
+    div.contentEditable = 'true';
+    div.textContent = item.text;
+    div.dataset.id = item.id;
+
+    // Delete button
+    const del = document.createElement('button');
+    del.className = 'plan-item-del';
+    del.innerHTML = '×';
+    del.title = 'Remove';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      planData[key] = planData[key].filter(i => i.id !== item.id);
+      renderPlanColumn(key);
+      schedulePlanSave();
+    });
+    div.appendChild(del);
+
+    // Save on blur
+    div.addEventListener('blur', () => {
+      const text = div.innerText.replace(/×\s*$/, '').trim();
+      const it = planData[key].find(i => i.id === item.id);
+      if (it) it.text = text;
+      schedulePlanSave();
+    });
+
+    // Prevent Enter creating new elements
+    div.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); div.blur(); }
+    });
+
+    body.appendChild(div);
+  });
+
+  // Add button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'plan-add-btn';
+  addBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg> Add item`;
+  addBtn.addEventListener('click', () => {
+    const newItem = {id: uid(), text: ''};
+    planData[key].push(newItem);
+    renderPlanColumn(key);
+    // Focus the new item
+    setTimeout(() => {
+      const newEl = document.querySelector(`[data-id="${newItem.id}"]`);
+      if (newEl) { newEl.focus(); }
+    }, 30);
+    schedulePlanSave();
+  });
+  body.appendChild(addBtn);
+}
+
+function printPlan() {
+  const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const colDefs = [
+    {key:'goals', label:'Goals & Dreams', bg:'#eef4ff', hdrBg:'#1a3a6e'},
+    {key:'friction', label:'Friction Points & Opportunities', bg:'#fff8ec', hdrBg:'#b07030'},
+    {key:'actions', label:'Action Items', bg:'#edfaf3', hdrBg:'#1a7a3c'},
+    {key:'accomplished', label:'Items Accomplished', bg:'#f4f4f4', hdrBg:'#555'},
+  ];
+  const colsHtml = colDefs.map(c => {
+    const items = (planData[c.key]||[]).map(i =>
+      `<div style="padding:8px 10px;background:#fff;border:1px solid #e0ddd8;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:6px;">${esc(i.text)}</div>`
+    ).join('');
+    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+      <div style="background:${c.hdrBg};color:#fff;padding:10px 12px;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;border-radius:6px 6px 0 0;margin-bottom:6px;">${c.label}</div>
+      ${items||'<div style="font-size:12px;color:#aaa;font-family:sans-serif;padding:6px;">No items</div>'}
+    </div>`;
+  }).join('');
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>${esc(currentClientName)} — Client Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>body{margin:1.5cm;font-family:'Cormorant Garamond',serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">
+    <div>
+      <div style="font-size:10px;color:#bbb;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Sans',sans-serif;">Pelican Family Office — Client Action Plan</div>
+      <div style="font-size:24px;font-weight:600;color:#0f2535;">${esc(currentClientName)}</div>
+    </div>
+    <div style="font-size:12px;color:#aaa;font-family:'DM Sans',sans-serif;">${today}</div>
+  </div>
+  <div style="display:flex;gap:12px;">${colsHtml}</div>
+  </body></html>`);
+  win.document.close(); win.focus(); setTimeout(()=>win.print(), 500);
+}
+
+async function goToExport() {
+  if (pItems.length) sortItems();
+  const statusEl = document.getElementById('p-saved-status');
+  if (statusEl) statusEl.textContent = 'Saving…';
+  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:pClientFormData, staff_name:staffName, saved_at:Date.now()};
+  if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
+  else pCurrentId = await dbInsert(TBL_INTAKES, payload);
+  if (statusEl) statusEl.textContent = 'Saved ✓';
   setSyncStatus('connected','Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
   buildPDFPreview();
   showView('export');
