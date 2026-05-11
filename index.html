@@ -2647,7 +2647,23 @@ function addPItem() {
 async function goToPlan() {
   sortItems();
   document.getElementById('p-saved-status').textContent = 'Saving…';
-  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:pClientFormData, staff_name:staffName, saved_at:Date.now()};
+
+  // Fetch existing intake FIRST so we can preserve any __plan_data already saved
+  const existingIntake = await getIntakeForClient(currentClientId);
+  const existingSavedPlan = existingIntake?.form_data?.__plan_data;
+  const hasSavedPlan = existingSavedPlan &&
+    (existingSavedPlan.goals?.length || existingSavedPlan.friction?.length || existingSavedPlan.actions?.length);
+
+  // Merge __plan_data into form_data so it is never lost on save
+  const formDataToSave = {...(pClientFormData||{})};
+  if (hasSavedPlan) {
+    formDataToSave.__plan_data = existingSavedPlan;
+  } else if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
+    // In-memory plan (e.g. generated earlier this session but not yet persisted here)
+    formDataToSave.__plan_data = JSON.parse(JSON.stringify(planData));
+  }
+
+  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataToSave, staff_name:staffName, saved_at:Date.now()};
   if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
   else pCurrentId = await dbInsert(TBL_INTAKES, payload);
   document.getElementById('p-saved-status').textContent = 'Saved ✓';
@@ -2657,15 +2673,18 @@ async function goToPlan() {
   document.getElementById('plan-client-title').textContent = currentClientName;
   document.getElementById('plan-saved-status').textContent = '';
 
-  // Load existing plan — never regenerate if one exists
-  const existingIntake = await getIntakeForClient(currentClientId);
-  const savedPlan = existingIntake?.form_data?.__plan_data;
-  if (savedPlan && (savedPlan.goals?.length || savedPlan.friction?.length || savedPlan.actions?.length)) {
-    planData = savedPlan;
+  // Determine whether a plan exists — use what we already fetched, never re-fetch
+  if (hasSavedPlan) {
+    // Plan already saved — go straight to it, no generation
+    planData = existingSavedPlan;
+    renderPlanView(false);
+    showView('plan');
+  } else if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
+    // Plan exists in memory this session (already generated) — just show it
     renderPlanView(false);
     showView('plan');
   } else {
-    // First time only: generate with AI
+    // Truly first time — generate once
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
     renderPlanView(true);
     showView('plan');
@@ -2807,11 +2826,14 @@ function uid() {
 
 async function savePlanData() {
   if (!pCurrentId) return;
-  // Store plan inside the intake's form_data JSON to avoid needing a new DB column
+  // Store plan inside the intake's form_data JSON to avoid needing a new DB column.
+  // Use pClientFormData as the base (already in memory) so we never lose other fields,
+  // and never re-fetch from DB which could return a stale record that lacks __plan_data.
   try {
-    const existing = await getIntakeForClient(planClientId || currentClientId);
-    const existingFormData = (existing && existing.form_data) ? existing.form_data : {};
-    const merged = {...existingFormData, __plan_data: JSON.parse(JSON.stringify(planData))};
+    const baseFormData = pClientFormData || {};
+    const merged = {...baseFormData, __plan_data: JSON.parse(JSON.stringify(planData))};
+    // Also keep pClientFormData in sync so future saves in this session preserve the plan
+    pClientFormData = merged;
     await dbUpdate(TBL_INTAKES, pCurrentId, {form_data: merged});
     const el = document.getElementById('plan-saved-status');
     if (el) { el.textContent = '✓ Saved'; setTimeout(()=>{ if(el) el.textContent=''; }, 2000); }
