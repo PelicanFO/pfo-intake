@@ -2141,7 +2141,7 @@ async function getIntakeForClient(clientId) {
 async function runAnalysisBackground(clientId) {
   // Silently refresh AI items without disrupting the prioritizer
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -2153,7 +2153,7 @@ async function runAnalysisBackground(clientId) {
 
 async function runAnalysisAndPopulate(clientId) {
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -2321,7 +2321,7 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 
 async function runAnalysis(clientId) {
   try {
-    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
+    const res = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3000,messages:[{role:'user',content:buildPrompt(currentFormData)}]})});
     const data = await res.json();
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
@@ -2762,7 +2762,7 @@ async function generatePlanWithAI() {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
+        model:'claude-sonnet-4-6',
         max_tokens:2000,
         messages:[{role:'user', content:prompt}]
       })
