@@ -1670,9 +1670,12 @@ function renderField(f, qNum) {
 
 function restoreVal(f) {
   const v = currentFormData[f.id]; if(v===undefined)return;
-  const el = document.getElementById('cf-'+f.id); if(!el)return;
+  const el = document.getElementById('cf-'+f.id);
+  if(!el){ console.warn('[restore] NO ELEMENT: cf-'+f.id, 'type='+f.type, 'val='+JSON.stringify(v)); return; }
   if(f.type==='radio'){
-    document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(r=>{r.checked=r.value===v;});
+    const radios = document.querySelectorAll(`input[name="cf-${f.id}"]`);
+    console.log('[restore] radio', f.id, '=', JSON.stringify(v), '| inputs found:', radios.length);
+    radios.forEach(r=>{r.checked=r.value===v;});
     updateRadioStyle(f.id);
     if(f.follow) triggerCond(f.id,v);
   } else if(f.type==='multicheck'){
@@ -1707,7 +1710,13 @@ function radioToggle(e, fid, val) {
     updateRadioStyle(fid);
   }
 }
-function updateRadioStyle(fid){const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);document.querySelectorAll(`#rg-${fid} .radio-item`).forEach(el=>el.classList.remove('checked'));if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}}
+function updateRadioStyle(fid){
+  const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);
+  const labels=document.querySelectorAll(`#rg-${fid} .radio-item`);
+  console.log('[radioStyle]', fid, '| checkedVal:', checked?.value, '| labels:', labels.length);
+  labels.forEach(el=>el.classList.remove('checked'));
+  if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}
+}
 function handleCheckCard(event, fid, okey, oval) {
   event.preventDefault();
   const cb = document.querySelector(`input[name="cf-${fid}"][value="${oval}"]`);
