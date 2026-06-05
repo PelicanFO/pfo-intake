@@ -850,7 +850,7 @@ function wireButtons() {
   document.getElementById('home-start-btn').addEventListener('click', startSession);
   document.getElementById('home-client-name').addEventListener('keydown', e => { if(e.key==='Enter') startSession(); });
 
-  document.getElementById('intake-back-btn').addEventListener('click', () => showView('home'));
+  document.getElementById('intake-back-btn').addEventListener('click', async () => { await flushSave(); showView('home'); });
   document.getElementById('analysis-back-btn').addEventListener('click', () => { showView('intake'); renderCFSection(); });
 
   document.getElementById('responses-toggle').addEventListener('click', () => {
@@ -1463,7 +1463,8 @@ function renderSectionNav() {
     btn.className = 'section-nav-btn' +
       (idx === cfSection ? ' active' : idx < cfSection ? ' visited' : '');
     btn.textContent = sec.title;
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
+      await flushSave();
       cfSection = idx;
       renderCFSection();
       window.scrollTo(0, 0);
@@ -1535,13 +1536,13 @@ function renderCFSection() {
   nav.innerHTML = '';
   if (cfSection > 0) {
     const b = document.createElement('button'); b.className='btn'; b.textContent='← Back';
-    b.addEventListener('click',()=>{ cfSection=Math.max(cfSection-1,0); renderCFSection(); window.scrollTo(0,0); });
+    b.addEventListener('click', async ()=>{ await flushSave(); cfSection=Math.max(cfSection-1,0); renderCFSection(); window.scrollTo(0,0); });
     nav.appendChild(b);
   }
   const f2 = document.createElement('button');
   f2.className = isLast ? 'btn btn-gold' : 'btn btn-primary';
   f2.textContent = isLast ? 'Save & continue →' : 'Next →';
-  f2.addEventListener('click', isLast ? cfSubmit : ()=>{ cfSection=Math.min(cfSection+1,FORM_SECTIONS.length-1); renderCFSection(); window.scrollTo(0,0); });
+  f2.addEventListener('click', isLast ? cfSubmit : async ()=>{ await flushSave(); cfSection=Math.min(cfSection+1,FORM_SECTIONS.length-1); renderCFSection(); window.scrollTo(0,0); });
   nav.appendChild(f2);
 }
 
@@ -1720,6 +1721,7 @@ function saveField(id,val){currentFormData[id]=val;autosave();}
 function saveMulti(id){currentFormData[id]=Array.from(document.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(c=>c.value);autosave();}
 let autosaveTimer;
 function autosave(){clearTimeout(autosaveTimer);autosaveTimer=setTimeout(async()=>{if(currentClientId)await dbUpdate(TBL_CLIENTS,currentClientId,{form_data:currentFormData});},1200);}
+async function flushSave(){clearTimeout(autosaveTimer);if(currentClientId)await dbUpdate(TBL_CLIENTS,currentClientId,{form_data:JSON.parse(JSON.stringify(currentFormData))});}
 
 function parseNum(id) {
   const el = document.getElementById('cf-'+id);
@@ -2172,6 +2174,7 @@ function triggerCond(fid, val) {
 }
 
 async function cfSubmit() {
+  clearTimeout(autosaveTimer);
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
   pSessionComplete = true;
   goDirectToPrioritizer(currentClientId);
