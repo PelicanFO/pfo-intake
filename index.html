@@ -216,12 +216,12 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .modal-actions{display:flex;gap:8px;margin-top:1.25rem;justify-content:flex-end;}
 
 /* ── CLIENT PLAN VIEW ─────────────────────────────────────────── */
-.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white);}
-.plan-col{display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white);width:100%;}
+.plan-col{display:flex;flex-direction:column;border-right:1px solid var(--border);min-width:0;}
 .plan-col:last-child{border-right:none;}
-.plan-col-header{padding:13px 16px;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.plan-col-header .plan-col-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.plan-item{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.5;position:relative;cursor:text;transition:border-color .15s;min-height:38px;caret-color:var(--navy);}
+.plan-col-header{padding:11px 14px;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.plan-col-header .plan-col-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.plan-item{background:var(--cream);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:12.5px;color:var(--text);line-height:1.5;position:relative;cursor:text;transition:border-color .15s;min-height:34px;caret-color:var(--navy);}
 .plan-item:hover{border-color:rgba(15,37,53,.22);}
 .plan-item:focus{outline:2px solid var(--navy-light);outline-offset:1px;background:#fff;color:var(--text);caret-color:var(--navy);}
 .plan-item:empty::before{content:attr(data-placeholder);color:var(--text-light);font-style:italic;pointer-events:none;}
@@ -323,11 +323,12 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 #responses-toggle:hover .card-title,#p-responses-toggle:hover .card-title{color:var(--navy-light);}
 
 /* Plan item drag-and-drop */
-.plan-item-row{display:flex;align-items:flex-start;gap:5px;margin-bottom:6px;}
-.plan-drag-handle{flex-shrink:0;padding:9px 3px 0;color:var(--text-light);cursor:grab;font-size:14px;line-height:1;opacity:0;transition:opacity .15s;user-select:none;letter-spacing:-2px;}
+.plan-item-row{display:flex;align-items:flex-start;gap:3px;margin-bottom:5px;}
+.plan-drag-handle{flex-shrink:0;padding:7px 2px 0;color:var(--text-light);cursor:grab;font-size:12px;line-height:1;opacity:0;transition:opacity .15s;user-select:none;letter-spacing:-1px;}
 .plan-item-row:hover .plan-drag-handle{opacity:1;}
 .plan-item-row.dragging{opacity:.45;}
-.plan-item-row.drag-over .plan-item{outline:2px dashed var(--navy-light);background:rgba(42,82,128,.06);}flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:600px;overflow-y:auto;}
+.plan-item-row.drag-over .plan-item{outline:2px dashed var(--navy-light);background:rgba(42,82,128,.06);}
+.plan-col-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:260px;max-height:600px;overflow-y:auto;}
 .plan-col-body::-webkit-scrollbar{width:4px;}
 .plan-col-body::-webkit-scrollbar-track{background:transparent;}
 .plan-col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
@@ -519,6 +520,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" id="back-to-form-btn">← Back to form</button>
           <button class="btn btn-sm" id="sort-btn">↕ Sort by priority</button>
+          <button class="btn btn-sm" id="skip-to-export-btn">Skip to Save &amp; Share</button>
           <button class="btn btn-gold btn-sm" id="export-btn">Build action plan →</button>
         </div>
       </div>
@@ -873,6 +875,7 @@ function wireButtons() {
   });
   document.getElementById('sort-btn').addEventListener('click', () => { sortItems(); toast('Sorted ✓'); });
   document.getElementById('export-btn').addEventListener('click', goToPlan);
+  document.getElementById('skip-to-export-btn').addEventListener('click', goToExport);
   document.getElementById('add-item-btn').addEventListener('click', addPItem);
 
   document.getElementById('back-to-plan-btn').addEventListener('click', () => showView('plan'));
@@ -1181,8 +1184,8 @@ const FORM_SECTIONS = [
     fields:[
       {id:'fname',label:'First name',type:'text',placeholder:'First name',required:true,half:true},
       {id:'lname',label:'Last name',type:'text',placeholder:'Last name',required:true,half:true},
-      {id:'email',label:'Email',type:'email',placeholder:'example@example.com'},
-      {id:'phone',label:'Phone number',type:'tel',placeholder:'(000) 000-0000',hint:'Format: (000) 000-0000'},
+      {id:'email',label:'Email',type:'email',placeholder:'example@example.com',half:true},
+      {id:'phone',label:'Phone number',type:'tel',placeholder:'(000) 000-0000',half:true},
       {id:'age',label:'Age',type:'number',placeholder:'',half:true},
       {id:'state',label:'State of primary residence',type:'select',options:['','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','District of Columbia'],half:true},
       {id:'filing_status',label:'Tax filing status',type:'radio',options:['Single','Married filing jointly','Married filing separately','Head of household']},
@@ -1190,6 +1193,15 @@ const FORM_SECTIONS = [
         follow:[
           {show:'Married',id:'spouse_name',label:'Spouse name',type:'text',placeholder:'Full name',half:true},
           {show:'Married',id:'spouse_age',label:'Spouse age',type:'number',placeholder:'',half:true},
+          {show:'Married',id:'spouse_email',label:'Spouse email',type:'email',placeholder:'',half:true},
+          {show:'Married',id:'spouse_phone',label:'Spouse phone',type:'tel',placeholder:'(000) 000-0000',half:true},
+        ]},
+      {id:'employment',label:'Employment status',type:'radio',options:['Employed','Self-employed','Both','Neither'],
+        follow:[
+          {show:'Employed',id:'employer_name',label:'Employer name',type:'text',placeholder:'',half:true},
+          {show:'Employed',id:'job_title',label:'Job title',type:'text',placeholder:'',half:true},
+          {show:'Both',id:'employer_name_both',label:'Employer name',type:'text',placeholder:'',half:true},
+          {show:'Both',id:'job_title_both',label:'Job title',type:'text',placeholder:'',half:true},
         ]},
       {id:'children',label:'Do you have children or dependents?',type:'radio',options:['Yes','No'],
         follow:[
@@ -1266,10 +1278,19 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'advisors', title:'Advisory relationships',
-    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>',
+    id:'retirement', title:'Retirement',
+    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>',
     fields:[
-      {id:'advisory_relationships',label:'Which of the following advisory relationships do you currently have in place?',type:'advisorcheck',options:['CPA','Estate Planning Attorney','Financial Planner','Wealth Manager','Business Advisor','Insurance Agent']},
+      {id:'retirement_target_age',label:'At what age do you hope to retire?',type:'number',placeholder:'e.g. 65',half:true},
+      {id:'retirement_income_need',label:'Annual income needed in retirement',type:'currency',placeholder:'0',half:true},
+      {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Other']},
+      {id:'max_contributions',label:'Are you maximizing contributions to all of your retirement accounts?',type:'radio',options:['Yes','No','Unsure'],
+        follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:''}]},
+      {id:'retirement_on_track',label:'Do you feel you are on track for retirement?',type:'radio',options:['Yes','Somewhat','No','Unsure']},
+      {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'pension_monthly',label:'Estimated monthly benefit at retirement',type:'currency',placeholder:'0'},
+        ]},
     ]
   },
   {
@@ -1300,22 +1321,6 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'retirement', title:'Financial Freedom Point',
-    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>',
-    fields:[
-      {id:'retirement_target_age',label:'At what age do you hope to reach financial freedom?',type:'number',placeholder:'e.g. 65',half:true},
-      {id:'retirement_income_need',label:'Annual income needed in retirement',type:'currency',placeholder:'0',half:true},
-      {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Other']},
-      {id:'max_contributions',label:'Are you maximizing contributions to all of your retirement accounts?',type:'radio',options:['Yes','No','Unsure'],
-        follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:''}]},
-      {id:'retirement_on_track',label:'Do you feel you are on track for financial freedom?',type:'radio',options:['Yes','Somewhat','No','Unsure']},
-      {id:'has_pension',label:'Do you have a pension or defined benefit plan?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'pension_monthly',label:'Estimated monthly benefit at retirement',type:'currency',placeholder:'0'},
-        ]},
-    ]
-  },
-  {
     id:'insurance', title:'Insurance',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>',
     fields:[
@@ -1327,10 +1332,8 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_coverage_analysis',label:'',type:'coverageanalysis'},
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
         ]},
-      {id:'has_disability_ins',label:'Do you have disability insurance?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'disability_coverage',label:'Monthly benefit coverage amount',type:'currency',placeholder:'0'},
-        ]},
+      {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'text',placeholder:'e.g. 60% through employer group policy, or none'},
+      {id:'disability_notes',label:'Notes',type:'textarea',placeholder:'Any additional details about disability coverage, gaps, or concerns...'},
       {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Variable','Indexed','Immediate','Deferred','Other']},
@@ -1403,20 +1406,38 @@ const FORM_SECTIONS = [
     ]
   },
   {
+    id:'advisors', title:'Advisory relationships',
+    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>',
+    fields:[
+      {id:'advisory_relationships',label:'Which of the following advisory relationships do you currently have in place?',type:'advisorcheck',options:['CPA','Estate Planning Attorney','Financial Planner','Wealth Manager','Business Advisor','Insurance Agent']},
+    ]
+  },
+  {
     id:'conclusion', title:'Final thoughts',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>',
     fields:[
-      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'e.g. retire in 10 years, sell my business, minimize taxes, protect my family, build generational wealth...'},
-      {id:'biggest_concern',label:'What is your single biggest financial concern today?',type:'textarea',placeholder:''},
-      {id:'additional_info',label:'Is there anything else important for us to know about your financial profile?',type:'textarea',placeholder:''},
+      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:''},
+      {id:'biggest_concerns',label:'What are your biggest financial concerns?',type:'textarea',placeholder:''},
+      {id:'building_toward',label:'What are you ultimately building toward?',type:'textarea',placeholder:''},
+      {id:'time_money_aligned',label:'Are the way you spend your time and money aligned with these goals?',type:'textarea',placeholder:''},
+      {id:'what_else_needed',label:'What else needs to happen to make these goals possible?',type:'textarea',placeholder:''},
+      {id:'additional_info',label:'Is there anything else that is important for us to know about you?',type:'textarea',placeholder:''},
     ]
   },
 ]
 
 
 
+
 async function openIntakeById(clientId, clientName) {
   currentClientId = clientId; currentClientName = clientName; cfSection = 0;
+  // Reset plan state if switching clients
+  if (planClientId !== clientId) {
+    planData = { goals:[], friction:[], actions:[], accomplished:[] };
+    planClientId = null;
+    pClientFormData = {};
+    pItems = []; pCurrentId = null; aiItems = [];
+  }
   const rec = await dbGet(TBL_CLIENTS, clientId);
   currentFormData = (rec && rec.form_data) ? rec.form_data : {};
   document.getElementById('intake-client-title').textContent = clientName;
@@ -2197,6 +2218,11 @@ function updatePlanBtnLabel() {
 }
 
 async function goDirectToPrioritizer(clientId) {
+  // Always reset plan state when switching clients — prevents prior client's data bleeding through
+  if (planClientId !== clientId) {
+    planData = { goals:[], friction:[], actions:[], accomplished:[] };
+    planClientId = null;
+  }
   // Check for existing saved intake
   const existing = await getIntakeForClient(clientId);
   if (existing && existing.items && existing.items.length) {
@@ -2860,6 +2886,8 @@ async function openExportById(clientId, clientName) {
 
 
 async function generatePlanWithAI() {
+  // Safety check: never generate using a different client's form data
+  const targetClientId = currentClientId;
   try {
     const prompt = buildPlanPrompt();
     const res = await fetch(PROXY_URL, {
@@ -2876,6 +2904,11 @@ async function generatePlanWithAI() {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     const parsed = JSON.parse(match[0]);
+    // Abort if user navigated to a different client while AI was generating
+    if (currentClientId !== targetClientId) {
+      console.warn('Plan generation aborted: client changed during generation');
+      return;
+    }
     planData.goals = (parsed.goals || []).map(t => ({id: uid(), text: t}));
     planData.friction = (parsed.friction || []).map(t => ({id: uid(), text: t}));
     planData.actions = (parsed.actions || []).map(t => ({id: uid(), text: t}));
