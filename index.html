@@ -2445,7 +2445,7 @@ function buildPrompt(fd) {
 
 PERSONAL
 Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}${fd.spouse_name?' — Spouse: '+fd.spouse_name+(fd.spouse_age?', age '+fd.spouse_age:''):''}
-Dependents: ${yn(fd.children)}${fd.children_ages?' (ages '+fd.children_ages):''}
+Dependents: ${yn(fd.children)}${fd.children_ages?' (ages '+fd.children_ages+')':''}
 Employment: ${yn(fd.employment)}${fd.employer_name?' | Employer: '+fd.employer_name:''}${fd.job_title?' | Title: '+fd.job_title:''}
 
 INCOME (prior year)
