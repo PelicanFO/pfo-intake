@@ -225,9 +225,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .plan-item:hover{border-color:rgba(15,37,53,.22);}
 .plan-item:focus{outline:2px solid var(--navy-light);outline-offset:1px;background:#fff;color:var(--text);caret-color:var(--navy);}
 .plan-item:empty::before{content:attr(data-placeholder);color:var(--text-light);font-style:italic;pointer-events:none;}
-.plan-item-del{position:absolute;top:5px;right:5px;background:none;border:none;color:var(--text-light);cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:2;}
-.plan-item:hover ~ .plan-item-del,.plan-item:focus ~ .plan-item-del{opacity:1;}
-[style*="position:relative"]:hover .plan-item-del{opacity:1;}
+.plan-item-del{position:absolute;top:4px;right:4px;background:none;border:none;color:var(--text-light);cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:2;}
+.plan-item-row:hover .plan-item-del{opacity:1;}
 .plan-item-del:hover{color:var(--red-s);background:var(--red-bg);}
 .plan-add-btn{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px dashed var(--border);border-radius:8px;background:transparent;font-size:12px;color:var(--text-light);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;margin-top:2px;}
 .plan-add-btn:hover{border-color:var(--navy-light);color:var(--navy);background:var(--cream);}
@@ -323,8 +322,12 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 #responses-toggle,#p-responses-toggle{user-select:none;}
 #responses-toggle:hover .card-title,#p-responses-toggle:hover .card-title{color:var(--navy-light);}
 
-/* Plan column body scrollable when tall */
-.plan-col-body{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:600px;overflow-y:auto;}
+/* Plan item drag-and-drop */
+.plan-item-row{display:flex;align-items:flex-start;gap:5px;margin-bottom:6px;}
+.plan-drag-handle{flex-shrink:0;padding:9px 3px 0;color:var(--text-light);cursor:grab;font-size:14px;line-height:1;opacity:0;transition:opacity .15s;user-select:none;letter-spacing:-2px;}
+.plan-item-row:hover .plan-drag-handle{opacity:1;}
+.plan-item-row.dragging{opacity:.45;}
+.plan-item-row.drag-over .plan-item{outline:2px dashed var(--navy-light);background:rgba(42,82,128,.06);}flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:600px;overflow-y:auto;}
 .plan-col-body::-webkit-scrollbar{width:4px;}
 .plan-col-body::-webkit-scrollbar-track{background:transparent;}
 .plan-col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
@@ -452,6 +455,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <input type="text" id="client-search" placeholder="Search clients…" oninput="renderClientList()" style="padding:6px 12px 6px 30px;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--cream);outline:none;width:200px;transition:border-color .15s;"/>
         </div>
       </div>
+      <div id="cpa-filter-bar" class="admin-only" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1.25rem;align-items:center;"></div>
       <div id="client-list-container">
         <div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>
       </div>
@@ -553,6 +557,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <h2 style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:var(--navy);letter-spacing:.01em;">Review &amp; Share</h2>
           <p style="font-size:13px;color:var(--text-muted);margin-top:3px;" id="export-client-subtitle"></p>
         </div>
+        <button class="btn btn-sm btn-ghost" id="back-to-plan-btn">← Back to plan</button>
         <button class="btn btn-sm btn-ghost" id="back-to-p-btn">← Back to priorities</button>
       </div>
       <!-- Action buttons -->
@@ -776,6 +781,7 @@ let pSessionComplete = false; // true when reviewing completed client — enable
 let pendingDeleteId = null;
 let responsesOpen = false, pResponsesOpen = false;
 let clientSortMode = 'recent'; // 'recent' | 'alpha'
+let clientCpaFilter = null;   // null = all, string = filter by cpa code
 // Plan state
 let planData = { goals:[], friction:[], actions:[], accomplished:[] };
 let planClientId = null;
@@ -869,6 +875,7 @@ function wireButtons() {
   document.getElementById('export-btn').addEventListener('click', goToPlan);
   document.getElementById('add-item-btn').addEventListener('click', addPItem);
 
+  document.getElementById('back-to-plan-btn').addEventListener('click', () => showView('plan'));
   document.getElementById('back-to-p-btn').addEventListener('click', () => showView('prioritizer'));
   document.getElementById('back-to-prioritizer-btn').addEventListener('click', () => showView('prioritizer'));
   document.getElementById('plan-to-export-btn').addEventListener('click', goToExport);
@@ -940,6 +947,39 @@ function setClientSort(mode) {
   renderClientList();
 }
 
+function setCpaFilter(code) {
+  clientCpaFilter = clientCpaFilter === code ? null : code; // click again to deselect
+  renderCpaFilterBar();
+  renderClientList();
+}
+
+function renderCpaFilterBar() {
+  const bar = document.getElementById('cpa-filter-bar');
+  if (!bar || userRole !== 'admin') return;
+  bar.innerHTML = '';
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size:12px;color:var(--text-muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase;margin-right:2px;';
+  label.textContent = 'CPA';
+  bar.appendChild(label);
+  CPA_CODES.forEach(code => {
+    const btn = document.createElement('button');
+    btn.className = 'sort-tab' + (clientCpaFilter === code ? ' active' : '');
+    btn.textContent = code;
+    btn.title = clientCpaFilter === code ? 'Click to clear filter' : 'Filter by ' + code;
+    btn.onclick = () => setCpaFilter(code);
+    bar.appendChild(btn);
+  });
+  // Show an "All" clear button only when a filter is active
+  if (clientCpaFilter) {
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'sort-tab';
+    clearBtn.innerHTML = '✕ Clear';
+    clearBtn.style.marginLeft = '4px';
+    clearBtn.onclick = () => { clientCpaFilter = null; renderCpaFilterBar(); renderClientList(); };
+    bar.appendChild(clearBtn);
+  }
+}
+
 // ══════════════════════════════════
 //  CLIENT LIST
 // ══════════════════════════════════
@@ -967,6 +1007,11 @@ async function renderClientList() {
   if (query) {
     clients = clients.filter(c => (c.client_name||'').toLowerCase().includes(query));
   }
+  // Apply CPA filter (admin only)
+  if (userRole === 'admin' && clientCpaFilter) {
+    clients = clients.filter(c => (c.cpa_code||'') === clientCpaFilter);
+  }
+  renderCpaFilterBar();
   if (!clients.length) {
     container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">${query ? 'No clients match your search.' : 'No clients yet.'}</div>`;
     return;
@@ -1184,7 +1229,7 @@ const FORM_SECTIONS = [
       {id:'nw_allocation_header',label:'Where is your net worth allocated?',type:'sectionheader'},
       {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'percent',placeholder:'0',half:true},
       {id:'nw_roth',label:'Roth retirement accounts',type:'percent',placeholder:'0',half:true},
-      {id:'nw_real_estate',label:'Real estate',type:'percent',placeholder:'0',half:true},
+      {id:'nw_real_estate',label:'Primary home',type:'percent',placeholder:'0',half:true},
       {id:'nw_other',label:'All other assets',type:'percent',placeholder:'0',half:true},
       {id:'inv_allocation_header',label:'How are your investments allocated?',type:'sectionheader'},
       {id:'inv_cash',label:'Cash',type:'percent',placeholder:'0',half:true},
@@ -1562,7 +1607,7 @@ function renderField(f, qNum) {
           const key = o.replace(/[^a-z0-9]/gi,'_').toLowerCase();
           return `<div class="advisor-check-item" id="adv-item-${key}">
             <div class="advisor-check-header" onclick="toggleAdvisor('${key}','${esc(o)}')">
-              <input type="checkbox" id="adv-cb-${key}" data-advisor="${esc(o)}" onchange="event.stopPropagation();toggleAdvisorFromCheckbox('${key}','${esc(o)}')"/>
+              <input type="checkbox" id="adv-cb-${key}" data-advisor="${esc(o)}" onclick="event.stopPropagation();toggleAdvisorFromCheckbox('${key}','${esc(o)}')"/>
               <span>${esc(o)}</span>
             </div>
             <div class="advisor-check-body" id="adv-body-${key}">
@@ -2118,6 +2163,8 @@ function triggerCond(fid, val) {
     if (showing) {
       group.fields.forEach(ff => {
         const savedVal = currentFormData[ff.id];
+        // Restore the visual state of this child field now that it's visible
+        restoreVal(ff);
         if (savedVal && ff.follow) triggerCond(ff.id, savedVal);
       });
     }
@@ -2282,28 +2329,24 @@ function buildPrompt(fd) {
   const profile = `CLIENT FINANCIAL PROFILE — USE ALL DATA BELOW TO GENERATE HIGHLY SPECIFIC PRIORITIES
 
 PERSONAL
-Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}
+Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}${fd.spouse_name?' — Spouse: '+fd.spouse_name+(fd.spouse_age?', age '+fd.spouse_age:''):''}
 Dependents: ${yn(fd.children)}${fd.children_ages?' (ages '+fd.children_ages+')':''}
 
 INCOME (prior year)
 W-2/salary: ${cur(fd.w2_income)} | Business income: ${cur(fd.business_income)} | ST capital gains: ${cur(fd.st_cap_gains)} | LT capital gains: ${cur(fd.lt_cap_gains)}
 Interest: ${cur(fd.interest_income)} | Qualified dividends: ${cur(fd.qualified_dividends)} | Non-qualified dividends: ${cur(fd.nonqualified_dividends)} | Other income: ${cur(fd.other_income)} | TOTAL: ${cur(fd.total_income_display)}
-Federal+state tax liability: ${cur(fd.tax_liability)} | Effective tax rate: ${pct(fd.effective_tax_rate_display)}
+Federal tax liability: ${cur(fd.federal_tax_liability)} | State tax liability: ${cur(fd.state_tax_liability)} | Effective tax rate: ${pct(fd.effective_tax_rate_display)}
 Projected income (current year): ${cur(fd.projected_income)}
 Income notes: ${yn(fd.income_notes)}
 
 NET WORTH & ASSETS
-Total net worth: ${cur(fd.net_worth)} | Liquid/investable: ${cur(fd.liquid_assets)} | Primary home: ${cur(fd.real_estate_primary_value)}
-Allocation: ${yn(fd.net_worth_desc)}
-Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)} | Taking depreciation: ${yn(fd.real_estate_depreciation)}
+Total net worth: ${cur(fd.net_worth)}
+Net worth allocation — Tax-deferred retirement: ${pct(fd.nw_tax_deferred)}% | Roth retirement: ${pct(fd.nw_roth)}% | Real estate: ${pct(fd.nw_real_estate)}% | All other: ${pct(fd.nw_other)}%
+Investment allocation — Cash: ${pct(fd.inv_cash)}% | Bonds: ${pct(fd.inv_bonds)}% | Stocks: ${pct(fd.inv_stocks)}% | Precious metals: ${pct(fd.inv_precious_metals)}% | Crypto: ${pct(fd.inv_crypto)}% | Real estate (excl. primary): ${pct(fd.inv_real_estate)}%
+Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)}
+Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' — '+fd.concentrated_detail:''} | Value: ${cur(fd.concentrated_value)} | Cost basis: ${cur(fd.concentrated_tax_basis)}
 Major asset plans: ${yn(fd.major_assets_planned)} ${fd.major_assets_detail||fd.major_assets_maybe||''}
 Inheritance expected: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
-
-INVESTMENTS
-Has taxable brokerage: ${yn(fd.has_investments)} | Value: ${cur(fd.investment_value)} | Managed: ${yn(fd.investment_managed)} | Satisfied: ${yn(fd.investment_satisfied)}
-Risk tolerance: ${yn(fd.risk_tolerance)} | Concerns: ${arr(fd.investment_concerns)}
-Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' — '+fd.concentrated_detail:''} | Cost basis: ${cur(fd.concentrated_tax_basis)}
-Alternative investments: ${yn(fd.alternative_investments)}${fd.alt_investments_detail?' ('+arr(fd.alt_investments_detail)+')':''}
 
 TAX
 Has CPA: ${yn(fd.has_cpa)}${fd.cpa_name?' ('+fd.cpa_name+')':''} | Tax frustration: ${yn(fd.tax_pain)}
@@ -2319,7 +2362,8 @@ Pension: ${yn(fd.has_pension)} | Value: ${cur(fd.pension_value)} | Monthly: ${cu
 Annuities: ${yn(fd.has_annuities)}${fd.annuity_type?' ('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
 
 INSURANCE
-Life insurance: ${yn(fd.has_life_ins)}${fd.life_ins_types?' ('+arr(fd.life_ins_types)+')':''} | Coverage: ${cur(fd.life_ins_coverage)} | Cash value: ${cur(fd.life_ins_cash_value)} | Last reviewed: ${yn(fd.life_ins_reviewed)} | Adequate: ${yn(fd.life_ins_adequate)}
+Life insurance: ${yn(fd.has_life_ins)}${fd.life_ins_types?' ('+arr(fd.life_ins_types)+')':''} | Coverage: ${cur(fd.life_ins_coverage)} | Adequate: ${yn(fd.life_ins_adequate)}
+Disability insurance: ${yn(fd.has_disability_ins)}${fd.disability_coverage?' — monthly benefit: '+cur(fd.disability_coverage):''}
 Has insurance agent: ${yn(fd.has_insurance_agent)}${fd.insurance_agent_detail?' ('+fd.insurance_agent_detail+')':''}
 
 ESTATE PLANNING
@@ -2953,49 +2997,19 @@ function renderPlanColumn(key) {
   if (!body) return;
   const items = planData[key] || [];
   body.innerHTML = '';
+  let dragSrcIdx = null;
 
   items.forEach((item, idx) => {
     const isAccomplished = key === 'accomplished';
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;display:flex;align-items:flex-start;gap:4px;';
+    wrapper.className = 'plan-item-row';
+    wrapper.draggable = true;
+    wrapper.dataset.idx = idx;
 
-    // Move up/down buttons
-    const moveWrap = document.createElement('div');
-    moveWrap.style.cssText = 'display:flex;flex-direction:column;gap:1px;padding-top:8px;flex-shrink:0;opacity:0;transition:opacity .15s;';
-    moveWrap.className = 'plan-move-btns';
-
-    const upBtn = document.createElement('button');
-    upBtn.innerHTML = '▲';
-    upBtn.title = 'Move up';
-    upBtn.style.cssText = 'background:none;border:none;color:var(--text-light);cursor:pointer;font-size:9px;padding:1px 3px;line-height:1;border-radius:3px;';
-    upBtn.disabled = idx === 0;
-    upBtn.style.opacity = idx === 0 ? '0.2' : '1';
-    upBtn.addEventListener('mousedown', e => {
-      e.preventDefault();
-      if (idx === 0) return;
-      const arr = planData[key];
-      [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]];
-      renderPlanColumn(key);
-      schedulePlanSave();
-    });
-
-    const downBtn = document.createElement('button');
-    downBtn.innerHTML = '▼';
-    downBtn.title = 'Move down';
-    downBtn.style.cssText = 'background:none;border:none;color:var(--text-light);cursor:pointer;font-size:9px;padding:1px 3px;line-height:1;border-radius:3px;';
-    downBtn.disabled = idx === items.length - 1;
-    downBtn.style.opacity = idx === items.length - 1 ? '0.2' : '1';
-    downBtn.addEventListener('mousedown', e => {
-      e.preventDefault();
-      if (idx === items.length - 1) return;
-      const arr = planData[key];
-      [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]];
-      renderPlanColumn(key);
-      schedulePlanSave();
-    });
-
-    moveWrap.appendChild(upBtn);
-    moveWrap.appendChild(downBtn);
+    const handle = document.createElement('div');
+    handle.className = 'plan-drag-handle';
+    handle.innerHTML = '&#8942;&#8942;';
+    handle.title = 'Drag to reorder';
 
     const div = document.createElement('div');
     div.className = 'plan-item' + (isAccomplished ? ' plan-item-accomplished' : '');
@@ -3027,97 +3041,63 @@ function renderPlanColumn(key) {
       if (e.key === 'Enter') { e.preventDefault(); div.blur(); }
     });
 
+    wrapper.addEventListener('dragstart', e => {
+      dragSrcIdx = idx;
+      wrapper.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', idx);
+    });
+    wrapper.addEventListener('dragend', () => {
+      wrapper.classList.remove('dragging');
+      body.querySelectorAll('.plan-item-row').forEach(r => r.classList.remove('drag-over'));
+    });
+    wrapper.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      body.querySelectorAll('.plan-item-row').forEach(r => r.classList.remove('drag-over'));
+      wrapper.classList.add('drag-over');
+    });
+    wrapper.addEventListener('dragleave', () => wrapper.classList.remove('drag-over'));
+    wrapper.addEventListener('drop', e => {
+      e.preventDefault();
+      wrapper.classList.remove('drag-over');
+      const destIdx = parseInt(wrapper.dataset.idx);
+      if (dragSrcIdx === null || dragSrcIdx === destIdx) return;
+      const arr = planData[key];
+      const [moved] = arr.splice(dragSrcIdx, 1);
+      arr.splice(destIdx, 0, moved);
+      dragSrcIdx = null;
+      renderPlanColumn(key);
+      schedulePlanSave();
+    });
+
     const itemWrap = document.createElement('div');
-    itemWrap.style.cssText = 'position:relative;flex:1;';
+    itemWrap.style.cssText = 'position:relative;flex:1;min-width:0;';
     itemWrap.appendChild(div);
     itemWrap.appendChild(del);
 
-    wrapper.appendChild(moveWrap);
+    wrapper.appendChild(handle);
     wrapper.appendChild(itemWrap);
-
-    // Show move buttons on hover
-    wrapper.addEventListener('mouseenter', () => moveWrap.style.opacity = '1');
-    wrapper.addEventListener('mouseleave', () => moveWrap.style.opacity = '0');
-
     body.appendChild(wrapper);
   });
 
   const addBtn = document.createElement('button');
   addBtn.className = 'plan-add-btn';
-  addBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg> Add item`;
+  addBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg> Add item';
   addBtn.addEventListener('click', () => {
     const newItem = {id: uid(), text: ''};
     planData[key].push(newItem);
     renderPlanColumn(key);
     setTimeout(() => {
-      const newEl = document.querySelector(`[data-id="${newItem.id}"]`);
+      const newEl = document.querySelector('[data-id="' + newItem.id + '"]');
       if (newEl) newEl.focus();
     }, 30);
     schedulePlanSave();
   });
   body.appendChild(addBtn);
-}function printPlan() {
-  const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const colDefs = [
-    {key:'goals', label:'Goals & Dreams', bg:'#eef4ff', hdrBg:'#1a3a6e'},
-    {key:'friction', label:'Friction Points & Opportunities', bg:'#fff8ec', hdrBg:'#b07030'},
-    {key:'actions', label:'Action Items', bg:'#edfaf3', hdrBg:'#1a7a3c'},
-    {key:'accomplished', label:'Items Accomplished', bg:'#f4f4f4', hdrBg:'#555'},
-  ];
-  const colsHtml = colDefs.map(c => {
-    const items = (planData[c.key]||[]).map(i =>
-      `<div style="padding:8px 10px;background:#fff;border:1px solid #e0ddd8;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:6px;">${esc(i.text)}</div>`
-    ).join('');
-    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;">
-      <div style="background:${c.hdrBg};color:#fff;padding:10px 12px;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;border-radius:6px 6px 0 0;margin-bottom:6px;">${c.label}</div>
-      ${items||'<div style="font-size:12px;color:#aaa;font-family:sans-serif;padding:6px;">No items</div>'}
-    </div>`;
-  }).join('');
-
-  const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>${esc(currentClientName)} — Client Plan</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <style>body{margin:1.5cm;font-family:'Cormorant Garamond',serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>
-  </head><body>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">
-    <div>
-      <div style="font-size:10px;color:#bbb;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Sans',sans-serif;">Pelican Family Office — Client Action Plan</div>
-      <div style="font-size:24px;font-weight:600;color:#0f2535;">${esc(currentClientName)}</div>
-    </div>
-    <div style="font-size:12px;color:#aaa;font-family:'DM Sans',sans-serif;">${today}</div>
-  </div>
-  <div style="display:flex;gap:12px;">${colsHtml}</div>
-  </body></html>`);
-  win.document.close(); win.focus(); setTimeout(()=>win.print(), 500);
 }
 
-async function goToExport() {
-  if (pItems.length) sortItems();
-  const statusEl = document.getElementById('p-saved-status');
-  if (statusEl) statusEl.textContent = 'Saving…';
-  // Load any existing plan data from intake (in case we arrived from prioritizer directly)
-  if (!planData.goals?.length && !planData.friction?.length && !planData.actions?.length) {
-    const existingIntake = await getIntakeForClient(currentClientId);
-    const savedPlan = existingIntake?.form_data?.__plan_data;
-    if (savedPlan) planData = savedPlan;
-  }
-  // Preserve __plan_data in form_data when saving
-  const formDataWithPlan = {...(pClientFormData||{})};
-  if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
-    formDataWithPlan.__plan_data = JSON.parse(JSON.stringify(planData));
-  }
-  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataWithPlan, staff_name:staffName, saved_at:Date.now()};
-  if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
-  else pCurrentId = await dbInsert(TBL_INTAKES, payload);
-  if (statusEl) statusEl.textContent = 'Saved ✓';
-  setSyncStatus('connected','Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
-  buildPDFPreview();
-  showView('export');
-}
 
-// ══════════════════════════════════
-//  PDF
-// ══════════════════════════════════
 function buildPDFPreview() {
   const client = currentClientName||'—';
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -3443,6 +3423,7 @@ const CSV_FORM_FIELDS = [
   {id:'email',label:'Email'},{id:'phone',label:'Phone'},
   {id:'age',label:'Age'},{id:'state',label:'State'},
   {id:'filing_status',label:'Filing Status'},{id:'marital',label:'Marital Status'},
+  {id:'spouse_name',label:'Spouse Name'},{id:'spouse_age',label:'Spouse Age'},
   {id:'children',label:'Has Children'},{id:'children_ages',label:'Children Ages'},
   {id:'children_college',label:'Children to College'},
   {id:'w2_income',label:'W2 Income'},{id:'business_income',label:'Business Income'},
@@ -3450,25 +3431,21 @@ const CSV_FORM_FIELDS = [
   {id:'investment_income',label:'Interest & Dividend Income'},
   {id:'other_income',label:'Other Income'},
   {id:'total_income_display',label:'Total Income Prior Year'},
-  {id:'tax_liability',label:'Tax Liability'},
+  {id:'federal_tax_liability',label:'Federal Tax Liability'},{id:'state_tax_liability',label:'State Tax Liability'},
+  {id:'effective_tax_rate_display',label:'Effective Tax Rate'},
   {id:'projected_income',label:'Projected Total Income'},
   {id:'income_notes',label:'Income Notes'},
-  {id:'net_worth',label:'Net Worth'},{id:'liquid_assets',label:'Liquid Assets'},
-  {id:'real_estate_primary_value',label:'Primary Home Value'},
-  {id:'net_worth_desc',label:'Net Worth Allocation'},
+  {id:'net_worth',label:'Net Worth'},
+  {id:'nw_tax_deferred',label:'NW % Tax-Deferred Retirement'},{id:'nw_roth',label:'NW % Roth Retirement'},
+  {id:'nw_real_estate',label:'NW % Real Estate'},{id:'nw_other',label:'NW % Other Assets'},
+  {id:'inv_cash',label:'Inv % Cash'},{id:'inv_bonds',label:'Inv % Bonds'},{id:'inv_stocks',label:'Inv % Stocks'},
+  {id:'inv_precious_metals',label:'Inv % Precious Metals'},{id:'inv_crypto',label:'Inv % Crypto'},
+  {id:'inv_real_estate',label:'Inv % Real Estate'},
   {id:'real_estate',label:'Owns Real Estate'},{id:'real_estate_type',label:'Real Estate Types'},
   {id:'real_estate_value',label:'Real Estate Value'},
+  {id:'concentrated_position',label:'Concentrated Position'},{id:'concentrated_detail',label:'Concentration Detail'},
   {id:'major_assets_planned',label:'Major Asset Plans'},{id:'major_assets_detail',label:'Major Asset Detail'},
   {id:'inheritance',label:'Expecting Inheritance'},{id:'inheritance_detail',label:'Inheritance Detail'},
-  {id:'has_investments',label:'Has Investments'},{id:'investment_value',label:'Investment Value'},
-  {id:'investment_managed',label:'How Managed'},{id:'investment_satisfied',label:'Investment Satisfaction'},
-  {id:'risk_tolerance',label:'Risk Tolerance'},{id:'investment_horizon',label:'Investment Horizon'},
-  {id:'investment_concerns',label:'Investment Concerns'},
-  {id:'concentrated_position',label:'Concentrated Position'},{id:'concentrated_detail',label:'Concentration Detail'},
-  {id:'alternative_investments',label:'Alternative Investments'},{id:'alt_investments_detail',label:'Alt Investment Types'},
-  {id:'has_cpa',label:'Has CPA'},{id:'cpa_name',label:'CPA Name'},
-  {id:'cpa_satisfied',label:'Tax Satisfaction'},{id:'tax_planning',label:'Tax Planning Approach'},
-  {id:'unrealized_gains',label:'Unrealized Gains'},{id:'unrealized_gains_detail',label:'Unrealized Gains Amount'},
   {id:'stock_options',label:'Has Stock Options'},{id:'stock_options_detail',label:'Stock Options Detail'},
   {id:'tax_pain',label:'Tax Frustration'},
   {id:'tax_strategies_tried',label:'Advanced Tax Strategies'},{id:'tax_strategies_detail',label:'Tax Strategies Detail'},
@@ -3485,7 +3462,8 @@ const CSV_FORM_FIELDS = [
   {id:'annuity_total_value',label:'Annuity Total Value'},
   {id:'annuity_annual_benefit',label:'Annuity Annual Benefit'},
   {id:'has_life_ins',label:'Has Life Insurance'},{id:'life_ins_types',label:'Life Ins Types'},
-  {id:'life_ins_coverage',label:'Life Ins Coverage'},{id:'life_ins_cash_value',label:'Life Ins Cash Value'},
+  {id:'life_ins_coverage',label:'Life Ins Coverage'},{id:'life_ins_adequate',label:'Life Ins Adequate'},
+  {id:'has_disability_ins',label:'Has Disability Insurance'},{id:'disability_coverage',label:'Disability Monthly Benefit'},{id:'life_ins_cash_value',label:'Life Ins Cash Value'},
   {id:'life_ins_reviewed',label:'Life Ins Last Reviewed'},{id:'life_ins_purpose',label:'Life Ins Purpose'},
   {id:'has_disability',label:'Has Disability Ins'},{id:'disability_monthly',label:'Disability Monthly Benefit'},
   {id:'has_ltc',label:'Has LTC'},{id:'ltc_daily_benefit',label:'LTC Daily Benefit'},
