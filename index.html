@@ -29,7 +29,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
 .gate-logo{width:88px;height:88px;object-fit:contain;display:block;}
 .gate-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--navy);margin-bottom:.3rem;letter-spacing:.01em;}
 .gate-sub{font-size:12.5px;color:var(--text-light);margin-bottom:2rem;letter-spacing:.04em;text-transform:uppercase;}
-.gate-divider{width:36px;height:2px;background:var(--gold);border-radius:2px;margin:0 auto 1.75rem;}
 .gate-field{margin-bottom:.85rem;text-align:left;}
 .gate-field label{font-size:10.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--text-light);display:block;margin-bottom:5px;}
 .gate-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;background:var(--cream);color:var(--text);transition:border-color .15s,box-shadow .15s;}
@@ -94,6 +93,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .currency-wrap{position:relative;}
 .currency-wrap::before{content:'$';position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;}
 .currency-wrap input{padding-left:26px;}
+.percent-wrap{position:relative;}
+.percent-wrap::after{content:'%';position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none;}
+.percent-wrap input{padding-right:30px;}
 .form-section-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;}
 .form-section-icon{width:32px;height:32px;border-radius:8px;background:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .form-section-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);}
@@ -356,8 +358,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <img id="gate-logo" class="gate-logo" src="" alt="Pelican Family Office"/>
     </div>
     <div class="gate-title">Pelican Family Office</div>
-    <div class="gate-divider"></div>
-    <div class="gate-field">
+    <div class="gate-field" style="margin-top:1.5rem;">
       <label>Username</label>
       <input class="gate-input" id="gate-username" type="text" placeholder="e.g. PFO" autocomplete="username"/>
     </div>
@@ -381,7 +382,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <div class="sidebar-brand">
         <img id="sidebar-logo" class="sidebar-logo" src="" alt=""/>
         <div class="sidebar-name">Pelican Family Office</div>
-        <div class="sidebar-tagline">Focus Prioritizer</div>
+        <div class="sidebar-tagline">Priority Navigator</div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-section-label">Navigation</div>
@@ -1140,7 +1141,11 @@ const FORM_SECTIONS = [
       {id:'age',label:'Age',type:'number',placeholder:'',half:true},
       {id:'state',label:'State of primary residence',type:'select',options:['','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','District of Columbia'],half:true},
       {id:'filing_status',label:'Tax filing status',type:'radio',options:['Single','Married filing jointly','Married filing separately','Head of household']},
-      {id:'marital',label:'Marital status',type:'select',options:['','Single','Married','Divorced','Widowed','Domestic partnership']},
+      {id:'marital',label:'Marital status',type:'select',options:['','Single','Married','Widowed'],
+        follow:[
+          {show:'Married',id:'spouse_name',label:'Spouse name',type:'text',placeholder:'Full name',half:true},
+          {show:'Married',id:'spouse_age',label:'Spouse age',type:'number',placeholder:'',half:true},
+        ]},
       {id:'children',label:'Do you have children or dependents?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'children_count',label:'Number of children / dependents',type:'number',placeholder:'e.g. 2'},
@@ -1162,7 +1167,8 @@ const FORM_SECTIONS = [
       {id:'nonqualified_dividends',label:'Non-qualified dividends',type:'currency',placeholder:'0',half:true},
       {id:'other_income',label:'Other income — rental, royalties, etc.',type:'currency',placeholder:'0',half:true},
       {id:'total_income_display',label:'Total income (prior year — calculated)',type:'calc',placeholder:''},
-      {id:'tax_liability',label:'Total federal + state tax liability',type:'currency',placeholder:'0'},
+      {id:'federal_tax_liability',label:'Federal tax liability',type:'currency',placeholder:'0',half:true},
+      {id:'state_tax_liability',label:'State tax liability',type:'currency',placeholder:'0',half:true},
       {id:'effective_tax_rate_display',label:'Effective tax rate (prior year — calculated)',type:'calc',placeholder:''},
       {id:'ideal_tax_slider',label:'Ideally, how much tax would you like to have paid?',type:'taxslider',placeholder:''},
       {id:'income_header_current',label:'Current Tax Year',type:'sectionheader'},
@@ -1171,11 +1177,22 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'networth', title:'Net worth & assets',
+    id:'networth', title:'Net worth & investments',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path fill-rule="evenodd" d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 1H2v6h1V6zm10 0v6h1V6h-1zM2 5v6h12V5H2z"/></svg>',
     fields:[
       {id:'net_worth',label:'Estimated total net worth',type:'currency',placeholder:'0'},
-      {id:'net_worth_desc',label:'How is your net worth roughly allocated?',type:'textarea',placeholder:'e.g. 10% cash/savings, 35% stocks, 15% bonds, 25% real estate, 15% business equity...'},
+      {id:'nw_allocation_header',label:'Where is your net worth allocated?',type:'sectionheader'},
+      {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'percent',placeholder:'0',half:true},
+      {id:'nw_roth',label:'Roth retirement accounts',type:'percent',placeholder:'0',half:true},
+      {id:'nw_real_estate',label:'Real estate',type:'percent',placeholder:'0',half:true},
+      {id:'nw_other',label:'All other assets',type:'percent',placeholder:'0',half:true},
+      {id:'inv_allocation_header',label:'How are your investments allocated?',type:'sectionheader'},
+      {id:'inv_cash',label:'Cash',type:'percent',placeholder:'0',half:true},
+      {id:'inv_bonds',label:'Bonds',type:'percent',placeholder:'0',half:true},
+      {id:'inv_stocks',label:'Stocks',type:'percent',placeholder:'0',half:true},
+      {id:'inv_precious_metals',label:'Precious metals',type:'percent',placeholder:'0',half:true},
+      {id:'inv_crypto',label:'Cryptocurrency',type:'percent',placeholder:'0',half:true},
+      {id:'inv_real_estate',label:'Real estate (excl. primary home)',type:'percent',placeholder:'0',half:true},
       {id:'real_estate',label:'Do you own real estate beyond your primary home?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'real_estate_type',label:'What types?',type:'multicheck',options:['Rental property','Commercial property','Vacation homes','Raw land']},
@@ -1195,23 +1212,11 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'inheritance_detail',label:'Approximate amount and timeline',type:'text',placeholder:''},
           {show:'Yes',id:'inheritance_tax_aware',label:'Are you aware of potential tax implications?',type:'radio',options:['Yes','No']},
         ]},
-    ]
-  },
-  {
-    id:'investments', title:'Investments & risk',
-    icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/></svg>',
-    fields:[
-      {id:'risk_tolerance',label:'How would you describe your overall investment risk tolerance?',type:'radio',options:['Conservative — preserve capital, minimal risk','Moderate — balanced growth and protection','Aggressive — maximize long-term growth']},
-      {id:'investment_concerns',label:'Which of the following investment concerns apply to you?',type:'multicheck',options:['Market volatility','Sequence of returns risk','Not generating enough income','Too concentrated in one stock or sector','High fees or costs','Tax drag on returns','Inflation eroding purchasing power','Not sure if I am on track for retirement']},
       {id:'concentrated_position',label:'Do you have a concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'concentrated_detail',label:'What is the asset?',type:'text',placeholder:'e.g. company stock'},
           {show:'Yes',id:'concentrated_value',label:'Approximate value',type:'currency',placeholder:'0'},
           {show:'Yes',id:'concentrated_tax_basis',label:'Approximate cost basis',type:'currency',placeholder:'0'},
-        ]},
-      {id:'alternative_investments',label:'Do you invest in any of the following?',type:'multicheck',options:['Private equity','Precious metals','Cryptocurrency'],
-        follow:[
-          {show:'Private equity',id:'alt_investments_detail',label:'Please describe',type:'textarea',placeholder:''},
         ]},
     ]
   },
@@ -1266,7 +1271,7 @@ const FORM_SECTIONS = [
     ]
   },
   {
-    id:'insurance', title:'Insurance & protection',
+    id:'insurance', title:'Insurance',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>',
     fields:[
       {id:'has_life_ins',label:'Do you have life insurance?',type:'radio',options:['Yes','No'],
@@ -1276,6 +1281,10 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_coverage_reason',label:'How did you choose this coverage amount?',type:'textarea',placeholder:'e.g. rule of thumb, advisor recommendation, based on income replacement needs...'},
           {show:'Yes',id:'life_ins_coverage_analysis',label:'',type:'coverageanalysis'},
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
+        ]},
+      {id:'has_disability_ins',label:'Do you have disability insurance?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'disability_coverage',label:'Monthly benefit coverage amount',type:'currency',placeholder:'0'},
         ]},
       {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
         follow:[
@@ -1572,6 +1581,14 @@ function renderField(f, qNum) {
                 <span class="advisor-slider-label">What do you wish was different about the relationship?</span>
                 <textarea rows="2" placeholder="Please describe…" id="adv-diff-${key}" oninput="saveAdvisorData('${esc(o)}')"></textarea>
               </div>
+              <div class="advisor-mixed" id="adv-mixed-${key}" style="display:none;">
+                <span class="advisor-slider-label">What do you like, and what do you wish was different?</span>
+                <textarea rows="2" placeholder="Please describe…" id="adv-mixed-ta-${key}" oninput="saveAdvisorData('${esc(o)}')"></textarea>
+              </div>
+              <div class="advisor-satisfied" id="adv-satisfied-${key}" style="display:none;">
+                <span class="advisor-slider-label">What do you like about this relationship?</span>
+                <textarea rows="2" placeholder="Please describe…" id="adv-likes-${key}" oninput="saveAdvisorData('${esc(o)}')"></textarea>
+              </div>
             </div>
           </div>`;
         }).join('')}
@@ -1580,10 +1597,11 @@ function renderField(f, qNum) {
   }
   if (['text','email','tel','number'].includes(f.type)) inner=`<input type="${f.type}" id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" oninput="saveField('${f.id}',this.value);updateCalcFields()"/>`;
   else if (f.type==='currency') inner=`<div class="currency-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value);updateCalcFields()"/></div>`;
+  else if (f.type==='percent') inner=`<div class="percent-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value)"/></div>`;
   else if (f.type==='textarea') inner=`<textarea id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" rows="3" oninput="saveField('${f.id}',this.value)"></textarea>`;
   else if (f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${o||'Select…'}</option>`).join('');inner=`<select id="cf-${f.id}" onchange="saveField('${f.id}',this.value)">${opts}</select>`;}
   else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="radioToggle(event,'${f.id}','${esc(o).replace(/'/g,"\\'")}')"><input type="radio" name="cf-${f.id}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div>`;
-  else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}"><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onchange="saveMulti('${f.id}');updateCheckStyle('${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}',this.checked)"/> ${esc(o)}</label>`).join('')}</div>`;
+  else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="handleCheckCard(event,'${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}','${esc(o).replace(/'/g,String.fromCharCode(92)+"'")}')" ><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onclick="event.stopPropagation()"/> ${esc(o)}</label>`).join('')}</div>`;
   // Group follow fields by their show value — all with same show go in ONE container
   let followHtml = '';
   if (f.follow) {
@@ -1613,7 +1631,11 @@ function restoreVal(f) {
     if(f.follow) triggerCond(f.id,v);
   } else if(f.type==='multicheck'){
     const arr=Array.isArray(v)?v:[];
-    document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(c=>{c.checked=arr.includes(c.value);updateCheckStyle(f.id,c.value.replace(/[^a-z0-9]/gi,'_'),c.checked);});
+    document.querySelectorAll(`input[name="cf-${f.id}"]`).forEach(c=>{
+      c.checked=arr.includes(c.value);
+      updateCheckStyle(f.id,c.value.replace(/[^a-z0-9]/gi,'_'),c.checked);
+      if(c.checked && f.follow) triggerCond(f.id, c.value);
+    });
   } else if(f.type==='select'){
     el.value=v;
     if(f.follow) triggerCond(f.id,v);
@@ -1640,6 +1662,14 @@ function radioToggle(e, fid, val) {
   }
 }
 function updateRadioStyle(fid){const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);document.querySelectorAll(`#rg-${fid} .radio-item`).forEach(el=>el.classList.remove('checked'));if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}}
+function handleCheckCard(event, fid, okey, oval) {
+  event.preventDefault();
+  const cb = document.querySelector(`input[name="cf-${fid}"][value="${oval}"]`);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  updateCheckStyle(fid, okey, cb.checked);
+  saveMulti(fid);
+}
 function updateCheckStyle(fid,okey,checked){const el=document.getElementById(`cc-${fid}-${okey}`);if(el)el.classList.toggle('checked',checked);}
 function saveField(id,val){currentFormData[id]=val;autosave();}
 function saveMulti(id){currentFormData[id]=Array.from(document.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(c=>c.value);autosave();}
@@ -1664,8 +1694,8 @@ function updateCalcFields() {
     el.textContent = total > 0 ? '$' + total.toLocaleString('en-US') : '—';
     currentFormData['total_income_display'] = total > 0 ? String(total) : '';
   }
-  // Auto-calculate effective tax rate
-  const taxes = parseNum('tax_liability');
+  // Auto-calculate effective tax rate (federal + state combined)
+  const taxes = parseNum('federal_tax_liability') + parseNum('state_tax_liability') + parseNum('tax_liability'); // tax_liability = legacy
   const rateEl = document.getElementById('cf-effective_tax_rate_display');
   if (rateEl) {
     if (total > 0 && taxes > 0) {
@@ -1744,7 +1774,7 @@ function wireTaxSlider() {
 function updateTaxSliderVisibility() {
   const wrap = document.getElementById('taxslider-wrap');
   if (!wrap) return;
-  const taxVal = parseNum('tax_liability');
+  const taxVal = parseNum('federal_tax_liability') + parseNum('state_tax_liability') + parseNum('tax_liability');
   wrap.style.display = taxVal > 0 ? '' : 'none';
 }
 
@@ -1826,7 +1856,6 @@ function updateCoverageAnalysis() {
 
 // ── ADVISOR CHECKS ───────────────────────────────────────────────
 function wireAdvisorChecks() {
-  // Restore saved advisor data
   const saved = currentFormData['advisory_relationships'];
   if (!saved || !Array.isArray(saved)) return;
   saved.forEach(entry => {
@@ -1841,15 +1870,25 @@ function wireAdvisorChecks() {
       const nameEl = document.getElementById('adv-name-'+key);
       if (nameEl && entry.firm) nameEl.value = entry.firm;
       const slider = document.getElementById('adv-slider-'+key);
-      if (slider && entry.satisfaction !== undefined) {
-        slider.value = entry.satisfaction;
+      const sat = entry.satisfaction !== undefined ? entry.satisfaction : 7;
+      if (slider) {
+        slider.value = sat;
         const numEl = document.getElementById('adv-snum-'+key);
-        if (numEl) numEl.textContent = entry.satisfaction;
+        if (numEl) numEl.textContent = sat;
+        // Restore conditional fields
         const dissEl = document.getElementById('adv-dissatisfied-'+key);
-        if (dissEl) dissEl.style.display = entry.satisfaction <= 6 ? '' : 'none';
+        const mixedEl = document.getElementById('adv-mixed-'+key);
+        const satEl = document.getElementById('adv-satisfied-'+key);
+        if (dissEl) dissEl.style.display = sat <= 6 ? '' : 'none';
+        if (mixedEl) mixedEl.style.display = (sat === 7 || sat === 8) ? '' : 'none';
+        if (satEl) satEl.style.display = sat >= 9 ? '' : 'none';
       }
       const diffTa = document.getElementById('adv-diff-'+key);
       if (diffTa && entry.wishes) diffTa.value = entry.wishes;
+      const mixedTa = document.getElementById('adv-mixed-ta-'+key);
+      if (mixedTa && entry.mixed) mixedTa.value = entry.mixed;
+      const likesTa = document.getElementById('adv-likes-'+key);
+      if (likesTa && entry.likes) likesTa.value = entry.likes;
     }
   });
 }
@@ -1894,13 +1933,17 @@ function updateAdvisorSlider(key, name) {
   const val = parseInt(slider.value);
   const numEl = document.getElementById('adv-snum-'+key);
   if (numEl) numEl.textContent = val;
+  // Show the right conditional field based on score range
   const dissEl = document.getElementById('adv-dissatisfied-'+key);
+  const mixedEl = document.getElementById('adv-mixed-'+key);
+  const satEl = document.getElementById('adv-satisfied-'+key);
   if (dissEl) dissEl.style.display = val <= 6 ? '' : 'none';
+  if (mixedEl) mixedEl.style.display = (val === 7 || val === 8) ? '' : 'none';
+  if (satEl) satEl.style.display = val >= 9 ? '' : 'none';
   saveAdvisorData(name);
 }
 
 function saveAdvisorData() {
-  // Collect all checked advisors
   const list = document.getElementById('advisor-check-list');
   if (!list) return;
   const advisors = [];
@@ -1910,12 +1953,17 @@ function saveAdvisorData() {
     const name = cb.dataset.advisor;
     const nameEl = document.getElementById('adv-name-'+key);
     const slider = document.getElementById('adv-slider-'+key);
+    const sat = slider ? parseInt(slider.value) : 7;
     const diffTa = document.getElementById('adv-diff-'+key);
+    const mixedTa = document.getElementById('adv-mixed-ta-'+key);
+    const likesTa = document.getElementById('adv-likes-'+key);
     advisors.push({
       name,
       firm: nameEl ? nameEl.value : '',
-      satisfaction: slider ? parseInt(slider.value) : 7,
-      wishes: (diffTa && parseInt(slider?.value||'7') <= 6) ? diffTa.value : ''
+      satisfaction: sat,
+      wishes: sat <= 6 ? (diffTa ? diffTa.value : '') : '',
+      mixed: (sat === 7 || sat === 8) ? (mixedTa ? mixedTa.value : '') : '',
+      likes: sat >= 9 ? (likesTa ? likesTa.value : '') : '',
     });
   });
   currentFormData['advisory_relationships'] = advisors;
@@ -2815,9 +2863,9 @@ Return ONLY valid JSON (no markdown, no explanation):
   "actions": ["item1","item2",...]
 }
 
-Goals & Dreams: what the client wants to achieve — aspirational and motivating.
-Friction Points & Opportunities: specific obstacles, gaps, or underutilized opportunities in their current situation.
-Action Items: concrete next steps for the advisor and client to take together, derived from the critical focus areas.`;
+Goals & Dreams: what the client truly wants for their life — aspirational, big-picture, emotionally resonant. These should reflect the client's hopes and vision (financial freedom, legacy, lifestyle, family, purpose), NOT advisor action items. Think: what is in the client's head when they imagine their ideal future? Keep these high-level and personal.
+Friction Points & Opportunities: specific financial obstacles, gaps, or underutilized opportunities visible in their profile and priorities. These are detailed and factual.
+Action Items: concrete next steps for the advisor and client to take together, derived from the critical focus areas. Specific and actionable.`;
 }
 
 function uid() {
@@ -2906,53 +2954,94 @@ function renderPlanColumn(key) {
   const items = planData[key] || [];
   body.innerHTML = '';
 
-  items.forEach((item) => {
+  items.forEach((item, idx) => {
     const isAccomplished = key === 'accomplished';
-
-    // Wrapper holds both the editable div and the delete button
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;';
+    wrapper.style.cssText = 'position:relative;display:flex;align-items:flex-start;gap:4px;';
+
+    // Move up/down buttons
+    const moveWrap = document.createElement('div');
+    moveWrap.style.cssText = 'display:flex;flex-direction:column;gap:1px;padding-top:8px;flex-shrink:0;opacity:0;transition:opacity .15s;';
+    moveWrap.className = 'plan-move-btns';
+
+    const upBtn = document.createElement('button');
+    upBtn.innerHTML = '▲';
+    upBtn.title = 'Move up';
+    upBtn.style.cssText = 'background:none;border:none;color:var(--text-light);cursor:pointer;font-size:9px;padding:1px 3px;line-height:1;border-radius:3px;';
+    upBtn.disabled = idx === 0;
+    upBtn.style.opacity = idx === 0 ? '0.2' : '1';
+    upBtn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      if (idx === 0) return;
+      const arr = planData[key];
+      [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]];
+      renderPlanColumn(key);
+      schedulePlanSave();
+    });
+
+    const downBtn = document.createElement('button');
+    downBtn.innerHTML = '▼';
+    downBtn.title = 'Move down';
+    downBtn.style.cssText = 'background:none;border:none;color:var(--text-light);cursor:pointer;font-size:9px;padding:1px 3px;line-height:1;border-radius:3px;';
+    downBtn.disabled = idx === items.length - 1;
+    downBtn.style.opacity = idx === items.length - 1 ? '0.2' : '1';
+    downBtn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      if (idx === items.length - 1) return;
+      const arr = planData[key];
+      [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]];
+      renderPlanColumn(key);
+      schedulePlanSave();
+    });
+
+    moveWrap.appendChild(upBtn);
+    moveWrap.appendChild(downBtn);
 
     const div = document.createElement('div');
     div.className = 'plan-item' + (isAccomplished ? ' plan-item-accomplished' : '');
     div.contentEditable = 'true';
     div.dataset.id = item.id;
     div.dataset.placeholder = 'Type here…';
-    // Set text explicitly — never use textContent when there's a child del button
+    div.style.flex = '1';
     div.innerText = item.text || '';
 
-    // Delete button lives OUTSIDE the contentEditable div
     const del = document.createElement('button');
     del.className = 'plan-item-del';
     del.innerHTML = '×';
     del.title = 'Remove';
-    del.addEventListener('mousedown', (e) => {
-      e.preventDefault(); // prevent blur before click
+    del.addEventListener('mousedown', e => {
+      e.preventDefault();
       e.stopPropagation();
       planData[key] = planData[key].filter(i => i.id !== item.id);
       renderPlanColumn(key);
       schedulePlanSave();
     });
 
-    // Save on blur
     div.addEventListener('blur', () => {
       const text = div.innerText.trim();
       const it = planData[key].find(i => i.id === item.id);
       if (it) it.text = text;
       schedulePlanSave();
     });
-
-    // Prevent Enter creating new block elements
     div.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); div.blur(); }
     });
 
-    wrapper.appendChild(div);
-    wrapper.appendChild(del);
+    const itemWrap = document.createElement('div');
+    itemWrap.style.cssText = 'position:relative;flex:1;';
+    itemWrap.appendChild(div);
+    itemWrap.appendChild(del);
+
+    wrapper.appendChild(moveWrap);
+    wrapper.appendChild(itemWrap);
+
+    // Show move buttons on hover
+    wrapper.addEventListener('mouseenter', () => moveWrap.style.opacity = '1');
+    wrapper.addEventListener('mouseleave', () => moveWrap.style.opacity = '0');
+
     body.appendChild(wrapper);
   });
 
-  // Add button
   const addBtn = document.createElement('button');
   addBtn.className = 'plan-add-btn';
   addBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg> Add item`;
@@ -2962,14 +3051,12 @@ function renderPlanColumn(key) {
     renderPlanColumn(key);
     setTimeout(() => {
       const newEl = document.querySelector(`[data-id="${newItem.id}"]`);
-      if (newEl) { newEl.focus(); }
+      if (newEl) newEl.focus();
     }, 30);
     schedulePlanSave();
   });
   body.appendChild(addBtn);
-}
-
-function printPlan() {
+}function printPlan() {
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   const colDefs = [
     {key:'goals', label:'Goals & Dreams', bg:'#eef4ff', hdrBg:'#1a3a6e'},
