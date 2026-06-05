@@ -881,7 +881,11 @@ function wireButtons() {
   document.getElementById('back-to-plan-btn').addEventListener('click', () => showView('plan'));
   document.getElementById('back-to-p-btn').addEventListener('click', () => showView('prioritizer'));
   document.getElementById('back-to-prioritizer-btn').addEventListener('click', () => showView('prioritizer'));
-  document.getElementById('plan-to-export-btn').addEventListener('click', goToExport);
+  document.getElementById('plan-to-export-btn').addEventListener('click', async () => {
+    clearTimeout(planSaveTimer);
+    await savePlanData();
+    await goToExport();
+  });
   document.getElementById('plan-print-btn').addEventListener('click', printPlan);
   document.getElementById('email-btn').addEventListener('click', () => {
     const panel = document.getElementById('email-panel');
@@ -1281,8 +1285,7 @@ const FORM_SECTIONS = [
     id:'retirement', title:'Retirement',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>',
     fields:[
-      {id:'retirement_target_age',label:'At what age do you hope to retire?',type:'number',placeholder:'e.g. 65',half:true},
-      {id:'retirement_income_need',label:'Annual income needed in retirement',type:'currency',placeholder:'0',half:true},
+      {id:'retirement_income_need',label:'Annual income needed in retirement',type:'currency',placeholder:'0'},
       {id:'retirement_accts',label:'Which retirement accounts do you currently have?',type:'multicheck',options:['401(k) / 403(b)','Traditional IRA','Roth IRA','SEP IRA','SIMPLE IRA','Other']},
       {id:'max_contributions',label:'Are you maximizing contributions to all of your retirement accounts?',type:'radio',options:['Yes','No','Unsure'],
         follow:[{show:'No',id:'max_contributions_why',label:'What is holding you back?',type:'textarea',placeholder:''}]},
@@ -1332,14 +1335,13 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_coverage_analysis',label:'',type:'coverageanalysis'},
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
         ]},
-      {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'text',placeholder:'e.g. 60% through employer group policy, or none'},
-      {id:'disability_notes',label:'Notes',type:'textarea',placeholder:'Any additional details about disability coverage, gaps, or concerns...'},
       {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
         follow:[
           {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Variable','Indexed','Immediate','Deferred','Other']},
           {show:'Yes',id:'annuity_start_age',label:'At what age do you begin receiving benefits?',type:'text',placeholder:''},
           {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected monthly benefit',type:'currency',placeholder:'0'},
         ]},
+      {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'disabilitynotes',placeholder:'e.g. 60% through employer group policy, or none'},
     ]
   },
   {
@@ -1446,7 +1448,7 @@ async function openIntakeById(clientId, clientName) {
 }
 
 // Pre-compute total top-level question count across all sections (once, after FORM_SECTIONS defined)
-const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck'];
+const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck','disabilitynotes'];
 function countSectionQuestions(fields) {
   let n = 0, i = 0;
   while (i < fields.length) {
@@ -1665,6 +1667,13 @@ function renderField(f, qNum) {
   if (['text','email','tel','number'].includes(f.type)) inner=`<input type="${f.type}" id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" oninput="saveField('${f.id}',this.value);updateCalcFields()"/>`;
   else if (f.type==='currency') inner=`<div class="currency-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value);updateCalcFields()"/></div>`;
   else if (f.type==='percent') inner=`<div class="percent-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value)"/></div>`;
+  else if (f.type==='disabilitynotes') {
+    inner = `<input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" oninput="saveField('${f.id}',this.value);showDisabilityNotes('${f.id}')"/>
+    <div id="disab-notes-wrap-${f.id}" style="display:${currentFormData['disability_notes']?'block':'none'};margin-top:8px;">
+      <label class="field-label" style="margin-bottom:5px;">Notes</label>
+      <textarea id="cf-disability_notes" rows="2" placeholder="Any additional details about disability coverage, gaps, or concerns…" oninput="saveField('disability_notes',this.value)">${esc(currentFormData['disability_notes']||'')}</textarea>
+    </div>`;
+  }
   else if (f.type==='textarea') inner=`<textarea id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" rows="3" oninput="saveField('${f.id}',this.value)"></textarea>`;
   else if (f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${o||'Select…'}</option>`).join('');inner=`<select id="cf-${f.id}" onchange="saveField('${f.id}',this.value)">${opts}</select>`;}
   else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="radioToggle(event,'${f.id}','${esc(o).replace(/'/g,"\\'")}')"><input type="radio" name="cf-${f.id}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div>`;
@@ -1738,6 +1747,12 @@ function radioToggle(e, fid, val) {
   }
 }
 function updateRadioStyle(fid){const checked=document.querySelector(`input[name="cf-${fid}"]:checked`);document.querySelectorAll(`#rg-${fid} .radio-item`).forEach(el=>el.classList.remove('checked'));if(checked){const l=checked.closest('.radio-item');if(l)l.classList.add('checked');}}
+function showDisabilityNotes(fid) {
+  const wrap = document.getElementById('disab-notes-wrap-'+fid);
+  const input = document.getElementById('cf-'+fid);
+  if (wrap && input) wrap.style.display = input.value.trim() ? 'block' : 'none';
+}
+
 function handleCheckCard(event, fid, okey, oval) {
   event.preventDefault();
   const cb = document.querySelector(`input[name="cf-${fid}"][value="${oval}"]`);
@@ -2361,10 +2376,149 @@ async function openPrioritiesById(clientId) {
 function buildPrompt(fd) {
   const yn = v => v || 'N/A';
   const arr = v => Array.isArray(v) ? (v.join(', ') || 'None') : (v || 'N/A');
-  const cur = v => v ? '$'+Number(v).toLocaleString() : 'N/A';
-  const pct = v => v || 'N/A';
+  const cur = v => v ? '$'+Number(String(v).replace(/[^0-9.]/g,'')||0).toLocaleString() : 'N/A';
+  const pct = v => v ? v+'%' : 'N/A';
+  const age = fd.age ? Number(fd.age) : null;
 
-  const profile = `CLIENT FINANCIAL PROFILE — USE ALL DATA BELOW TO GENERATE HIGHLY SPECIFIC PRIORITIES
+  // Pre-compute high-signal flags to give the AI clear signals
+  const taxRate = parseFloat(fd.effective_tax_rate_display) || 0;
+  const highTaxRate = taxRate > 30;
+  const hasNoTaxStrategy = fd.tax_strategies_tried === 'No' || fd.tax_strategies_tried === 'Unsure what is available to me';
+  const hasUnrealizedGains = fd.unrealized_gains === 'Yes';
+  const hasNoWill = fd.has_will === 'No';
+  const hasNoTrust = fd.has_trust === 'No';
+  const beneficiariesNotReviewed = fd.beneficiaries_current && fd.beneficiaries_current.includes('No');
+  const lifeInsInadequate = fd.life_ins_adequate === 'No — I think I am underinsured' || fd.has_life_ins === 'No';
+  const notMaxingRetirement = fd.max_contributions === 'No';
+  const retirementBehind = fd.retirement_on_track === 'No' || fd.retirement_on_track === 'Unsure';
+  const hasBusiness = fd.has_business === 'Yes';
+  const hasConcentrated = fd.concentrated_position === 'Yes';
+  const hasNoBuySell = hasBusiness && fd.business_partners === 'Yes' && fd.business_buysell === 'No';
+  const businessExitUndefined = hasBusiness && (!fd.biz_exit_plan || fd.biz_exit_plan.toLowerCase().includes('no'));
+  const advisorRelationships = Array.isArray(fd.advisory_relationships) ? fd.advisory_relationships : [];
+  const dissatisfiedAdvisors = advisorRelationships.filter(a => a.satisfaction <= 6).map(a => a.name);
+  const hasNoFinancialPlanner = !advisorRelationships.find(a => a.name === 'Financial Planner');
+  const hasNoWealthMgr = !advisorRelationships.find(a => a.name === 'Wealth Manager');
+  const netWorth = parseFloat(String(fd.net_worth||'0').replace(/[^0-9.]/g,'')) || 0;
+  const income = parseFloat(String(fd.total_income_display||'0').replace(/[^0-9.]/g,'')) || 0;
+  const disabilityProtection = fd.disability_income_protected || 'N/A';
+
+  // Flags summary for the AI to use
+  const flags = [
+    highTaxRate && `HIGH TAX RATE (${taxRate}%) with ${hasNoTaxStrategy ? 'no advanced strategies in use — major optimization opportunity' : 'some strategies in use'}`,
+    hasUnrealizedGains && `UNREALIZED CAPITAL GAINS — ${fd.unrealized_gains_detail ? cur(fd.unrealized_gains_detail) : 'significant'} — ${fd.unrealized_gains_plan === 'Yes' ? 'has a plan' : 'no tax-efficient plan in place'}`,
+    hasConcentrated && `CONCENTRATED POSITION in ${fd.concentrated_detail||'single asset'} — value ${cur(fd.concentrated_value)}, cost basis ${cur(fd.concentrated_tax_basis)}`,
+    notMaxingRetirement && `NOT MAXIMIZING RETIREMENT CONTRIBUTIONS${fd.max_contributions_why ? ': '+fd.max_contributions_why : ''}`,
+    retirementBehind && `BEHIND ON RETIREMENT — not on track${fd.retirement_income_need ? ', needs '+cur(fd.retirement_income_need)+'/yr' : ''}`,
+    lifeInsInadequate && `LIFE INSURANCE GAP — ${fd.has_life_ins === 'No' ? 'no coverage at all' : 'self-reported inadequate coverage'} — income ${cur(income)}`,
+    disabilityProtection !== 'N/A' && disabilityProtection !== '' && `INCOME PROTECTION: ${disabilityProtection}`,
+    hasNoWill && `NO WILL IN PLACE`,
+    hasNoTrust && netWorth > 1000000 && `NO TRUST — net worth ${cur(netWorth)}`,
+    beneficiariesNotReviewed && `BENEFICIARY DESIGNATIONS NOT RECENTLY REVIEWED`,
+    dissatisfiedAdvisors.length > 0 && `DISSATISFIED WITH: ${dissatisfiedAdvisors.join(', ')} (rated ≤6/10)`,
+    hasNoBuySell && `NO BUY-SELL AGREEMENT despite having business partners`,
+    businessExitUndefined && `NO DEFINED EXIT STRATEGY for business`,
+    hasNoFinancialPlanner && hasNoWealthMgr && `NO FINANCIAL PLANNER OR WEALTH MANAGER in place`,
+  ].filter(Boolean);
+
+  const profile = `CLIENT INTAKE — PELICAN FAMILY OFFICE
+Advisor review before first meeting with: ${fd.fname||''} ${fd.lname||''}
+
+━━━ PERSONAL ━━━
+Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Marital: ${yn(fd.marital)}${fd.spouse_name?' — Spouse: '+fd.spouse_name+(fd.spouse_age?', age '+fd.spouse_age:''):''}${fd.spouse_email?' ('+fd.spouse_email+')':''}
+Employment: ${yn(fd.employment)}${fd.employer_name?' at '+fd.employer_name+(fd.job_title?', '+fd.job_title:''):''}${fd.employer_name_both?' | Also employed at '+fd.employer_name_both:''}
+Dependents: ${yn(fd.children)}${fd.children_ages?' (ages '+fd.children_ages+')':''}
+Filing status: ${yn(fd.filing_status)}
+
+━━━ INCOME (PRIOR YEAR) ━━━
+W-2/salary: ${cur(fd.w2_income)} | Business income: ${cur(fd.business_income)} | ST gains: ${cur(fd.st_cap_gains)} | LT gains: ${cur(fd.lt_cap_gains)}
+Interest: ${cur(fd.interest_income)} | Qualified dividends: ${cur(fd.qualified_dividends)} | Other: ${cur(fd.other_income)}
+TOTAL INCOME: ${cur(fd.total_income_display)}
+Federal tax: ${cur(fd.federal_tax_liability)} | State tax: ${cur(fd.state_tax_liability)} | EFFECTIVE RATE: ${pct(fd.effective_tax_rate_display)}
+Projected this year: ${cur(fd.projected_income)}${fd.income_notes?' | Notes: '+fd.income_notes:''}
+
+━━━ NET WORTH & ASSETS ━━━
+TOTAL NET WORTH: ${cur(fd.net_worth)}
+Net worth allocation — Tax-deferred: ${pct(fd.nw_tax_deferred)} | Roth: ${pct(fd.nw_roth)} | Primary home: ${pct(fd.nw_real_estate)} | Other: ${pct(fd.nw_other)}
+Investment allocation — Cash: ${pct(fd.inv_cash)} | Bonds: ${pct(fd.inv_bonds)} | Stocks: ${pct(fd.inv_stocks)} | Precious metals: ${pct(fd.inv_precious_metals)} | Crypto: ${pct(fd.inv_crypto)} | RE excl. primary: ${pct(fd.inv_real_estate)}
+Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+') value: '+cur(fd.real_estate_value):''}
+Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' in '+fd.concentrated_detail+' — value: '+cur(fd.concentrated_value)+', basis: '+cur(fd.concentrated_tax_basis):''}
+Major asset plans (3yr): ${yn(fd.major_assets_planned)} ${fd.major_assets_detail||fd.major_assets_maybe||''}
+Inheritance expected: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
+
+━━━ RETIREMENT ━━━
+Annual income needed: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
+Accounts: ${arr(fd.retirement_accts)} | Maximizing contributions: ${yn(fd.max_contributions)}${fd.max_contributions_why?' — '+fd.max_contributions_why:''}
+Pension/defined benefit: ${yn(fd.has_pension)}${fd.pension_monthly?' — '+cur(fd.pension_monthly)+'/mo':''}
+
+━━━ TAX PROFILE ━━━
+Unrealized capital gains: ${yn(fd.unrealized_gains)}${fd.unrealized_gains_detail?' — '+cur(fd.unrealized_gains_detail):''}${fd.unrealized_gains_plan?' | Plan: '+fd.unrealized_gains_plan:''}
+RSUs/equity comp: ${yn(fd.stock_options)}${fd.stock_options_detail?' — '+fd.stock_options_detail:''}${fd.stock_options_strategy?' | Strategy: '+fd.stock_options_strategy:''}
+Advanced tax strategies: ${yn(fd.tax_strategies_tried)}${fd.tax_strategies_detail?' — '+fd.tax_strategies_detail:''}${fd.tax_strategies_interest?' | Interest: '+fd.tax_strategies_interest:''}
+Charitable giving: ${yn(fd.charitable_giving)}${fd.charitable_amount?' — '+cur(fd.charitable_amount)+'/yr':''} | Method: ${arr(fd.charitable_strategy)}
+
+━━━ INSURANCE ━━━
+Life insurance: ${yn(fd.has_life_ins)}${fd.life_ins_types?' ('+arr(fd.life_ins_types)+')':''} | Coverage: ${cur(fd.life_ins_coverage)} | Adequate: ${yn(fd.life_ins_adequate)}
+Income protection: ${disabilityProtection}${fd.disability_notes?' — '+fd.disability_notes:''}
+Annuities: ${yn(fd.has_annuities)}${fd.annuity_type?' ('+arr(fd.annuity_type)+')':''}${fd.annuity_annual_benefit?' — '+cur(fd.annuity_annual_benefit)+'/mo':''}
+
+━━━ ESTATE PLANNING ━━━
+Will: ${yn(fd.has_will)}${fd.will_last_updated?' (last reviewed '+fd.will_last_updated+')':''}
+Trust: ${yn(fd.has_trust)}${fd.trust_type?' ('+arr(fd.trust_type)+')':''}${fd.trust_reviewed?' last reviewed '+fd.trust_reviewed:''}
+Beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
+
+━━━ BUSINESS OWNERSHIP ━━━
+${hasBusiness ? `Business: ${yn(fd.business_name)} | Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)}
+Revenue: ${cur(fd.biz_revenue)} | Net profit: ${cur(fd.biz_net_profit)} | Est. value: ${cur(fd.business_est_value)}
+Hours/wk: ${yn(fd.biz_hours_week)} | Vacation wks/yr: ${yn(fd.biz_weeks_vacation)} | Employees: ${yn(fd.business_employees)}
+If unable to work 90 days: ${yn(fd.biz_owner_dependent)}
+Exit strategy: ${yn(fd.biz_exit_plan)}
+Value if systemized: ${yn(fd.biz_value_if_systemized)}
+Partners: ${yn(fd.business_partners)} | Buy-sell: ${yn(fd.business_buysell)}${fd.buysell_funded?' ('+fd.buysell_funded+')':''} | Partner alignment: ${yn(fd.partner_alignment)}
+Defined benefit plan: ${yn(fd.business_defined_benefit)} | Employee retirement plan: ${yn(fd.business_retirement_plan)} | Health coverage: ${yn(fd.business_health_coverage)}
+Tax strategy: ${yn(fd.business_tax_strategy)}` : 'Not a business owner'}
+
+━━━ ADVISORY RELATIONSHIPS ━━━
+${advisorRelationships.length > 0 ? advisorRelationships.map(a => `${a.name}: satisfaction ${a.satisfaction}/10${a.wishes?' — dislikes: '+a.wishes:''}${a.likes?' — likes: '+a.likes:''}${a.mixed?' — mixed: '+a.mixed:''}`).join('\n') : 'No advisory relationships reported'}
+
+━━━ CLIENT GOALS & CONCERNS ━━━
+Financial goals: ${yn(fd.financial_goals)}
+Biggest concerns: ${yn(fd.biggest_concerns)}
+Building toward: ${yn(fd.building_toward)}
+Time/money aligned with goals: ${yn(fd.time_money_aligned)}
+What else needs to happen: ${yn(fd.what_else_needed)}
+Additional: ${yn(fd.additional_info)}`;
+
+  const flagsBlock = flags.length > 0
+    ? `\n━━━ HIGH-PRIORITY FLAGS (address these first) ━━━\n${flags.map(f => '⚑ '+f).join('\n')}`
+    : '';
+
+  return `${profile}${flagsBlock}
+
+---
+You are a senior financial advisor at Pelican Family Office. You have just reviewed this client's complete intake and are preparing for your first meeting with them. Your job is to generate a ranked list of 8–15 specific focus areas that will drive this client relationship.
+
+This list will be used to structure the first meeting and set the agenda for the coming months. The advisor will classify each item as Critical, Optional, or Bypass. Make the items specific enough that the advisor immediately knows what to discuss and why.
+
+RULES — follow every one:
+
+1. PRIORITIZE THE FLAGS. Any item marked ⚑ above is a confirmed gap or risk. Lead with those. Do not bury them.
+
+2. BE DOLLAR-SPECIFIC. A title like "Tax Planning" is useless. "Reduce ${taxRate > 0 ? taxRate.toFixed(1) : 'high'}% effective tax rate — no advanced strategies in place" is actionable. Reference their actual numbers, rates, asset values, or account types wherever possible.
+
+3. ONLY INCLUDE WHAT APPLIES. If they have no business, zero business items. If they have no real estate, no cost segregation. If estate is simple, no complex trust strategies. Match the client's actual profile.
+
+4. BUSINESS OWNERS GET DEDICATED ITEMS. If they own a business, include at least 3 business-specific items: exit planning, key person risk, tax efficiency, buy-sell status, owner dependency, or employee benefits — whichever are most relevant based on their actual data.
+
+5. REFLECT THEIR STATED GOALS. Their financial goals, concerns, and "what they're building toward" must inform at least 1–2 items. Connect the technical work to what they actually care about.
+
+6. RATIONALE IS MANDATORY. For each item, write exactly one sentence (max 15 words) citing a specific data point. Example: "Effective tax rate ${taxRate > 0 ? taxRate.toFixed(1) : 'N/A'}% with no documented strategy in place."
+
+7. ORDER by urgency — acute risks and large dollar opportunities first.
+
+Return ONLY a valid JSON array. No markdown, no explanation, no preamble:
+[{"rank":1,"title":"Specific, dollar-referenced focus area title","rationale":"One sentence, specific data point, max 15 words."},...]`;
+}
 
 PERSONAL
 Name: ${fd.fname||''} ${fd.lname||''} | Age: ${fd.age||'N/A'} | State: ${fd.state||'N/A'} | Filing status: ${yn(fd.filing_status)} | Marital: ${yn(fd.marital)}${fd.spouse_name?' — Spouse: '+fd.spouse_name+(fd.spouse_age?', age '+fd.spouse_age:''):''}
@@ -2394,7 +2548,7 @@ Advanced tax strategies used: ${yn(fd.tax_strategies_tried)}${fd.tax_strategies_
 Charitable giving: ${yn(fd.charitable_giving)} | Annual: ${cur(fd.charitable_amount)} | Method: ${arr(fd.charitable_strategy)} | Tax-optimized: ${yn(fd.charitable_tax_optimized)}
 
 RETIREMENT
-Target retirement age: ${yn(fd.retirement_target_age)} | Annual income needed: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
+Annual income needed in retirement: ${cur(fd.retirement_income_need)} | On track: ${yn(fd.retirement_on_track)}
 Accounts: ${arr(fd.retirement_accts)} | Maximizing contributions: ${yn(fd.max_contributions)}
 Pension: ${yn(fd.has_pension)} | Value: ${cur(fd.pension_value)} | Monthly: ${cur(fd.pension_monthly)}
 Annuities: ${yn(fd.has_annuities)}${fd.annuity_type?' ('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
@@ -2421,33 +2575,7 @@ Exit strategy: ${yn(fd.business_exit)} | Timeline: ${yn(fd.biz_exit_timeline)} |
 Succession steps taken: ${yn(fd.biz_succession_steps)}
 Revenue if optimized: ${yn(fd.biz_revenue_double)} | Value if systemized: ${yn(fd.biz_value_if_systemized)}
 Business partners: ${yn(fd.business_partners)} | Buy-sell agreement: ${yn(fd.business_buysell)}${fd.buysell_funded?' ('+fd.buysell_funded+')':''} | Partner alignment: ${yn(fd.partner_alignment)}
-Key person insurance: ${yn(fd.business_key_person)} | Employee retirement plan: ${yn(fd.business_retirement_plan)} | Health coverage: ${yn(fd.business_health_coverage)}
-Tax strategy: ${yn(fd.business_tax_strategy)}
-Infrastructure notes: ${yn(fd.biz_infrastructure)}`:'Not a business owner'}
 
-GOALS & CONCERNS
-Wealth manager: ${yn(fd.has_wealth_mgr)}${fd.wealth_mgr_name?' ('+fd.wealth_mgr_name+')':''} | Satisfied: ${yn(fd.wealth_mgr_satisfied)} | Gaps: ${yn(fd.wealth_mgr_gaps)}
-Financial goals: ${yn(fd.financial_goals)}
-Biggest concern: ${yn(fd.biggest_concern)}
-Additional info: ${yn(fd.additional_info)}`;
-
-  return `${profile}
-
----
-You are a senior advisor at Pelican Family Office reviewing this client intake form before their first meeting. Your job is to generate a prioritized list of 8–15 specific focus areas for this client.
-
-CRITICAL RULES:
-1. READ ALL THE DATA. Every number, concern, and gap mentioned above must inform your output.
-2. BE HYPER-SPECIFIC. Do not write generic titles. Reference their actual situation — their income level, their specific gap, their stated concern, their business type, their estate value, etc. A title like "Tax Strategy Review" is too vague. "Tax Minimization Strategy — $${fd.tax_liability ? Number(fd.tax_liability).toLocaleString() : 'high'} annual liability" is specific.
-3. ONLY INCLUDE WHAT APPLIES. If they don't own a business, exclude all business topics. If they have no real estate, don't mention cost segregation. If they're 35 with no estate concern, don't flag estate tax.
-4. COVER THE REAL GAPS. If their will is outdated, flag it. If they're paying a high effective tax rate with no advanced strategies, that's a top priority. If their life insurance hasn't been reviewed in years, flag it. If their brokerage is self-directed and they're unsatisfied, flag it.
-5. FOR BUSINESS OWNERS: include 3–6 business-specific priorities based on their actual numbers (revenue, profit, exit timeline, key person risk, employee benefits, tax strategy, buy-sell status, etc.)
-6. RATIONALE: one sentence, 15 words max, citing a specific data point from their profile.
-7. ORDER by urgency and impact for THIS specific client.
-
-Return ONLY a valid JSON array, no markdown, no explanation:
-[{"rank":1,"title":"Specific focus area title","rationale":"One sentence citing specific data."},...]`;
-}
 
 async function runAnalysis(clientId) {
   try {
@@ -2586,26 +2714,18 @@ function updateProgressSummary() {
 function renderPForm() {
   const head       = document.getElementById('p-items-head');
   const summaryBar = document.getElementById('progress-summary-bar');
+  if (summaryBar) summaryBar.style.display = 'none';
 
-  if (pSessionComplete) {
-    head.style.gridTemplateColumns = '40px 1fr 220px 200px 36px';
-    head.innerHTML = '<span style="text-align:center;">#</span><span style="padding-left:6px;">Focus area</span><span>Priority</span><span>Progress</span><span></span>';
-    summaryBar.style.display = '';
-    updateProgressSummary();
-  } else {
-    head.style.gridTemplateColumns = '';
-    head.innerHTML = '<span style="text-align:center;">#</span><span style="padding-left:6px;">Focus area</span><span>Priority</span><span></span>';
-    summaryBar.style.display = 'none';
-  }
+  head.style.gridTemplateColumns = '';
+  head.innerHTML = '<span style="text-align:center;">#</span><span style="padding-left:6px;">Focus area</span><span>Priority</span><span></span>';
 
   const container = document.getElementById('p-items-container');
   container.innerHTML = '';
   let pDragSrc = null;
-  const gridCols = pSessionComplete ? '40px 1fr 220px 200px 36px' : '40px 1fr 280px 36px';
+  const gridCols = '40px 1fr 280px 36px';
 
   pItems.forEach((item, idx) => {
     const sc = item.status ? 'status-'+item.status : 'status-none';
-    // Map status to its background color so the block container is fully colored — no gap
     const statusBg = item.status === 'critical' ? 'var(--green-row)'
                    : item.status === 'optional'  ? 'var(--grey-row)'
                    : item.status === 'bypass'    ? 'var(--red-row)'
@@ -2644,13 +2764,6 @@ function renderPForm() {
     row.style.gridTemplateColumns = gridCols;
     row.style.background = 'transparent';
 
-    const progressCellHtml = pSessionComplete ? (() => {
-      const chips = PROGRESS_STAGES.map(s =>
-        `<button class="progress-chip${item.progress===s.key?' '+s.cls:''}" data-action="progress" data-id="${item.id}" data-progress="${s.key}">${s.label}</button>`
-      ).join('');
-      return `<div class="item-cell"><div class="progress-group">${chips}</div></div>`;
-    })() : '';
-
     row.innerHTML =
       `<div class="item-cell item-num-cell">${idx+1}</div>`+
       `<div class="item-cell" style="padding-left:8px;"><div class="item-text-display" data-id="${item.id}" title="Click to edit">${esc(item.text)}</div></div>`+
@@ -2659,7 +2772,6 @@ function renderPForm() {
         `<button class="chip${item.status==='optional'?' active-optional':''}" data-action="status" data-id="${item.id}" data-status="optional">Optional</button>`+
         `<button class="chip${item.status==='bypass'?' active-bypass':''}" data-action="status" data-id="${item.id}" data-status="bypass">Bypass</button>`+
       `</div></div>`+
-      progressCellHtml+
       `<div class="item-del-cell"><button class="btn-del" data-action="del-item" data-id="${item.id}">×</button></div>`;
 
     // Edit title
@@ -2681,24 +2793,13 @@ function renderPForm() {
       });
     });
 
-    // Progress chips (only in review mode)
-    if (pSessionComplete) {
-      row.querySelectorAll('[data-action="progress"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const it = pItems.find(x => String(x.id)===String(btn.dataset.id));
-          if (it) it.progress = it.progress===btn.dataset.progress ? null : btn.dataset.progress;
-          renderPForm(); autosavePrioritizer();
-        });
-      });
-    }
-
     // Delete
     row.querySelector('[data-action="del-item"]').addEventListener('click', () => {
       pItems = pItems.filter(i => String(i.id) !== String(item.id));
       renderPForm(); autosavePrioritizer();
     });
 
-    // Notes area — background is transparent; the parent block carries the color
+    // Notes area
     const hasNotes = item.notes && item.notes.trim();
     const notesArea = document.createElement('div');
     notesArea.className = 'item-notes-area';
@@ -2774,6 +2875,38 @@ function addPItem() {
 // ══════════════════════════════════
 
 // Entry from prioritizer after items are saved
+// Navigate to Save & Share from prioritizer (with or without visiting plan board)
+async function goToExport() {
+  if (pItems.length) sortItems();
+  const statusEl = document.getElementById('p-saved-status');
+  if (statusEl) statusEl.textContent = 'Saving…';
+
+  // Fetch any existing plan data first so we do not overwrite it
+  const existingIntake = await getIntakeForClient(currentClientId);
+  const existingSavedPlan = existingIntake?.form_data?.__plan_data;
+  const hasSavedPlan = existingSavedPlan &&
+    (existingSavedPlan.goals?.length || existingSavedPlan.friction?.length || existingSavedPlan.actions?.length);
+
+  const formDataToSave = {...(pClientFormData||{})};
+  if (hasSavedPlan) {
+    formDataToSave.__plan_data = existingSavedPlan;
+    planData = existingSavedPlan;
+  } else if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
+    formDataToSave.__plan_data = JSON.parse(JSON.stringify(planData));
+  }
+
+  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataToSave, staff_name:staffName, saved_at:Date.now()};
+  if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
+  else pCurrentId = await dbInsert(TBL_INTAKES, payload);
+
+  if (statusEl) statusEl.textContent = 'Saved ✓';
+  setSyncStatus('connected','Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+
+  buildPDFPreview();
+  showView('export');
+}
+
+
 async function goToPlan() {
   sortItems();
   document.getElementById('p-saved-status').textContent = 'Saving…';
@@ -2924,37 +3057,61 @@ async function generatePlanWithAI() {
 
 function buildPlanPrompt() {
   const fd = pClientFormData || currentFormData || {};
+  const yn = v => v || 'N/A';
+  const cur = v => v ? '$'+Number(String(v).replace(/[^0-9.]/g,'')||0).toLocaleString() : 'N/A';
+  const arr = v => Array.isArray(v) ? (v.join(', ') || 'None') : (v || 'N/A');
+
   const critItems = pItems.filter(i => i.status === 'critical').map((i,n) => `${n+1}. ${i.text}`).join('\n');
   const optItems  = pItems.filter(i => i.status === 'optional').map((i,n) => `${n+1}. ${i.text}`).join('\n');
 
-  return `You are a senior financial advisor generating a concise client action plan for ${fd.fname||''} ${fd.lname||''} based on their financial intake and prioritized focus areas.
+  const clientName = `${fd.fname||''} ${fd.lname||''}`.trim() || 'the client';
+  const advisorRelationships = Array.isArray(fd.advisory_relationships) ? fd.advisory_relationships : [];
 
-CRITICAL FOCUS AREAS:
-${critItems || 'None set'}
+  return `You are a senior financial advisor at Pelican Family Office. You are building a four-column client action plan for ${clientName} based on their intake data and prioritized focus areas. This plan will be shared with the client and used to drive your ongoing advisory relationship.
 
-OPTIONAL FOCUS AREAS:
-${optItems || 'None set'}
+━━━ PRIORITIZED FOCUS AREAS ━━━
+CRITICAL (must address):
+${critItems || 'None set yet'}
 
-KEY FINANCIAL FACTS:
-- Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${fd.tax_liability ? '$'+Number(fd.tax_liability).toLocaleString() : 'N/A'}
-- Net worth: ${fd.net_worth ? '$'+Number(fd.net_worth).toLocaleString() : 'N/A'}
-- Business owner: ${fd.has_business === 'Yes' ? 'Yes' : 'No'}
-- Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
-- Goals: ${fd.financial_goals || 'N/A'}
-- Biggest concern: ${fd.biggest_concern || 'N/A'}
+OPTIONAL (address when capacity allows):
+${optItems || 'None set yet'}
 
-Generate a professional client action plan with exactly three columns. Each item should be a short, specific, actionable phrase (10–20 words max). Generate 4–7 items per column.
+━━━ CLIENT SNAPSHOT ━━━
+Age: ${yn(fd.age)} | State: ${yn(fd.state)} | Marital: ${yn(fd.marital)}${fd.spouse_name?' — Spouse: '+fd.spouse_name:''}
+Employment: ${yn(fd.employment)}${fd.employer_name?' at '+fd.employer_name:''}
+Total income: ${cur(fd.total_income_display)} | Effective tax rate: ${fd.effective_tax_rate_display||'N/A'}
+Net worth: ${cur(fd.net_worth)}
+Business owner: ${fd.has_business === 'Yes' ? 'Yes — '+yn(fd.business_name)+', '+cur(fd.biz_revenue)+' revenue, est. value '+cur(fd.business_est_value) : 'No'}
+Life insurance: ${yn(fd.has_life_ins)} | Coverage: ${cur(fd.life_ins_coverage)} | Adequate: ${yn(fd.life_ins_adequate)}
+Income protection: ${yn(fd.disability_income_protected)}
+Retirement on track: ${yn(fd.retirement_on_track)} | Accounts: ${arr(fd.retirement_accts)}
+Will: ${yn(fd.has_will)} | Trust: ${yn(fd.has_trust)} | Beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
+Current advisors: ${advisorRelationships.length > 0 ? advisorRelationships.map(a=>a.name+(a.satisfaction?' ('+a.satisfaction+'/10)':'')).join(', ') : 'None reported'}
 
-Return ONLY valid JSON (no markdown, no explanation):
+━━━ CLIENT'S OWN WORDS ━━━
+Their financial goals: ${yn(fd.financial_goals)}
+Biggest concerns: ${yn(fd.biggest_concerns)}
+What they're building toward: ${yn(fd.building_toward)}
+Time & money aligned with goals: ${yn(fd.time_money_aligned)}
+What else needs to happen: ${yn(fd.what_else_needed)}
+Additional context: ${yn(fd.additional_info)}
+
+━━━ YOUR TASK ━━━
+Generate a four-column client action plan. Each item must be a short, specific phrase (10–20 words max).
+
+COLUMN DEFINITIONS:
+- "goals": Goals & Dreams — the client's big-picture aspirations and life vision. These come from THEIR OWN WORDS above. Think emotionally: what are they working toward? What would make them feel like they've won? NOT technical tasks — personal vision. 4–6 items.
+- "friction": Friction Points & Opportunities — specific financial gaps, risks, and untapped opportunities from their actual profile. Reference real numbers and gaps (e.g. "No buy-sell agreement on $2M business", "34% effective tax rate with no strategies in place"). 4–6 items.
+- "actions": Action Items — concrete next steps the advisor and client will take together in the next 90 days, directly tied to the critical focus areas. Start with a verb. Be specific. (e.g. "Review and update 2019 will with estate attorney", "Model Roth conversion strategy for Q4"). 5–8 items.
+- "accomplished": Leave empty — this is filled in as work gets done.
+
+Return ONLY valid JSON. No markdown, no explanation:
 {
   "goals": ["item1","item2",...],
   "friction": ["item1","item2",...],
-  "actions": ["item1","item2",...]
-}
-
-Goals & Dreams: what the client truly wants for their life — aspirational, big-picture, emotionally resonant. These should reflect the client's hopes and vision (financial freedom, legacy, lifestyle, family, purpose), NOT advisor action items. Think: what is in the client's head when they imagine their ideal future? Keep these high-level and personal.
-Friction Points & Opportunities: specific financial obstacles, gaps, or underutilized opportunities visible in their profile and priorities. These are detailed and factual.
-Action Items: concrete next steps for the advisor and client to take together, derived from the critical focus areas. Specific and actionable.`;
+  "actions": ["item1","item2",...],
+  "accomplished": []
+}`;
 }
 
 function uid() {
@@ -3496,7 +3653,6 @@ const CSV_FORM_FIELDS = [
   {id:'tax_strategies_tried',label:'Advanced Tax Strategies'},{id:'tax_strategies_detail',label:'Tax Strategies Detail'},
   {id:'charitable_giving',label:'Charitable Giving'},{id:'charitable_amount',label:'Annual Giving'},
   {id:'charitable_strategy',label:'Giving Strategy'},
-  {id:'retirement_target_age',label:'Target Retirement Age'},
   {id:'retirement_income_need',label:'Retirement Income Need'},
   {id:'retirement_accts',label:'Retirement Accounts'},{id:'max_contributions',label:'Maximizing Contributions'},
   {id:'retirement_on_track',label:'Retirement On Track'},
