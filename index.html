@@ -209,7 +209,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .toast.show{opacity:1;transform:translateY(0);}
 
 /* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(10,20,30,.5);display:flex;align-items:center;justify-content:center;z-index:999;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,20,30,.5);display:flex;align-items:center;justify-content:center;z-index:1100;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
 .modal{background:#fff;border-radius:14px;padding:2rem;width:440px;max-width:92vw;box-shadow:var(--shadow-lg);}
 .modal h3{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);margin-bottom:.75rem;}
@@ -803,7 +803,7 @@ function checkLogin() {
     staffName = user.displayName;
     userRole = user.role;
     userCpaCode = user.cpaCode;
-    document.getElementById('access-gate').style.display = 'none';
+    const ag = document.getElementById('access-gate'); ag.style.display = 'none'; ag.style.pointerEvents = 'none';
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = userRole==='admin' ? '' : 'none');
     // Populate CPA select on home page
     const cpaSel = document.getElementById('home-cpa-select');
@@ -879,6 +879,42 @@ async function savePrioritizerAndGoToExport() {
   if (backPBtn) backPBtn.style.display = '';
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   showView('export');
+}
+
+function printPlan() {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Allow pop-ups to print.'); return; }
+  const client = currentClientName || '—';
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  const colDefs = [
+    {key:'goals',      label:'Goals & Dreams',                  bg:'#eef4ff', hdr:'#1a3a6e'},
+    {key:'friction',   label:'Friction Points & Opportunities', bg:'#fff8ec', hdr:'#b07030'},
+    {key:'actions',    label:'Action Items',                    bg:'#edfaf3', hdr:'#1a7a3c'},
+    {key:'accomplished',label:'Items Accomplished',             bg:'#f4f4f4', hdr:'#555'},
+  ];
+  const colsHtml = colDefs.map(c => {
+    const items = (planData[c.key]||[]).map(i =>
+      '<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:12px;font-family:DM Sans,sans-serif;line-height:1.5;margin-bottom:5px;">'+esc(i.text||'')+'</div>'
+    ).join('');
+    return '<div style="flex:1;min-width:0;">'
+      +'<div style="background:'+c.hdr+';color:#fff;padding:8px 12px;font-family:Cormorant Garamond,serif;font-size:14px;font-weight:600;border-radius:4px 4px 0 0;margin-bottom:5px;">'+c.label+'</div>'
+      +(items || '<div style="font-size:11px;color:#aaa;font-family:DM Sans,sans-serif;padding:4px;">No items</div>')
+      +'</div>';
+  }).join('');
+  win.document.write('<!DOCTYPE html><html><head><title>'+esc(client)+' — Action Plan</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>'
+    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">'
+    +'<div><div style="font-size:22px;font-weight:600;color:#0f2535;">'+esc(client)+'</div>'
+    +'<div style="font-size:11px;color:#aaa;font-family:DM Sans,sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;">Client Action Plan</div></div>'
+    +'<div style="font-size:12px;color:#aaa;font-family:DM Sans,sans-serif;">'+today+'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:12px;">'+colsHtml+'</div>'
+    +'</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
 }
 
 function wireButtons() {
@@ -1091,25 +1127,7 @@ async function renderClientList() {
     const hasNotes = c.staff_notes && c.staff_notes.trim();
     const hasStatus = c.client_status && c.client_status.trim();
 
-    // Progress badge from intake data
-    let progressBadge = '';
-    if (complete) {
-      const intake = intakeMap[String(c.id)];
-      const items = intake ? (intake.items || []) : [];
-      const critItems = items.filter(i => i.status === 'critical');
-      const critTotal = critItems.length;
-      const critDone  = critItems.filter(i => i.progress === 'completed').length;
-      if (critTotal > 0) {
-        const pct = Math.round((critDone / critTotal) * 100);
-        const barCol = critDone === critTotal ? 'var(--navy)' : 'var(--gold)';
-        progressBadge = `<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;vertical-align:middle;">
-          <span style="display:inline-block;width:48px;height:4px;background:var(--border);border-radius:99px;overflow:hidden;vertical-align:middle;">
-            <span style="display:block;height:100%;width:${pct}%;background:${barCol};border-radius:99px;"></span>
-          </span>
-          <span style="font-size:11px;color:var(--text-muted);">${critDone}/${critTotal}</span>
-        </span>`;
-      }
-    }
+    const progressBadge = ''; // status tracker removed per request
 
     // CPA assignment dropdown (admin only)
     const cpaOpts = ['',...CPA_CODES].map(o=>`<option value="${o}" ${(c.cpa_code||'')===(o)?'selected':''}>${o||'Unassigned'}</option>`).join('');
@@ -1129,7 +1147,7 @@ async function renderClientList() {
           <div style="font-size:12px;color:var(--text-light);margin-top:3px;">${date}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          ${!complete?`<button class="btn btn-xs" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Open form</button>`:''}
+          <button class="btn btn-xs btn-ghost" data-action="open-form" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View form</button>
           ${complete?`<button class="btn btn-xs" data-action="open-priorities" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View priorities</button>`:''}
           ${complete?`<button class="btn btn-xs" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View plan</button>`:''}
           ${complete?`<button class="btn btn-xs btn-primary" data-action="open-export" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Review →</button>`:''}
