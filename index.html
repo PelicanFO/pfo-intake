@@ -1303,11 +1303,12 @@ const FORM_SECTIONS = [
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path fill-rule="evenodd" d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 1H2v6h1V6zm10 0v6h1V6h-1zM2 5v6h12V5H2z"/></svg>',
     fields:[
       {id:'net_worth',label:'Estimated total net worth',type:'currency',placeholder:'0'},
-      {id:'nw_allocation_header',label:'Where is your net worth allocated?',type:'sectionheader'},
-      {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'percent',placeholder:'0',half:true},
-      {id:'nw_roth',label:'Roth retirement accounts',type:'percent',placeholder:'0',half:true},
-      {id:'nw_real_estate',label:'Primary home',type:'percent',placeholder:'0',half:true},
-      {id:'nw_other',label:'All other assets',type:'percent',placeholder:'0',half:true},
+      {id:'nw_allocation_header',label:'How is your net worth allocated?',type:'sectionheader'},
+      {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'currency',placeholder:'0',half:true},
+      {id:'nw_roth',label:'Roth retirement accounts',type:'currency',placeholder:'0',half:true},
+      {id:'nw_non_retirement_investments',label:'Non-retirement investment accounts',type:'currency',placeholder:'0',half:true},
+      {id:'nw_real_estate',label:'Primary home',type:'currency',placeholder:'0',half:true},
+      {id:'nw_other',label:'All other assets',type:'currency',placeholder:'0',half:true},
       {id:'inv_allocation_header',label:'How are your investments allocated?',type:'sectionheader'},
       {id:'inv_cash',label:'Cash',type:'percent',placeholder:'0',half:true},
       {id:'inv_bonds',label:'Bonds',type:'percent',placeholder:'0',half:true},
@@ -2415,7 +2416,22 @@ async function runAnalysisAndPopulate(clientId) {
 // ══════════════════════════════════
 function buildResponsesHTML(fd) {
   if (!fd||!Object.keys(fd).length) return '<p style="font-size:13px;color:var(--text-light);">No responses recorded.</p>';
-  const fmt = v => Array.isArray(v)?(v.join(', ')||'—'):(v||'—');
+  const fmt = v => {
+    if (!Array.isArray(v)) return v || '—';
+    if (!v.length) return '—';
+    if (typeof v[0] === 'object' && v[0] !== null) return v.map(item => {
+      if (item && typeof item === 'object') {
+        if (item.name) {
+          const sat = item.satisfaction !== undefined ? ' (satisfaction: '+item.satisfaction+'/10)' : '';
+          const firm = item.firm ? ' — '+item.firm : '';
+          return item.name + firm + sat;
+        }
+        return JSON.stringify(item);
+      }
+      return item;
+    }).join('; ');
+    return v.join(', ') || '—';
+  };
   let html = '';
   FORM_SECTIONS.forEach(sec=>{
     const relevant=sec.fields.filter(f=>fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
@@ -2475,7 +2491,7 @@ Income notes: ${yn(fd.income_notes)}
 
 NET WORTH & ASSETS
 Total net worth: ${cur(fd.net_worth)}
-Net worth allocation — Tax-deferred retirement: ${pct(fd.nw_tax_deferred)}% | Roth retirement: ${pct(fd.nw_roth)}% | Real estate: ${pct(fd.nw_real_estate)}% | All other: ${pct(fd.nw_other)}%
+Net worth allocation — Tax-deferred retirement: ${cur(fd.nw_tax_deferred)} | Roth retirement: ${cur(fd.nw_roth)} | Non-retirement investments: ${cur(fd.nw_non_retirement_investments)} | Primary home: ${cur(fd.nw_real_estate)} | All other: ${cur(fd.nw_other)}
 Investment allocation — Cash: ${pct(fd.inv_cash)}% | Bonds: ${pct(fd.inv_bonds)}% | Stocks: ${pct(fd.inv_stocks)}% | Precious metals: ${pct(fd.inv_precious_metals)}% | Crypto: ${pct(fd.inv_crypto)}% | Real estate (excl. primary): ${pct(fd.inv_real_estate)}%
 Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)}
 Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' — '+fd.concentrated_detail:''} | Value: ${cur(fd.concentrated_value)} | Cost basis: ${cur(fd.concentrated_tax_basis)}
@@ -2961,6 +2977,13 @@ async function openExportById(clientId, clientName) {
     : { goals:[], friction:[], actions:[], accomplished:[] };
 
   buildPDFPreview();
+  document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  // Show "Back to plan" if a plan exists, otherwise "Back to priorities"
+  const hasPlan = planData.goals?.length || planData.friction?.length || planData.actions?.length || planData.accomplished?.length;
+  const backPlanBtn = document.getElementById('back-to-plan-btn');
+  const backPBtn = document.getElementById('back-to-p-btn');
+  if (backPlanBtn) backPlanBtn.style.display = hasPlan ? '' : 'none';
+  if (backPBtn) backPBtn.style.display = hasPlan ? 'none' : '';
   showView('export');
 }
 
@@ -3291,7 +3314,22 @@ function buildPDFPlanHTML() {
 
 function buildPDFResponsesHTML(fd) {
   if (!fd||!Object.keys(fd).length) return '';
-  const fmt=v=>Array.isArray(v)?(v.join(', ')||'—'):(v||'—');
+  const fmt=v=>{
+    if (!Array.isArray(v)) return v || '—';
+    if (!v.length) return '—';
+    if (typeof v[0] === 'object' && v[0] !== null) return v.map(item => {
+      if (item && typeof item === 'object') {
+        if (item.name) {
+          const sat = item.satisfaction !== undefined ? ' (satisfaction: '+item.satisfaction+'/10)' : '';
+          const firm = item.firm ? ' — '+item.firm : '';
+          return item.name + firm + sat;
+        }
+        return JSON.stringify(item);
+      }
+      return item;
+    }).join('; ');
+    return v.join(', ') || '—';
+  };
   let html=`<div style="margin-bottom:1.5rem;"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #ede9e0;">Client profile</div>`;
   FORM_SECTIONS.forEach(sec=>{
     const relevant=sec.fields.filter(f=>fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
@@ -3432,7 +3470,22 @@ async function sendEmail() {
 
   // Build form responses HTML for email
   const fd = pClientFormData || {};
-  const fmtVal = v => Array.isArray(v) ? (v.join(', ') || '—') : (v || '—');
+  const fmtVal = v => {
+    if (!Array.isArray(v)) return v || '—';
+    if (!v.length) return '—';
+    if (typeof v[0] === 'object' && v[0] !== null) return v.map(item => {
+      if (item && typeof item === 'object') {
+        if (item.name) {
+          const sat = item.satisfaction !== undefined ? ' (satisfaction: '+item.satisfaction+'/10)' : '';
+          const firm = item.firm ? ' — '+item.firm : '';
+          return item.name + firm + sat;
+        }
+        return JSON.stringify(item);
+      }
+      return item;
+    }).join('; ');
+    return v.join(', ') || '—';
+  };
   let formSectionsHtml = '';
   if (fd && Object.keys(fd).length) {
     formSectionsHtml += '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
@@ -3555,8 +3608,9 @@ const CSV_FORM_FIELDS = [
   {id:'projected_income',label:'Projected Total Income'},
   {id:'income_notes',label:'Income Notes'},
   {id:'net_worth',label:'Net Worth'},
-  {id:'nw_tax_deferred',label:'NW % Tax-Deferred Retirement'},{id:'nw_roth',label:'NW % Roth Retirement'},
-  {id:'nw_real_estate',label:'NW % Real Estate'},{id:'nw_other',label:'NW % Other Assets'},
+  {id:'nw_tax_deferred',label:'NW $ Tax-Deferred Retirement'},{id:'nw_roth',label:'NW $ Roth Retirement'},
+  {id:'nw_non_retirement_investments',label:'NW $ Non-Retirement Investments'},
+  {id:'nw_real_estate',label:'NW $ Real Estate'},{id:'nw_other',label:'NW $ Other Assets'},
   {id:'inv_cash',label:'Inv % Cash'},{id:'inv_bonds',label:'Inv % Bonds'},{id:'inv_stocks',label:'Inv % Stocks'},
   {id:'inv_precious_metals',label:'Inv % Precious Metals'},{id:'inv_crypto',label:'Inv % Crypto'},
   {id:'inv_real_estate',label:'Inv % Real Estate'},
