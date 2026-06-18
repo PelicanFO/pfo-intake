@@ -1407,6 +1407,11 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected monthly benefit',type:'currency',placeholder:'0'},
         ]},
       {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'disabilitynotes',placeholder:'e.g. 60%, employer-sponsored plan, private policy...'},
+      {id:'has_ltc_thought',label:'Have you thought about funding long term care?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'ltc_plan',label:'What is your plan to fund your long term care expenses?',type:'textarea',placeholder:''},
+          {show:'No',id:'ltc_insurance_considered',label:'Have you considered long term care insurance?',type:'radio',options:['Yes','No','Not sure']},
+        ]},
     ]
   },
   {
