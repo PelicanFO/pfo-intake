@@ -3290,6 +3290,7 @@ function buildPDFPreview() {
     ${buildPDFPlanHTML()}
     ${buildPDFResponsesHTML(pClientFormData)}
     <div style="border-top:1px solid #ede9e0;padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:#ccc;font-family:'DM Sans',sans-serif;margin-top:1rem;"><span>Pelican Family Office — Confidential</span><span>Generated ${today}</span></div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;font-family:'DM Sans',sans-serif;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>
   </div>`;
 }
 
@@ -3533,6 +3534,7 @@ async function sendEmail() {
     +buildEmailPlanHTML()
     +formSectionsHtml
     +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>'
     +'</div></div></body></html>';
 
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
@@ -3545,7 +3547,8 @@ async function sendEmail() {
       +pItems.map((item,i)=>{
         const lbl = item.status?(item.status.charAt(0).toUpperCase()+item.status.slice(1)):'Unset';
         return (i+1)+'. ['+lbl+'] '+item.text+(item.notes?' — '+item.notes:'');
-      }).join('\n');
+      }).join('\n')
+      +'\n\n---\nThis presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.\nBefore implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.';
     const toStr = emailRecipients.join(',');
     window.open('mailto:'+encodeURIComponent(toStr)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(plain));
     status.textContent = 'Opened in your email client.';
