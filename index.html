@@ -228,6 +228,13 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .plan-item-del{position:absolute;top:4px;right:4px;background:none;border:none;color:var(--text-light);cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s;z-index:2;}
 .plan-item-row:hover .plan-item-del{opacity:1;}
 .plan-item-del:hover{color:var(--red-s);background:var(--red-bg);}
+.plan-item-owner{border-bottom-left-radius:0;border-bottom-right-radius:0;}
+.plan-item-owner-row{display:flex;align-items:center;gap:6px;background:#f5faf7;border:1px solid var(--border);border-top:1px dashed rgba(15,37,53,.15);border-radius:0 0 8px 8px;padding:5px 10px;transition:border-color .15s,background .15s;}
+.plan-item-owner-row:focus-within{background:#fff;border-color:var(--navy-light);}
+.plan-item-owner-row svg{flex-shrink:0;color:#1a7a3c;opacity:.7;}
+.plan-item-owner-label{font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-light);font-family:'DM Sans',sans-serif;flex-shrink:0;white-space:nowrap;}
+.plan-item-owner-input{flex:1;min-width:0;border:none;background:transparent;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--text);outline:none;padding:1px 0;text-overflow:ellipsis;}
+.plan-item-owner-input::placeholder{color:var(--text-light);font-style:italic;}
 .plan-add-btn{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px dashed var(--border);border-radius:8px;background:transparent;font-size:12px;color:var(--text-light);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;margin-top:2px;}
 .plan-add-btn:hover{border-color:var(--navy-light);color:var(--navy);background:var(--cream);}
 .plan-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1rem;gap:1rem;}
@@ -893,9 +900,10 @@ function printPlan() {
     {key:'accomplished',label:'Items Accomplished',             bg:'#f4f4f4', hdr:'#555'},
   ];
   const colsHtml = colDefs.map(c => {
-    const items = (planData[c.key]||[]).map(i =>
-      '<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:12px;font-family:DM Sans,sans-serif;line-height:1.5;margin-bottom:5px;">'+esc(i.text||'')+'</div>'
-    ).join('');
+    const items = (planData[c.key]||[]).map(i => {
+      const ownerHtml = (c.key==='actions' && i.owner) ? '<div style="font-size:10.5px;color:#1a7a3c;margin-top:3px;font-family:DM Sans,sans-serif;">Owner: '+esc(i.owner)+'</div>' : '';
+      return '<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:12px;font-family:DM Sans,sans-serif;line-height:1.5;margin-bottom:5px;">'+esc(i.text||'')+ownerHtml+'</div>';
+    }).join('');
     return '<div style="flex:1;min-width:0;">'
       +'<div style="background:'+c.hdr+';color:#fff;padding:8px 12px;font-family:Cormorant Garamond,serif;font-size:14px;font-weight:600;border-radius:4px 4px 0 0;margin-bottom:5px;">'+c.label+'</div>'
       +(items || '<div style="font-size:11px;color:#aaa;font-family:DM Sans,sans-serif;padding:4px;">No items</div>')
@@ -3119,7 +3127,7 @@ function renderPlanView(loading, error) {
     ? `<div style="padding:11px 16px;background:var(--red-bg);color:var(--red-s);border-radius:9px;font-size:13px;margin-bottom:1rem;display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>AI generation failed — add items manually using the buttons below.</div>`
     : '';
 
-  container.innerHTML = errorBanner + `<div class="plan-grid" id="plan-grid"></div><p style="font-size:11.5px;color:var(--text-light);margin-top:.75rem;text-align:center;letter-spacing:.02em;">Click any item to edit · hover to delete</p>`;
+  container.innerHTML = errorBanner + `<div class="plan-grid" id="plan-grid"></div><p style="font-size:11.5px;color:var(--text-light);margin-top:.75rem;text-align:center;letter-spacing:.02em;">Click any item to edit · hover to delete · assign owners on action items</p>`;
 
   const grid = document.getElementById('plan-grid');
   cols.forEach(col => {
@@ -3148,6 +3156,7 @@ function renderPlanColumn(key) {
 
   items.forEach((item, idx) => {
     const isAccomplished = key === 'accomplished';
+    const isAction = key === 'actions';
     const wrapper = document.createElement('div');
     wrapper.className = 'plan-item-row';
     wrapper.draggable = true;
@@ -3159,7 +3168,7 @@ function renderPlanColumn(key) {
     handle.title = 'Drag to reorder';
 
     const div = document.createElement('div');
-    div.className = 'plan-item' + (isAccomplished ? ' plan-item-accomplished' : '');
+    div.className = 'plan-item' + (isAccomplished ? ' plan-item-accomplished' : '') + (isAction ? ' plan-item-owner' : '');
     div.contentEditable = 'true';
     div.dataset.id = item.id;
     div.dataset.placeholder = 'Type here…';
@@ -3222,6 +3231,24 @@ function renderPlanColumn(key) {
     itemWrap.style.cssText = 'position:relative;flex:1;min-width:0;';
     itemWrap.appendChild(div);
     itemWrap.appendChild(del);
+
+    if (isAction) {
+      const ownerRow = document.createElement('div');
+      ownerRow.className = 'plan-item-owner-row';
+      ownerRow.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg><span class="plan-item-owner-label">Owner</span>';
+      const ownerInput = document.createElement('input');
+      ownerInput.type = 'text';
+      ownerInput.className = 'plan-item-owner-input';
+      ownerInput.placeholder = 'Unassigned';
+      ownerInput.value = item.owner || '';
+      ownerInput.addEventListener('input', () => {
+        const it = planData[key].find(i => i.id === item.id);
+        if (it) it.owner = ownerInput.value;
+        schedulePlanSave();
+      });
+      ownerRow.appendChild(ownerInput);
+      itemWrap.appendChild(ownerRow);
+    }
 
     wrapper.appendChild(handle);
     wrapper.appendChild(itemWrap);
@@ -3304,9 +3331,10 @@ function buildPDFPlanHTML() {
     {key:'accomplished', label:'Items Accomplished', bg:'#f4f4f4', hdr:'#555'},
   ];
   const colsHtml = colDefs.map(c => {
-    const items = (planData[c.key]||[]).map(i =>
-      `<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:11px;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:5px;">${esc(i.text||'')}</div>`
-    ).join('');
+    const items = (planData[c.key]||[]).map(i => {
+      const ownerHtml = (c.key==='actions' && i.owner) ? `<div style="font-size:9.5px;color:#1a7a3c;margin-top:3px;font-family:'DM Sans',sans-serif;">Owner: ${esc(i.owner)}</div>` : '';
+      return `<div style="padding:6px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:5px;font-size:11px;font-family:'DM Sans',sans-serif;line-height:1.5;margin-bottom:5px;">${esc(i.text||'')}${ownerHtml}</div>`;
+    }).join('');
     return `<div style="flex:1;min-width:0;">
       <div style="background:${c.hdr};color:#fff;padding:7px 10px;font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:600;border-radius:4px 4px 0 0;margin-bottom:5px;">${c.label}</div>
       ${items||'<div style="font-size:10px;color:#aaa;padding:4px;">No items</div>'}
@@ -3418,9 +3446,10 @@ function buildEmailPlanHTML() {
     {key:'accomplished', label:'Accomplished', hdr:'#555'},
   ];
   const colsHtml = colDefs.map(c => {
-    const items = (planData[c.key]||[]).map(i =>
-      '<div style="padding:5px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:4px;font-size:11px;font-family:Arial,sans-serif;line-height:1.5;margin-bottom:4px;">'+escPlain(i.text||'')+'</div>'
-    ).join('');
+    const items = (planData[c.key]||[]).map(i => {
+      const ownerHtml = (c.key==='actions' && i.owner) ? '<div style="font-size:9.5px;color:#1a7a3c;margin-top:3px;font-family:Arial,sans-serif;">Owner: '+escPlain(i.owner)+'</div>' : '';
+      return '<div style="padding:5px 8px;background:#fff;border:1px solid #e8e5e0;border-radius:4px;font-size:11px;font-family:Arial,sans-serif;line-height:1.5;margin-bottom:4px;">'+escPlain(i.text||'')+ownerHtml+'</div>';
+    }).join('');
     return '<td style="vertical-align:top;padding:0 4px;width:25%;">'
       +'<div style="background:'+c.hdr+';color:#fff;padding:6px 8px;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;border-radius:4px 4px 0 0;margin-bottom:4px;">'+c.label+'</div>'
       +(items||'<div style="font-size:10px;color:#aaa;font-family:Arial,sans-serif;">No items</div>')
