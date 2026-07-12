@@ -621,6 +621,26 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       </div>
     </div>
 
+    <div id="view-followup" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);" id="followup-client-title"></div>
+          <div style="font-size:13px;color:var(--text-muted);">Follow Up</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span class="plan-saved-badge" id="followup-saved-status"></span>
+          <button class="btn btn-ghost btn-sm" id="back-to-clients-from-followup-btn">← Back to clients</button>
+          <button class="btn btn-sm" id="followup-print-btn">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
+            Print
+          </button>
+        </div>
+      </div>
+      <div id="followup-content">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -794,6 +814,16 @@ let clientCpaFilter = null;   // null = all, string = filter by cpa code
 // Plan state
 let planData = { goals:[], friction:[], actions:[], accomplished:[] };
 let planClientId = null;
+// Follow-up state
+const FOLLOWUP_QUESTIONS = [
+  {id:'q1', text:"What's stood out most from this process so far? Has anything changed how you're thinking about your financial picture?"},
+  {id:'q2', text:"Is there anything we've uncovered so far that surprised you, concerns you, or that you'd like us to look into further?"},
+  {id:'q3', text:"If we present a plan that clearly makes sense for you, is there anything that would hold you back?"},
+  {id:'q4', text:"Is there anything else that you think is important for us to know?"},
+];
+let followUpData = {};
+let followUpClientId = null;
+let followUpIntakeId = null;
 
 // ══════════════════════════════════
 //  ACCESS GATE
@@ -831,7 +861,7 @@ function checkLogin() {
 // ══════════════════════════════════
 //  VIEWS
 // ══════════════════════════════════
-const ALL_VIEWS = ['home','clients','intake','analysis','prioritizer','plan','export'];
+const ALL_VIEWS = ['home','clients','intake','analysis','prioritizer','plan','export','followup'];
 function showView(name) {
   ALL_VIEWS.forEach(v => {
     const el = document.getElementById('view-'+v);
@@ -974,6 +1004,8 @@ function wireButtons() {
   document.getElementById('back-to-prioritizer-btn').addEventListener('click', () => showView('prioritizer'));
   document.getElementById('plan-to-export-btn').addEventListener('click', goToExport);
   document.getElementById('plan-print-btn').addEventListener('click', printPlan);
+  document.getElementById('back-to-clients-from-followup-btn').addEventListener('click', () => { showView('clients'); renderClientList(); });
+  document.getElementById('followup-print-btn').addEventListener('click', printFollowUp);
   document.getElementById('email-btn').addEventListener('click', () => {
     const panel = document.getElementById('email-panel');
     const isOpen = panel.style.display === '';
@@ -1159,6 +1191,7 @@ async function renderClientList() {
           ${complete?`<button class="btn btn-xs" data-action="open-priorities" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View priorities</button>`:''}
           ${complete?`<button class="btn btn-xs" data-action="open-plan" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">View plan</button>`:''}
           ${complete?`<button class="btn btn-xs btn-primary" data-action="open-export" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Review →</button>`:''}
+          ${complete?`<button class="btn btn-xs" data-action="open-followup" data-id="${esc(String(c.id))}" data-name="${esc(c.client_name||'')}">Follow Up</button>`:''}
           ${userRole==='admin'?`<button class="btn btn-xs btn-ghost" data-action="delete-client" data-id="${esc(String(c.id))}">Delete</button>`:''}
         </div>
       </div>
@@ -1188,6 +1221,7 @@ async function renderClientList() {
         else if (action === 'open-priorities') openPrioritiesById(id);
         else if (action === 'open-plan') openPlanById(id, btn.dataset.name||'');
         else if (action === 'open-export') openExportById(id, btn.dataset.name||'');
+        else if (action === 'open-followup') openFollowUpById(id, btn.dataset.name||'');
         else if (action === 'delete-client') { pendingDeleteId = id; document.getElementById('delete-modal').classList.add('open'); }
         else if (action === 'toggle-client-notes') {
           const field = document.getElementById('cnf-'+id);
@@ -2998,6 +3032,100 @@ async function openExportById(clientId, clientName) {
   if (backPlanBtn) backPlanBtn.style.display = hasPlan ? '' : 'none';
   if (backPBtn) backPBtn.style.display = hasPlan ? 'none' : '';
   showView('export');
+}
+
+// ══════════════════════════════════
+//  FOLLOW UP
+// ══════════════════════════════════
+// Accessed only from the clients list, at a later date — never part of the initial intake flow.
+async function openFollowUpById(clientId, clientName) {
+  const rec = await dbGet(TBL_CLIENTS, clientId);
+  if (!rec) { toast('Could not load client.'); return; }
+  followUpClientId = clientId;
+  currentClientId = clientId;
+  currentClientName = clientName || rec.client_name || '';
+
+  const intake = await getIntakeForClient(clientId);
+  if (!intake) { toast('No data found. Complete the prioritizer first.'); return; }
+  followUpIntakeId = intake.id;
+
+  const saved = intake.form_data?.__followup_data;
+  followUpData = saved ? {...saved} : {};
+
+  document.getElementById('followup-client-title').textContent = currentClientName;
+  document.getElementById('followup-saved-status').textContent = '';
+  renderFollowUpView();
+  showView('followup');
+}
+
+function renderFollowUpView() {
+  const container = document.getElementById('followup-content');
+  container.innerHTML = FOLLOWUP_QUESTIONS.map((q, idx) => `
+    <div class="card">
+      <div style="display:flex;gap:14px;align-items:flex-start;">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:9px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;">${idx+1}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4;">${esc(q.text)}</div>
+          <textarea class="followup-answer" data-qid="${q.id}" rows="3" placeholder="Client's response…">${esc(followUpData[q.id]||'')}</textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.followup-answer').forEach(ta => {
+    ta.addEventListener('input', () => {
+      followUpData[ta.dataset.qid] = ta.value;
+      scheduleFollowUpSave();
+    });
+  });
+}
+
+let followUpSaveTimer;
+function scheduleFollowUpSave() {
+  clearTimeout(followUpSaveTimer);
+  followUpSaveTimer = setTimeout(saveFollowUpData, 1000);
+}
+
+async function saveFollowUpData() {
+  if (!followUpIntakeId) return;
+  try {
+    const intake = await getIntakeForClient(followUpClientId);
+    const baseFormData = intake?.form_data || {};
+    const merged = {...baseFormData, __followup_data: JSON.parse(JSON.stringify(followUpData))};
+    await dbUpdate(TBL_INTAKES, followUpIntakeId, {form_data: merged});
+    const el = document.getElementById('followup-saved-status');
+    if (el) { el.textContent = '✓ Saved'; setTimeout(()=>{ if(el) el.textContent=''; }, 2000); }
+  } catch(e) {
+    console.error('Follow-up save error:', e);
+  }
+}
+
+function printFollowUp() {
+  const win = window.open('', '_blank');
+  if (!win) { toast('Allow pop-ups to print.'); return; }
+  const client = currentClientName || '—';
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  const qHtml = FOLLOWUP_QUESTIONS.map((q, idx) => {
+    const answer = (followUpData[q.id]||'').trim();
+    return '<div style="margin-bottom:22px;">'
+      +'<div style="font-family:Cormorant Garamond,serif;font-size:15px;font-weight:600;color:#0f2535;margin-bottom:6px;">'+(idx+1)+'. '+esc(q.text)+'</div>'
+      +'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:'+(answer?'#1a1a18':'#aaa')+';white-space:pre-wrap;line-height:1.6;">'+(answer?esc(answer):'No response recorded.')+'</div>'
+      +'</div>';
+  }).join('');
+  win.document.write('<!DOCTYPE html><html><head><title>'+esc(client)+' — Follow Up</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>'
+    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">'
+    +'<div><div style="font-size:22px;font-weight:600;color:#0f2535;">'+esc(client)+'</div>'
+    +'<div style="font-size:11px;color:#aaa;font-family:DM Sans,sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;">Follow Up</div></div>'
+    +'<div style="font-size:12px;color:#aaa;font-family:DM Sans,sans-serif;">'+today+'</div>'
+    +'</div>'
+    +qHtml
+    +'</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
 }
 
 
