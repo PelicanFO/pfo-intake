@@ -213,7 +213,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .role-tag-admin{background:#eef4ff;color:#1a3a6e;border:1px solid rgba(26,58,110,.15);}
 .role-tag-cpa{background:var(--cream-dark);color:var(--text-muted);border:1px solid var(--border);}
 .pw-wrap{display:flex;align-items:center;gap:6px;background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-width:160px;}
-.pw-text{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px;letter-spacing:.02em;color:var(--text);flex:1;user-select:all;}
+.pw-text-input{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:13px;letter-spacing:.02em;color:var(--text);flex:1;width:auto;min-width:70px;border:none;background:transparent;outline:none;padding:0;border-radius:0;}
+.pw-text-input:read-only{cursor:default;}
+.pw-text-input:not(:read-only){color:var(--navy);}
 .pw-eye{background:none;border:none;color:var(--text-light);cursor:pointer;padding:2px;display:flex;align-items:center;border-radius:4px;transition:color .12s;}
 .pw-eye:hover{color:var(--navy);}
 .access-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
@@ -677,9 +679,13 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
               <input type="text" id="new-cpa-name" placeholder="e.g. Smith &amp; Co." autocomplete="off" required/>
             </div>
             <div class="field-group">
-              <label class="field-label">CPA abbreviation <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-light);">(becomes their username)</span></label>
+              <label class="field-label">CPA abbreviation</label>
               <input type="text" id="new-cpa-abbrev" placeholder="e.g. SMC" maxlength="12" autocomplete="off" required/>
             </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Password <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--text-light);">(optional — leave blank to generate one automatically)</span></label>
+            <input type="text" id="new-cpa-password" placeholder="Leave blank to auto-generate" autocomplete="off"/>
           </div>
           <div id="add-cpa-error" style="font-size:12.5px;color:var(--red-s);margin-bottom:.5rem;display:none;"></div>
           <button type="submit" class="btn btn-gold btn-sm" id="add-cpa-submit-btn">+ Add CPA</button>
@@ -722,7 +728,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.1.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.1.1'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -737,16 +743,16 @@ const TBL_USERS         = 'pfo_users';
 // role: 'cpa'   sees only clients with matching cpaCode
 const DEFAULT_USERS = [
   { username:'PFO',   password:'29109', altPassword:'pfo-prioritizer-2026', displayName:'PFO Admin', role:'admin', cpaCode:null  },
-  { username:'A&A',   password:'20931', displayName:'A&A',   role:'cpa', cpaCode:'A&A'  },
-  { username:'BCP',   password:'57294', displayName:'BCP',   role:'cpa', cpaCode:'BCP'  },
-  { username:'BUR',   password:'19925', displayName:'BUR',   role:'cpa', cpaCode:'BUR'  },
-  { username:'J&J',   password:'48202', displayName:'J&J',   role:'cpa', cpaCode:'J&J'  },
-  { username:'LCH',   password:'59204', displayName:'LCH',   role:'cpa', cpaCode:'LCH'  },
-  { username:'MBO',   password:'29475', displayName:'MBO',   role:'cpa', cpaCode:'MBO'  },
-  { username:'PIC',   password:'29476', displayName:'PIC',   role:'cpa', cpaCode:'PIC'  },
-  { username:'SSB',   password:'29479', displayName:'SSB',   role:'cpa', cpaCode:'SSB'  },
-  { username:'TVN',   password:'88651', displayName:'TVN',   role:'cpa', cpaCode:'TVN'  },
-  { username:'ZIM',   password:'47291', displayName:'ZIM',   role:'cpa', cpaCode:'ZIM'  },
+  { username:'A&A',   password:'20931', displayName:'Alphonso',      role:'cpa', cpaCode:'A&A'  },
+  { username:'BCP',   password:'57294', displayName:'BCP',           role:'cpa', cpaCode:'BCP'  },
+  { username:'BUR',   password:'19925', displayName:'Burton',        role:'cpa', cpaCode:'BUR'  },
+  { username:'J&J',   password:'48202', displayName:'Johnson',       role:'cpa', cpaCode:'J&J'  },
+  { username:'LCH',   password:'59204', displayName:'Luchau',        role:'cpa', cpaCode:'LCH'  },
+  { username:'MBO',   password:'29475', displayName:'Bergeron',      role:'cpa', cpaCode:'MBO'  },
+  { username:'PIC',   password:'29476', displayName:'Pickering',     role:'cpa', cpaCode:'PIC'  },
+  { username:'SSB',   password:'29479', displayName:'Single Source', role:'cpa', cpaCode:'SSB'  },
+  { username:'TVN',   password:'88651', displayName:'Veillon',       role:'cpa', cpaCode:'TVN'  },
+  { username:'ZIM',   password:'47291', displayName:'Zimanski',      role:'cpa', cpaCode:'ZIM'  },
 ];
 let CPA_CODES = DEFAULT_USERS.filter(u=>u.role==='cpa').map(u=>u.cpaCode);
 let allUsers = [];
@@ -887,12 +893,9 @@ async function fetchUsers() {
   // Fallback: table empty, unreachable, or running locally without Supabase
   return DEFAULT_USERS.map(u => ({...u, id: 'default-'+u.username, isDefault: true}));
 }
-function generatePassword(length) {
-  length = length || 10;
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // no 0/O/1/I/l — avoids read-back mistakes
-  let out = '';
-  for (let i=0; i<length; i++) out += chars[Math.floor(Math.random()*chars.length)];
-  return out;
+function generatePassword() {
+  // 5-digit numeric, matching the existing account password format
+  return String(Math.floor(10000 + Math.random()*90000));
 }
 function populateHomeCpaSelect() {
   const cpaSel = document.getElementById('home-cpa-select');
@@ -3330,7 +3333,15 @@ function renderAccessView() {
         if (user) copyToClipboard(user.password, 'Password copied.');
       } else if (action === 'reset-pw') {
         if (!user || user.isDefault) { toast('Run the one-time Supabase setup before managing this account.'); return; }
+        if (user.role === 'admin') { toast("The admin password can't be changed here."); return; }
         resetUserPassword(id);
+      } else if (action === 'save-pw') {
+        if (!user || user.isDefault) { toast('Run the one-time Supabase setup before managing this account.'); return; }
+        if (user.role === 'admin') { toast("The admin password can't be changed here."); return; }
+        const input = container.querySelector(`.pw-text-input[data-id="${CSS.escape(id)}"]`);
+        const newPassword = input ? input.value.trim() : '';
+        if (!newPassword) { toast('Password cannot be empty.'); return; }
+        setUserPassword(id, newPassword);
       } else if (action === 'delete-user') {
         if (!user) return;
         if (user.isDefault) { toast('Run the one-time Supabase setup before managing this account.'); return; }
@@ -3342,32 +3353,45 @@ function renderAccessView() {
       }
     });
   });
+
+  container.querySelectorAll('.pw-text-input').forEach(input => {
+    input.addEventListener('input', () => {
+      const saveBtn = container.querySelector(`[data-access-action="save-pw"][data-id="${CSS.escape(input.dataset.id)}"]`);
+      if (saveBtn) saveBtn.style.display = (input.value.trim() && input.value !== input.dataset.original) ? '' : 'none';
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const saveBtn = container.querySelector(`[data-access-action="save-pw"][data-id="${CSS.escape(input.dataset.id)}"]`);
+        if (saveBtn && saveBtn.style.display !== 'none') saveBtn.click();
+      }
+    });
+  });
 }
 
 function accessRowHtml(u, adminCount) {
   const idStr = esc(String(u.id));
   const isRevealed = revealedPasswordIds.has(String(u.id));
-  const roleTag = u.role === 'admin'
-    ? '<span class="role-tag role-tag-admin">Admin</span>'
-    : '<span class="role-tag role-tag-cpa">CPA</span>';
+  const roleTag = u.role === 'admin' ? '<span class="role-tag role-tag-admin">Admin</span>' : '';
   const eyeIcon = isRevealed
     ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/><path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/><path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/></svg>'
     : '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.121 4.668 5.881 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/></svg>';
-  const pwDisplay = isRevealed ? esc(u.password) : '••••••••';
   const canDelete = !(u.role === 'admin' && adminCount <= 1);
+  const canEditPassword = u.role !== 'admin';
 
   return `<div class="access-row">
     <div class="access-identity">
       <span class="access-name">${esc(u.displayName)}</span>${roleTag}
-      <div class="access-username">Username: ${esc(u.username)}${u.cpaCode ? ' · CPA code: ' + esc(u.cpaCode) : ''}</div>
+      <div class="access-username">Username: ${esc(u.username)}</div>
     </div>
     <div class="pw-wrap">
-      <span class="pw-text">${pwDisplay}</span>
+      <input class="pw-text-input" type="${isRevealed?'text':'password'}" value="${esc(u.password)}" data-id="${idStr}" data-original="${esc(u.password)}" ${(!isRevealed || !canEditPassword)?'readonly':''}/>
       <button class="pw-eye" data-access-action="toggle-pw" data-id="${idStr}" title="${isRevealed?'Hide password':'Show password'}">${eyeIcon}</button>
+      ${canEditPassword ? `<button class="btn btn-xs btn-gold" data-access-action="save-pw" data-id="${idStr}" style="display:none;">Save</button>` : ''}
     </div>
     <div class="access-actions">
       <button class="btn btn-xs" data-access-action="copy-pw" data-id="${idStr}">Copy</button>
-      <button class="btn btn-xs" data-access-action="reset-pw" data-id="${idStr}">Reset password</button>
+      ${canEditPassword ? `<button class="btn btn-xs" data-access-action="reset-pw" data-id="${idStr}">Generate new</button>` : ''}
       ${canDelete ? `<button class="btn btn-xs btn-ghost" data-access-action="delete-user" data-id="${idStr}">Remove</button>` : ''}
     </div>
   </div>`;
@@ -3392,15 +3416,17 @@ async function addCpaUser(e) {
 
   const nameInput = document.getElementById('new-cpa-name');
   const abbrevInput = document.getElementById('new-cpa-abbrev');
+  const passwordInput = document.getElementById('new-cpa-password');
   const name = nameInput.value.trim();
   const abbrev = abbrevInput.value.trim().toUpperCase();
+  const customPassword = passwordInput.value.trim();
 
   if (!name || !abbrev) { errEl.textContent = 'Enter both a name and an abbreviation.'; errEl.style.display = 'block'; return; }
   if (allUsers.some(u => u.username.toLowerCase() === abbrev.toLowerCase())) {
     errEl.textContent = `"${abbrev}" is already in use as a username.`; errEl.style.display = 'block'; return;
   }
 
-  const password = generatePassword();
+  const password = customPassword || generatePassword();
   submitBtn.disabled = true;
   submitBtn.textContent = 'Adding…';
 
@@ -3424,6 +3450,7 @@ async function addCpaUser(e) {
 
   nameInput.value = '';
   abbrevInput.value = '';
+  passwordInput.value = '';
   await refreshAccessData();
   revealedPasswordIds.add(String(newId));
   renderAccessView();
@@ -3438,7 +3465,12 @@ async function addCpaUser(e) {
 async function resetUserPassword(id) {
   const user = allUsers.find(u => String(u.id) === String(id));
   if (!user) return;
-  const newPassword = generatePassword();
+  await setUserPassword(id, generatePassword(), user);
+}
+
+async function setUserPassword(id, newPassword, userArg) {
+  const user = userArg || allUsers.find(u => String(u.id) === String(id));
+  if (!user) return;
   await dbUpdate(TBL_USERS, id, {password: newPassword});
   await refreshAccessData();
   revealedPasswordIds.add(String(id));
