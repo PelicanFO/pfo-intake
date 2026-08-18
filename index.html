@@ -1339,7 +1339,7 @@ async function renderClientList() {
         <div style="flex:1;min-width:180px;">
           <button class="client-notes-toggle" data-action="toggle-client-status" data-id="${esc(String(c.id))}">${hasStatus ? '✎ Status' : '+ Status'}</button>
           <div class="client-notes-field${hasStatus?' open':''}" id="csf-${esc(String(c.id))}">
-            <input class="client-status-input" type="text" placeholder="e.g. Awaiting documents, In review…" data-id="${esc(String(c.id))}" value="${esc(c.client_status||'')}" style="width:100%;border:none;border-bottom:1px solid var(--border);background:transparent;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;padding:3px 0;outline:none;"/>
+            <textarea class="client-status-input" rows="2" placeholder="e.g. Awaiting documents, In review…" data-id="${esc(String(c.id))}" style="width:100%;resize:vertical;overflow-wrap:break-word;border:none;border-bottom:1px solid var(--border);background:transparent;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;padding:3px 0;outline:none;">${esc(c.client_status||'')}</textarea>
           </div>
         </div>
       </div>`;
