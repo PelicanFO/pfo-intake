@@ -380,7 +380,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
     <div class="gate-error" id="gate-login-error">Incorrect username or password.</div>
     <button class="btn btn-primary" style="width:100%;margin-top:.5rem;padding:12px 20px;font-size:14px;letter-spacing:.02em;" id="gate-login-btn">Sign in</button>
     <div class="gate-footer">Focus Prioritizer · Secure Staff Access</div>
-    <div class="gate-footer" style="margin-top:2px;opacity:.6;">Last updated July 11, 2026</div>
+    <div class="gate-footer" style="margin-top:2px;opacity:.6;" id="gate-version"></div>
   </div>
 </div>
 
@@ -662,6 +662,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
+const APP_VERSION        = 'v1.0.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -3984,6 +3985,7 @@ function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt
 // ══════════════════════════════════
 //  INIT
 // ══════════════════════════════════
+document.getElementById('gate-version').textContent = APP_VERSION;
 wireButtons();
 
 function initApp() {
