@@ -278,9 +278,11 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .tax-slider-wrap{margin-top:6px;}
 .tax-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
 .tax-slider-input{flex:1;accent-color:var(--navy);height:4px;cursor:pointer;}
-.tax-slider-val{font-size:14px;font-weight:500;color:var(--navy);min-width:90px;text-align:right;}
+.tax-slider-val{font-size:14px;font-weight:500;color:var(--navy);min-width:130px;text-align:right;white-space:nowrap;}
 .tax-rating-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px;}
-.tax-rating-pip{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:2px solid var(--border);background:var(--cream-dark);color:var(--text-muted);transition:all .2s;}
+.tax-rating-pip{width:32px;height:32px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;border:2px solid var(--border);background:var(--cream-dark);color:var(--text-muted);transition:all .2s;cursor:pointer;flex-shrink:0;}
+.tax-rating-pip:hover{border-color:var(--navy);color:var(--navy);}
+.tax-rating-pip:focus-visible{outline:2px solid var(--navy);outline-offset:2px;}
 .tax-rating-pip.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 .tax-rating-label{font-size:12px;color:var(--text-muted);margin-left:4px;}
 
@@ -728,7 +730,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.1.2'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.1.3'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1845,7 +1847,7 @@ function renderField(f, qNum) {
         </div>
         <div class="tax-rating-bar">
           <span style="font-size:12px;color:var(--text-muted);margin-right:4px;">Tax Planning Focus Rating:</span>
-          ${[1,2,3,4,5].map(n=>`<div class="tax-rating-pip" id="trp-${n}">${n}</div>`).join('')}
+          ${[1,2,3,4,5].map(n=>`<button type="button" class="tax-rating-pip" id="trp-${n}" data-rating="${n}" aria-label="Tax planning focus rating ${n}">${n}</button>`).join('')}
           <span class="tax-rating-label" id="tax-rating-desc"></span>
         </div>
         
@@ -2048,8 +2050,9 @@ function updateCalcFields() {
       currentFormData['effective_tax_rate_display'] = '';
     }
   }
-  // Update tax slider visibility when tax_liability changes
+  // Update tax slider visibility and dollar estimate when tax liability changes
   updateTaxSliderVisibility();
+  updateTaxSliderDisplay();
   // Update coverage analysis when income changes
   updateCoverageAnalysis();
 }
@@ -2104,42 +2107,61 @@ function wireTaxSlider() {
   if (!slider) return;
   // Restore saved value
   const saved = currentFormData['ideal_tax_slider'];
-  if (saved !== undefined) slider.value = saved;
+  if (saved !== undefined && saved !== '') slider.value = saved;
   updateTaxSliderDisplay();
   slider.addEventListener('input', () => {
     saveField('ideal_tax_slider', slider.value);
     updateTaxSliderDisplay();
   });
+  // Clicking a rating snaps the slider: 5 = pay 0%, 4 = 25%, 3 = 50%, 2 = 75%, 1 = 100%
+  wrap.querySelectorAll('.tax-rating-pip').forEach(pip => {
+    pip.addEventListener('click', () => {
+      const rating = parseInt(pip.dataset.rating);
+      slider.value = (5 - rating) * 25;
+      saveField('ideal_tax_slider', slider.value);
+      updateTaxSliderDisplay();
+    });
+  });
+}
+
+function totalTaxLiability() {
+  return parseNum('federal_tax_liability') + parseNum('state_tax_liability') + parseNum('tax_liability'); // tax_liability = legacy
 }
 
 function updateTaxSliderVisibility() {
   const wrap = document.getElementById('taxslider-wrap');
   if (!wrap) return;
-  const taxVal = parseNum('federal_tax_liability') + parseNum('state_tax_liability') + parseNum('tax_liability');
-  wrap.style.display = taxVal > 0 ? '' : 'none';
+  wrap.style.display = totalTaxLiability() > 0 ? '' : 'none';
 }
 
 function updateTaxSliderDisplay() {
   const slider = document.getElementById('cf-ideal_tax_slider');
   if (!slider) return;
-  const maxTax = parseNum('tax_liability');
-  const pct = parseInt(slider.value) || 0; // slider is 0-100 = percent of max they'd want to pay
+  const maxTax = totalTaxLiability();
+  const pct = parseInt(slider.value) || 0; // slider is 0-100 = percent of total tax they'd want to pay
   const dollarAmt = Math.round((pct / 100) * maxTax);
   const valEl = document.getElementById('ideal_tax_val');
-  if (valEl) valEl.textContent = '$' + dollarAmt.toLocaleString('en-US');
+  if (valEl) valEl.textContent = '$' + dollarAmt.toLocaleString('en-US') + ' (' + pct + '%)';
+  // Don't record a rating until the client has actually moved the slider or picked a rating
+  const touched = currentFormData['ideal_tax_slider'] !== undefined && currentFormData['ideal_tax_slider'] !== '';
   // Rating: 0% of taxes paid = rating 5 (want to pay nothing = highly focused), 100% = rating 1
-  const rating = Math.max(1, 5 - Math.round((pct / 100) * 4));
+  const rating = touched ? Math.max(1, 5 - Math.round((pct / 100) * 4)) : null;
   const descs = {5:'Highly focused — tax reduction is a top priority',4:'Strong focus — very motivated to reduce tax burden',3:'Moderate focus — interested in some tax reduction',2:'Low focus — generally comfortable with current taxes',1:'Minimal focus — happy with current tax situation'};
   for (let i=1;i<=5;i++) {
     const pip = document.getElementById('trp-'+i);
-    if (pip) pip.classList.toggle('active', i===rating);
+    if (pip) {
+      pip.classList.toggle('active', i===rating);
+      pip.setAttribute('aria-pressed', i===rating ? 'true' : 'false');
+    }
   }
   const descEl = document.getElementById('tax-rating-desc');
-  if (descEl) descEl.textContent = descs[rating] || '';
-  // Save rating
+  if (descEl) descEl.textContent = rating ? descs[rating] : 'Drag the slider or pick a rating';
+  if (!touched) return;
+  const prevRating = currentFormData['tax_planning_rating'];
+  const prevAmt = currentFormData['ideal_tax_amount'];
   currentFormData['tax_planning_rating'] = rating;
   currentFormData['ideal_tax_amount'] = dollarAmt;
-  autosave();
+  if (prevRating !== rating || prevAmt !== dollarAmt) autosave();
 }
 
 // ── COVERAGE ANALYSIS ────────────────────────────────────────────
@@ -2653,7 +2675,7 @@ async function openPrioritiesById(clientId) {
 function buildPrompt(fd) {
   const yn = v => v || 'N/A';
   const arr = v => Array.isArray(v) ? (v.join(', ') || 'None') : (v || 'N/A');
-  const cur = v => v ? '$'+Number(v).toLocaleString() : 'N/A';
+  const cur = v => { const n = parseFloat(String(v||'').replace(/[^0-9.-]/g,'')); return n ? '$'+n.toLocaleString() : 'N/A'; };
   const pct = v => v || 'N/A';
 
   const profile = `CLIENT FINANCIAL PROFILE — USE ALL DATA BELOW TO GENERATE HIGHLY SPECIFIC PRIORITIES
@@ -2667,6 +2689,7 @@ INCOME (prior year)
 W-2/salary: ${cur(fd.w2_income)} | Business income: ${cur(fd.business_income)} | ST capital gains: ${cur(fd.st_cap_gains)} | LT capital gains: ${cur(fd.lt_cap_gains)}
 Interest: ${cur(fd.interest_income)} | Qualified dividends: ${cur(fd.qualified_dividends)} | Non-qualified dividends: ${cur(fd.nonqualified_dividends)} | Other income: ${cur(fd.other_income)} | TOTAL: ${cur(fd.total_income_display)}
 Federal tax liability: ${cur(fd.federal_tax_liability)} | State tax liability: ${cur(fd.state_tax_liability)} | Effective tax rate: ${pct(fd.effective_tax_rate_display)}
+Ideal tax paid: ${fd.tax_planning_rating ? '$'+Number(fd.ideal_tax_amount||0).toLocaleString()+' ('+(fd.ideal_tax_slider||0)+'% of current) | Tax planning focus rating: '+fd.tax_planning_rating+'/5 (5 = highly focused on reducing tax)' : 'N/A'}
 Projected income (current year): ${cur(fd.projected_income)}
 Income notes: ${yn(fd.income_notes)}
 
@@ -3541,7 +3564,7 @@ OPTIONAL FOCUS AREAS:
 ${optItems || 'None set'}
 
 KEY FINANCIAL FACTS:
-- Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${fd.tax_liability ? '$'+Number(fd.tax_liability).toLocaleString() : 'N/A'}
+- Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${(() => { const n = ['federal_tax_liability','state_tax_liability','tax_liability'].reduce((a,k)=>a+(parseFloat(String(fd[k]||'').replace(/[^0-9.-]/g,''))||0),0); return n ? '$'+n.toLocaleString() : 'N/A'; })()}${fd.tax_planning_rating ? ' | Tax planning focus: '+fd.tax_planning_rating+'/5' : ''}
 - Net worth: ${fd.net_worth ? '$'+Number(fd.net_worth).toLocaleString() : 'N/A'}
 - Business owner: ${fd.has_business === 'Yes' ? 'Yes' : 'No'}
 - Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
@@ -4137,6 +4160,7 @@ const CSV_FORM_FIELDS = [
   {id:'other_income',label:'Other Income'},
   {id:'total_income_display',label:'Total Income Prior Year'},
   {id:'federal_tax_liability',label:'Federal Tax Liability'},{id:'state_tax_liability',label:'State Tax Liability'},
+  {id:'ideal_tax_amount',label:'Ideal Tax Paid'},{id:'ideal_tax_slider',label:'Ideal Tax Paid (% of Current)'},{id:'tax_planning_rating',label:'Tax Planning Focus Rating (1-5)'},
   {id:'effective_tax_rate_display',label:'Effective Tax Rate'},
   {id:'projected_income',label:'Projected Total Income'},
   {id:'income_notes',label:'Income Notes'},
@@ -4268,7 +4292,7 @@ async function exportAllToXLSX() {
       }
       const formCells = CSV_FORM_FIELDS.map(f => {
         const v = fd[f.id];
-        return Array.isArray(v) ? v.join('; ') : (v||'');
+        return Array.isArray(v) ? v.join('; ') : (v ?? '');
       });
 
       return [date, client.client_name||'', client.staff_name||'', client.cpa_code||'', client.form_status||'',
