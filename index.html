@@ -322,6 +322,53 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .multibiz-del:hover{color:var(--red-s);background:var(--red-bg);}
 .multibiz-add{font-size:12px;color:var(--navy-light);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;font-family:'DM Sans',sans-serif;}
 
+/* NET WORTH VIEW TOGGLE + SPREADSHEET */
+.nw-view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:9px;padding:3px;background:var(--cream);gap:3px;}
+.nw-view-toggle button{border:none;background:transparent;padding:7px 16px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .13s;}
+.nw-view-toggle button:hover{color:var(--text);}
+.nw-view-toggle button.active{background:var(--navy);color:#fff;font-weight:500;}
+.nws-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem;}
+.nws-tile{border:1px solid var(--border);border-radius:10px;padding:10px 14px;background:var(--cream);}
+.nws-tile-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;}
+.nws-tile-val{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums;}
+.nws-tile.nws-tile-nw{background:var(--navy);border-color:var(--navy);}
+.nws-tile.nws-tile-nw .nws-tile-label{color:rgba(255,255,255,.6);}
+.nws-tile.nws-tile-nw .nws-tile-val{color:#fff;}
+.nws-tile-val.neg{color:var(--red-s);}
+@media(max-width:700px){.nws-summary{grid-template-columns:1fr 1fr;}}
+.nws-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+.nws-table{width:100%;min-width:860px;border-collapse:collapse;font-size:13px;}
+.nws-table th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-light);font-weight:500;text-align:right;padding:8px 6px;background:var(--cream-dark);border-bottom:1px solid var(--border);white-space:nowrap;}
+.nws-table th:first-child{text-align:left;padding-left:12px;}
+.nws-table td{padding:4px 4px;border-bottom:1px solid rgba(15,37,53,.06);vertical-align:middle;}
+.nws-table td:first-child{padding-left:12px;}
+.nws-group td{background:var(--cream);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);padding:7px 12px;}
+.nws-label{color:var(--text);min-width:190px;}
+.nws-table input[type=text]{padding:6px 8px;font-size:13px;border-radius:6px;}
+.nws-label input[type=text]{min-width:180px;}
+.nws-cur{position:relative;}
+.nws-cur::before{content:'$';position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-light);font-size:12px;pointer-events:none;}
+.nws-cur input[type=text]{padding-left:18px;text-align:right;font-variant-numeric:tabular-nums;}
+.nws-calc{text-align:right;padding-right:8px !important;font-variant-numeric:tabular-nums;color:var(--navy);font-weight:500;white-space:nowrap;}
+.nws-calc.neg{color:var(--red-s);}
+.nws-actions{white-space:nowrap;text-align:right;width:56px;}
+.nws-icon-btn{background:none;border:none;cursor:pointer;color:#bbb;font-size:14px;padding:4px 5px;border-radius:5px;line-height:1;transition:all .12s;}
+.nws-icon-btn:hover{color:var(--navy);background:var(--cream-dark);}
+.nws-icon-btn.has-notes{color:var(--gold);}
+.nws-icon-btn.nws-del:hover{color:var(--red-s);background:var(--red-bg);}
+.nws-notes-row td{padding:0 12px 8px 12px;background:#fcfbf8;}
+.nws-notes-row textarea{font-size:13px;padding:7px 10px;}
+.nws-add-row td{padding:4px 12px 8px;}
+.nws-add{font-size:12px;color:var(--navy-light);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;font-family:'DM Sans',sans-serif;}
+.nws-total td{background:var(--cream-dark);font-weight:600;border-bottom:none;padding-top:9px;padding-bottom:9px;}
+.nws-total td:first-child{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);}
+.nws-statement{width:100%;border-collapse:collapse;font-size:12px;margin:.25rem 0 .75rem;}
+.nws-statement th{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid var(--border);}
+.nws-statement th:first-child,.nws-statement td:first-child{text-align:left;}
+.nws-statement td{padding:3px 6px;text-align:right;border-bottom:1px solid rgba(15,37,53,.05);font-variant-numeric:tabular-nums;}
+.nws-statement .nws-st-note td{text-align:left;color:var(--text-light);font-style:italic;padding-top:0;}
+.nws-statement .nws-st-total td{font-weight:600;border-top:1px solid var(--border);}
+
 /* BIZ LARGEST HEADER */
 .biz-largest-header{margin:1rem 0 .75rem;padding:10px 14px;background:var(--navy);border-radius:8px;color:#fff;font-size:13px;font-weight:500;line-height:1.5;}
 
@@ -1066,7 +1113,10 @@ function printPlan() {
   }).join('');
   win.document.write('<!DOCTYPE html><html><head><title>'+esc(client)+' — Action Plan</title>'
     +'<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>'
-    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>'
+    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}'
+    +'.nws-statement{width:100%;border-collapse:collapse;font-family:DM Sans,sans-serif;font-size:11px;}.nws-statement th{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#888;font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid #ddd;}'
+    +'.nws-statement th:first-child,.nws-statement td:first-child{text-align:left;}.nws-statement td{padding:3px 6px;text-align:right;border-bottom:1px solid #f0eee9;}'
+    +'.nws-statement .nws-st-note td{text-align:left;color:#999;font-style:italic;padding-top:0;}.nws-statement .nws-st-total td{font-weight:600;border-top:1px solid #ccc;}</style>'
     +'</head><body>'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">'
     +'<div><div style="font-size:22px;font-weight:600;color:#0f2535;">'+esc(client)+'</div>'
@@ -1074,6 +1124,7 @@ function printPlan() {
     +'<div style="font-size:12px;color:#aaa;font-family:DM Sans,sans-serif;">'+today+'</div>'
     +'</div>'
     +'<div style="display:flex;gap:12px;">'+colsHtml+'</div>'
+    +(planNwStatementHTML() ? '<div style="margin-top:1.5rem;page-break-inside:avoid;"><div style="font-size:16px;font-weight:600;color:#0f2535;margin-bottom:6px;">Financial Statement</div>'+planNwStatementHTML()+'</div>' : '')
     +'</body></html>');
   win.document.close();
   win.focus();
@@ -1480,21 +1531,24 @@ const FORM_SECTIONS = [
     id:'networth', title:'Net worth & investments',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path fill-rule="evenodd" d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 1H2v6h1V6zm10 0v6h1V6h-1zM2 5v6h12V5H2z"/></svg>',
     fields:[
-      {id:'net_worth',label:'Estimated total net worth',type:'currency',placeholder:'0'},
-      {id:'nw_allocation_header',label:'How is your net worth allocated?',type:'sectionheader'},
-      {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'currency',placeholder:'0',half:true},
-      {id:'nw_roth',label:'Roth retirement accounts',type:'currency',placeholder:'0',half:true},
-      {id:'nw_non_retirement_investments',label:'Non-retirement investment accounts',type:'currency',placeholder:'0',half:true},
-      {id:'nw_real_estate',label:'Primary home',type:'currency',placeholder:'0',half:true},
-      {id:'nw_other',label:'All other assets',type:'currency',placeholder:'0',half:true},
-      {id:'inv_allocation_header',label:'How are your investments allocated?',type:'sectionheader'},
-      {id:'inv_cash',label:'Cash',type:'percent',placeholder:'0',half:true},
-      {id:'inv_bonds',label:'Bonds',type:'percent',placeholder:'0',half:true},
-      {id:'inv_stocks',label:'Stocks',type:'percent',placeholder:'0',half:true},
-      {id:'inv_precious_metals',label:'Precious metals',type:'percent',placeholder:'0',half:true},
-      {id:'inv_crypto',label:'Cryptocurrency',type:'percent',placeholder:'0',half:true},
-      {id:'inv_real_estate',label:'Real estate (excl. primary home)',type:'percent',placeholder:'0',half:true},
-      {id:'real_estate',label:'Do you own real estate beyond your primary home?',type:'radio',options:['Yes','No'],
+      // nwView: field only appears in that net worth view ('simple' = Simplified View, 'sheet' = Spreadsheet View)
+      {id:'nw_view',label:'Net worth input format',type:'nwviewtoggle'},
+      {id:'nw_sheet',label:'Financial statement',type:'nwsheet',nwView:'sheet'},
+      {id:'net_worth',label:'Estimated total net worth',type:'currency',placeholder:'0',nwView:'simple'},
+      {id:'nw_allocation_header',label:'How is your net worth allocated?',type:'sectionheader',nwView:'simple'},
+      {id:'nw_tax_deferred',label:'Tax-deferred retirement accounts (401k, IRA, etc.)',type:'currency',placeholder:'0',half:true,nwView:'simple'},
+      {id:'nw_roth',label:'Roth retirement accounts',type:'currency',placeholder:'0',half:true,nwView:'simple'},
+      {id:'nw_non_retirement_investments',label:'Non-retirement investment accounts',type:'currency',placeholder:'0',half:true,nwView:'simple'},
+      {id:'nw_real_estate',label:'Primary home',type:'currency',placeholder:'0',half:true,nwView:'simple'},
+      {id:'nw_other',label:'All other assets',type:'currency',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_allocation_header',label:'How are your investments allocated?',type:'sectionheader',nwView:'simple'},
+      {id:'inv_cash',label:'Cash',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_bonds',label:'Bonds',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_stocks',label:'Stocks',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_precious_metals',label:'Precious metals',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_crypto',label:'Cryptocurrency',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'inv_real_estate',label:'Real estate (excl. primary home)',type:'percent',placeholder:'0',half:true,nwView:'simple'},
+      {id:'real_estate',label:'Do you own real estate beyond your primary home?',type:'radio',options:['Yes','No'],nwView:'simple',
         follow:[
           {show:'Yes',id:'real_estate_type',label:'What types?',type:'multicheck',options:['Rental property','Commercial property','Vacation homes','Raw land']},
           {show:'Yes',id:'real_estate_value',label:'Approximate total value',type:'currency',placeholder:'0'},
@@ -1695,8 +1749,12 @@ async function openIntakeById(clientId, clientName) {
 }
 
 // Pre-compute total top-level question count across all sections (once, after FORM_SECTIONS defined)
-const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck','disabilitynotes'];
+const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck','disabilitynotes','nwviewtoggle','nwsheet'];
+// Net worth section has two input formats; fields tagged nwView only show in their view
+function currentNwView(fd) { return (fd || currentFormData).nw_view === 'sheet' ? 'sheet' : 'simple'; }
+function visibleFields(fields, fd) { return fields.filter(f => !f.nwView || f.nwView === currentNwView(fd)); }
 function countSectionQuestions(fields) {
+  fields = visibleFields(fields);
   let n = 0, i = 0;
   while (i < fields.length) {
     const f = fields[i], nx = fields[i+1];
@@ -1708,13 +1766,9 @@ function countSectionQuestions(fields) {
   }
   return n;
 }
-// Section question counts and cumulative offsets, built lazily
-let _sectionQCounts = null;
+// Section question counts (recomputed each time — depends on the client's net worth view)
 function getSectionQCounts() {
-  if (!_sectionQCounts) {
-    _sectionQCounts = FORM_SECTIONS.map(s => countSectionQuestions(s.fields));
-  }
-  return _sectionQCounts;
+  return FORM_SECTIONS.map(s => countSectionQuestions(s.fields));
 }
 function getTotalQuestions() { return getSectionQCounts().reduce((a,b)=>a+b,0); }
 function getCumulativeStart(sectionIdx) {
@@ -1774,7 +1828,8 @@ function renderCFSection() {
     }
     return out;
   }
-  html += countAndRender(sec.fields, false);
+  const secFields = visibleFields(sec.fields);
+  html += countAndRender(secFields, false);
   html += '</div>';
   document.getElementById('cf-form-body').innerHTML = html;
   // Recursively restore and wire all fields at any nesting depth
@@ -1783,7 +1838,7 @@ function renderCFSection() {
       restoreVal(f);
       if (f.follow) restoreAll(f.follow);
     });
-  })(sec.fields);
+  })(secFields);
   (function wireAll(fields) {
     fields.forEach(f => {
       if (f.type === 'radio') wireRadio(f);
@@ -1793,13 +1848,15 @@ function renderCFSection() {
       }
       if (f.follow) wireAll(f.follow);
     });
-  })(sec.fields);
+  })(secFields);
   // Wire special field types
   wireTaxSlider();
   wireCoverageAnalysis();
   wireAdvisorChecks();
   wireMultiBiz();
   wireBusinessCount();
+  wireNwViewToggle();
+  wireNwSheet();
   afterSectionRender();
   const isLast = cfSection === FORM_SECTIONS.length-1;
   const nav = document.getElementById('cf-nav-buttons');
@@ -1853,6 +1910,21 @@ function renderField(f, qNum) {
         
       </div>
     </div>`;
+  }
+  if (f.type==='nwviewtoggle') {
+    const view = currentNwView();
+    return `<div class="field-group">
+      <div class="nw-view-toggle" role="group" aria-label="${esc(f.label)}">
+        <button type="button" data-nwview="simple" class="${view==='simple'?'active':''}" aria-pressed="${view==='simple'}">Simplified View</button>
+        <button type="button" data-nwview="sheet" class="${view==='sheet'?'active':''}" aria-pressed="${view==='sheet'}">Spreadsheet View</button>
+      </div>
+      <p class="field-hint">${view==='sheet'
+        ? 'Enter each asset and loan line by line — equity and net worth calculate automatically.'
+        : 'Quick totals. Switch to Spreadsheet View to build a line-by-line financial statement.'}</p>
+    </div>`;
+  }
+  if (f.type==='nwsheet') {
+    return `<div class="field-group" id="nws-wrap"></div>`;
   }
   if (f.type==='coverageanalysis') {
     return `<div class="field-group" id="coverage-analysis-wrap" style="display:none;">
@@ -2380,6 +2452,209 @@ function removeMultiBizEntry(idx) {
   autosave();
 }
 
+// ── NET WORTH SPREADSHEET VIEW ───────────────────────────────────
+// Rows are saved to form_data.nw_sheet; total equity is mirrored into net_worth
+// so the plan prompt, exports, and Simplified View keep working.
+const NWS_GROUPS = [
+  {key:'re',     label:'Real estate',        add:'+ Add property / land', placeholder:'Rental property / land'},
+  {key:'liquid', label:'Cash & investments', add:'+ Add account',         placeholder:'Account description'},
+  {key:'biz',    label:'Business interests', add:'+ Add business',        placeholder:'Business name'},
+  {key:'other',  label:'Other assets',       add:'+ Add asset',           placeholder:'e.g. vehicle, collectibles'},
+  {key:'debt',   label:'Other loans',        add:'+ Add loan',            placeholder:'e.g. car loan'},
+];
+const NWS_COLS = [
+  {key:'value',   label:'Value'},
+  {key:'debt',    label:'Debt'},
+  {key:'equity',  label:'Equity', calc:true},
+  {key:'savings', label:'Annual savings'},
+  {key:'income',  label:'Monthly income'},
+  {key:'mdebt',   label:'Monthly debt'},
+];
+const NWS_NUM_KEYS = ['value','debt','savings','income','mdebt'];
+function nwsDefaultRows() {
+  const fixed = (g, label) => ({id:uid(), g, label, fixed:true});
+  const open  = g => ({id:uid(), g, label:''});
+  return [
+    fixed('re','Primary home'), open('re'),
+    fixed('liquid','Cash equivalents (checking / savings)'),
+    fixed('liquid','Non-qualified investments (brokerage)'),
+    fixed('liquid','Roth retirement accounts'),
+    fixed('liquid','Pre-tax retirement accounts (401k, IRA)'),
+    fixed('liquid','Life insurance cash values'),
+    fixed('liquid','Cryptocurrency'),
+    fixed('liquid','Commodities (gold, silver, etc.)'),
+    open('biz'), open('other'),
+    fixed('debt','Car loans'), fixed('debt','Student loans'), open('debt'),
+  ];
+}
+let nwsRows = [];
+const nwsNum = v => parseFloat(String(v ?? '').replace(/[^0-9.-]/g,'')) || 0;
+const nwsFmt = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+const nwsFmtInput = v => { const s = String(v ?? '').trim(); if (!s) return ''; const n = nwsNum(s); return n ? Math.round(n).toLocaleString('en-US') : s; };
+function nwsRowHasData(r) { return NWS_NUM_KEYS.some(k => nwsNum(r[k])) || (r.notes||'').trim() || (!r.fixed && (r.label||'').trim()); }
+function nwsTotals(rows) {
+  const t = {value:0, debt:0, savings:0, income:0, mdebt:0};
+  rows.forEach(r => NWS_NUM_KEYS.forEach(k => { t[k] += nwsNum(r[k]); }));
+  t.equity = t.value - t.debt;
+  return t;
+}
+
+function wireNwViewToggle() {
+  document.querySelectorAll('[data-nwview]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (currentNwView() === btn.dataset.nwview) return;
+      saveField('nw_view', btn.dataset.nwview);
+      const y = window.scrollY;
+      renderCFSection();
+      window.scrollTo(0, y);
+    });
+  });
+}
+
+function wireNwSheet() {
+  const wrap = document.getElementById('nws-wrap');
+  if (!wrap) return;
+  const saved = currentFormData['nw_sheet'];
+  nwsRows = Array.isArray(saved) && saved.length ? saved.map(r => ({...r})) : nwsDefaultRows();
+  renderNwSheet();
+  // Delegated handlers — survive re-renders of the table body
+  wrap.addEventListener('input', e => {
+    const el = e.target, row = nwsRows.find(r => r.id === el.dataset.row);
+    if (!row || !el.dataset.field) return;
+    row[el.dataset.field] = el.value;
+    if (NWS_NUM_KEYS.includes(el.dataset.field)) updateNwSheetCalcs();
+    if (el.dataset.field === 'notes') {
+      const btn = wrap.querySelector(`[data-notes-toggle="${row.id}"]`);
+      if (btn) btn.classList.toggle('has-notes', !!el.value.trim());
+    }
+    saveNwSheet();
+  });
+  wrap.addEventListener('focusout', e => {
+    const el = e.target;
+    if (NWS_NUM_KEYS.includes(el.dataset.field)) el.value = nwsFmtInput(el.value);
+  });
+  wrap.addEventListener('click', e => {
+    const add = e.target.closest('[data-add-group]');
+    const del = e.target.closest('[data-del-row]');
+    const tog = e.target.closest('[data-notes-toggle]');
+    if (add) {
+      const g = add.dataset.addGroup, row = {id:uid(), g, label:''};
+      const lastIdx = nwsRows.map(r => r.g).lastIndexOf(g);
+      nwsRows.splice(lastIdx < 0 ? nwsRows.length : lastIdx + 1, 0, row);
+      renderNwSheet();
+      saveNwSheet();
+      const inp = wrap.querySelector(`input[data-row="${row.id}"][data-field="label"]`);
+      if (inp) inp.focus();
+    } else if (del) {
+      nwsRows = nwsRows.filter(r => r.id !== del.dataset.delRow);
+      renderNwSheet();
+      saveNwSheet();
+    } else if (tog) {
+      const nr = wrap.querySelector(`[data-notes-row="${tog.dataset.notesToggle}"]`);
+      if (nr) { nr.hidden = !nr.hidden; if (!nr.hidden) nr.querySelector('textarea').focus(); }
+    }
+  });
+}
+
+function renderNwSheet() {
+  const wrap = document.getElementById('nws-wrap');
+  if (!wrap) return;
+  const colCount = NWS_COLS.length + 2;
+  let body = '';
+  NWS_GROUPS.forEach(g => {
+    body += `<tr class="nws-group"><td colspan="${colCount}">${esc(g.label)}</td></tr>`;
+    nwsRows.filter(r => r.g === g.key).forEach(r => {
+      const labelCell = r.fixed
+        ? esc(r.label)
+        : `<input type="text" data-row="${r.id}" data-field="label" value="${esc(r.label||'')}" placeholder="${esc(g.placeholder)}"/>`;
+      const cells = NWS_COLS.map(c => c.calc
+        ? `<td class="nws-calc" data-equity="${r.id}"></td>`
+        : `<td><div class="nws-cur"><input type="text" inputmode="decimal" data-row="${r.id}" data-field="${c.key}" value="${esc(nwsFmtInput(r[c.key]))}" aria-label="${esc((r.label||g.placeholder)+' — '+c.label)}"/></div></td>`).join('');
+      const hasNotes = !!(r.notes||'').trim();
+      body += `<tr><td class="nws-label">${labelCell}</td>${cells}
+        <td class="nws-actions"><button type="button" class="nws-icon-btn${hasNotes?' has-notes':''}" data-notes-toggle="${r.id}" title="Notes" aria-label="Notes">✎</button>${r.fixed ? '' : `<button type="button" class="nws-icon-btn nws-del" data-del-row="${r.id}" title="Remove row" aria-label="Remove row">×</button>`}</td></tr>
+        <tr class="nws-notes-row" data-notes-row="${r.id}"${hasNotes?'':' hidden'}><td colspan="${colCount}"><textarea rows="2" data-row="${r.id}" data-field="notes" placeholder="Notes — lender, rate, account details, etc.">${esc(r.notes||'')}</textarea></td></tr>`;
+    });
+    body += `<tr class="nws-add-row"><td colspan="${colCount}"><button type="button" class="nws-add" data-add-group="${g.key}">${esc(g.add)}</button></td></tr>`;
+  });
+  const totalCells = NWS_COLS.map(c => `<td class="nws-calc" data-total="${c.key}"></td>`).join('');
+  wrap.innerHTML = `
+    <div class="nws-summary">
+      <div class="nws-tile"><div class="nws-tile-label">Total assets</div><div class="nws-tile-val" data-sum="value"></div></div>
+      <div class="nws-tile"><div class="nws-tile-label">Total debt</div><div class="nws-tile-val" data-sum="debt"></div></div>
+      <div class="nws-tile"><div class="nws-tile-label">Annual savings</div><div class="nws-tile-val" data-sum="savings"></div></div>
+      <div class="nws-tile nws-tile-nw"><div class="nws-tile-label">Net worth</div><div class="nws-tile-val" data-sum="equity"></div></div>
+    </div>
+    <div class="nws-scroll"><table class="nws-table">
+      <thead><tr><th>Asset / liability</th>${NWS_COLS.map(c => `<th>${esc(c.label)}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr class="nws-total"><td>Total</td>${totalCells}<td></td></tr></tfoot>
+    </table></div>`;
+  updateNwSheetCalcs();
+}
+
+function updateNwSheetCalcs() {
+  const wrap = document.getElementById('nws-wrap');
+  if (!wrap) return;
+  nwsRows.forEach(r => {
+    const cell = wrap.querySelector(`[data-equity="${r.id}"]`);
+    if (!cell) return;
+    const eq = nwsNum(r.value) - nwsNum(r.debt);
+    cell.textContent = (nwsNum(r.value) || nwsNum(r.debt)) ? nwsFmt(eq) : '—';
+    cell.classList.toggle('neg', eq < 0);
+  });
+  const t = nwsTotals(nwsRows);
+  wrap.querySelectorAll('[data-total]').forEach(el => { el.textContent = nwsFmt(t[el.dataset.total]); el.classList.toggle('neg', t[el.dataset.total] < 0); });
+  wrap.querySelectorAll('[data-sum]').forEach(el => { el.textContent = nwsFmt(t[el.dataset.sum]); el.classList.toggle('neg', t[el.dataset.sum] < 0); });
+}
+
+function saveNwSheet() {
+  currentFormData['nw_sheet'] = nwsRows.map(r => ({...r}));
+  const t = nwsTotals(nwsRows);
+  if (nwsRows.some(r => NWS_NUM_KEYS.some(k => nwsNum(r[k])))) currentFormData['net_worth'] = String(Math.round(t.equity));
+  autosave();
+}
+
+// Read-only financial statement for the responses panel
+function buildNwStatementHTML(rows) {
+  rows = (Array.isArray(rows) ? rows : []).filter(nwsRowHasData);
+  if (!rows.length) return '';
+  const t = nwsTotals(rows);
+  const cell = n => n ? nwsFmt(n) : '—';
+  let html = `<div style="overflow-x:auto;"><table class="nws-statement"><thead><tr><th>Asset / liability</th>${NWS_COLS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>`;
+  NWS_GROUPS.forEach(g => {
+    rows.filter(r => r.g === g.key).forEach(r => {
+      const label = (r.label||'').trim() || g.placeholder;
+      html += `<tr><td>${esc(label)}</td>${NWS_COLS.map(c => `<td>${cell(c.calc ? nwsNum(r.value) - nwsNum(r.debt) : nwsNum(r[c.key]))}</td>`).join('')}</tr>`;
+      if ((r.notes||'').trim()) html += `<tr class="nws-st-note"><td colspan="${NWS_COLS.length+1}">↳ ${esc(r.notes)}</td></tr>`;
+    });
+  });
+  html += `<tr class="nws-st-total"><td>Total · Net worth</td>${NWS_COLS.map(c => `<td>${cell(t[c.key])}</td>`).join('')}</tr></tbody></table></div>`;
+  return html;
+}
+
+// Financial statement for the action plan (on screen + print); '' when the client used Simplified View
+function planNwStatementHTML() {
+  const fd = (currentFormData && currentFormData.nw_sheet) ? currentFormData : (pClientFormData || {});
+  if (currentNwView(fd) !== 'sheet') return '';
+  return buildNwStatementHTML(fd.nw_sheet);
+}
+
+// Plain-text balance sheet for AI prompts
+function buildNwStatementText(rows) {
+  rows = (Array.isArray(rows) ? rows : []).filter(nwsRowHasData);
+  if (!rows.length) return 'No line items entered';
+  const c = n => nwsNum(n) ? nwsFmt(nwsNum(n)) : '-';
+  const lines = rows.map(r => {
+    const g = NWS_GROUPS.find(x => x.key === r.g);
+    const label = (r.label||'').trim() || (g ? g.placeholder : 'Item');
+    return `- [${g ? g.label : r.g}] ${label}: value ${c(r.value)} | debt ${c(r.debt)} | equity ${nwsFmt(nwsNum(r.value)-nwsNum(r.debt))} | annual savings ${c(r.savings)} | monthly income ${c(r.income)} | monthly debt payment ${c(r.mdebt)}${(r.notes||'').trim() ? ' | notes: '+r.notes.trim() : ''}`;
+  });
+  const t = nwsTotals(rows);
+  lines.push(`TOTALS — assets ${nwsFmt(t.value)} | debt ${nwsFmt(t.debt)} | NET WORTH ${nwsFmt(t.equity)} | annual savings ${nwsFmt(t.savings)} | monthly income ${nwsFmt(t.income)} | monthly debt payments ${nwsFmt(t.mdebt)}`);
+  return lines.join('\n');
+}
+
 // ── BUSINESS COUNT LOGIC ─────────────────────────────────────────
 function wireBusinessCount() {
   const countEl = document.getElementById('cf-business_count');
@@ -2637,10 +2912,11 @@ function buildResponsesHTML(fd) {
   };
   let html = '';
   FORM_SECTIONS.forEach(sec=>{
-    const relevant=sec.fields.filter(f=>fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
+    const relevant=visibleFields(sec.fields,fd).filter(f=>f.type!=='nwviewtoggle'&&fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
     if(!relevant.length)return;
     html+=`<div class="response-section-title">${sec.title}</div>`;
     relevant.forEach(f=>{
+      if(f.type==='nwsheet'){html+=buildNwStatementHTML(fd[f.id]);return;}
       html+=`<div class="response-row"><span class="response-label">${esc(f.label)}</span><span class="response-value">${esc(fmt(fd[f.id]))}</span></div>`;
       if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div class="response-row"><span class="response-label" style="padding-left:12px;color:var(--text-light);">↳ ${esc(ff.label)}</span><span class="response-value">${esc(fmt(fd[ff.id]))}</span></div>`;});
     });
@@ -2695,9 +2971,10 @@ Income notes: ${yn(fd.income_notes)}
 
 NET WORTH & ASSETS
 Total net worth: ${cur(fd.net_worth)}
-Net worth allocation — Tax-deferred retirement: ${cur(fd.nw_tax_deferred)} | Roth retirement: ${cur(fd.nw_roth)} | Non-retirement investments: ${cur(fd.nw_non_retirement_investments)} | Primary home: ${cur(fd.nw_real_estate)} | All other: ${cur(fd.nw_other)}
+${currentNwView(fd)==='sheet' ? `Financial statement (line by line):
+${buildNwStatementText(fd.nw_sheet)}` : `Net worth allocation — Tax-deferred retirement: ${cur(fd.nw_tax_deferred)} | Roth retirement: ${cur(fd.nw_roth)} | Non-retirement investments: ${cur(fd.nw_non_retirement_investments)} | Primary home: ${cur(fd.nw_real_estate)} | All other: ${cur(fd.nw_other)}
 Investment allocation — Cash: ${pct(fd.inv_cash)}% | Bonds: ${pct(fd.inv_bonds)}% | Stocks: ${pct(fd.inv_stocks)}% | Precious metals: ${pct(fd.inv_precious_metals)}% | Crypto: ${pct(fd.inv_crypto)}% | Real estate (excl. primary): ${pct(fd.inv_real_estate)}%
-Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)}
+Real estate beyond primary: ${yn(fd.real_estate)}${fd.real_estate_type?' ('+arr(fd.real_estate_type)+')':''} | Value: ${cur(fd.real_estate_value)}`}
 Concentrated position: ${yn(fd.concentrated_position)}${fd.concentrated_detail?' — '+fd.concentrated_detail:''} | Value: ${cur(fd.concentrated_value)} | Cost basis: ${cur(fd.concentrated_tax_basis)}
 Major asset plans: ${yn(fd.major_assets_planned)} ${fd.major_assets_detail||fd.major_assets_maybe||''}
 Inheritance expected: ${yn(fd.inheritance)} ${fd.inheritance_detail||''}
@@ -3646,7 +3923,9 @@ function renderPlanView(loading, error) {
     ? `<div style="padding:11px 16px;background:var(--red-bg);color:var(--red-s);border-radius:9px;font-size:13px;margin-bottom:1rem;display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>AI generation failed — add items manually using the buttons below.</div>`
     : '';
 
-  container.innerHTML = errorBanner + `<div class="plan-grid" id="plan-grid"></div><p style="font-size:11.5px;color:var(--text-light);margin-top:.75rem;text-align:center;letter-spacing:.02em;">Click any item to edit · hover to delete · assign owners on action items</p>`;
+  const statement = planNwStatementHTML();
+  container.innerHTML = errorBanner + `<div class="plan-grid" id="plan-grid"></div><p style="font-size:11.5px;color:var(--text-light);margin-top:.75rem;text-align:center;letter-spacing:.02em;">Click any item to edit · hover to delete · assign owners on action items</p>`
+    + (statement ? `<div class="card" style="margin-top:1.25rem;"><div class="form-section-title" style="font-size:18px;margin-bottom:.5rem;">Financial statement</div>${statement}</div>` : '');
 
   const grid = document.getElementById('plan-grid');
   cols.forEach(col => {
@@ -4164,6 +4443,7 @@ const CSV_FORM_FIELDS = [
   {id:'effective_tax_rate_display',label:'Effective Tax Rate'},
   {id:'projected_income',label:'Projected Total Income'},
   {id:'income_notes',label:'Income Notes'},
+  {id:'nw_view',label:'Net Worth Input Format'},
   {id:'net_worth',label:'Net Worth'},
   {id:'nw_tax_deferred',label:'NW $ Tax-Deferred Retirement'},{id:'nw_roth',label:'NW $ Roth Retirement'},
   {id:'nw_non_retirement_investments',label:'NW $ Non-Retirement Investments'},
@@ -4338,6 +4618,23 @@ async function exportAllToXLSX() {
     const detailSheet = XLSX.utils.aoa_to_sheet([detailHeaders, ...detailRows]);
     detailSheet['!cols'] = [{wch:28},{wch:16},{wch:10},{wch:12},{wch:4},{wch:40},{wch:10},{wch:35}];
     XLSX.utils.book_append_sheet(wb, detailSheet, 'Focus Areas');
+
+    // ── Sheet 3: Financial statements (Spreadsheet View line items) ─
+    const fsHeaders = ['Client Name','Category','Asset / Liability','Value','Debt','Equity','Annual Savings','Monthly Income','Monthly Debt','Notes'];
+    const fsRows = [];
+    clients.forEach(client => {
+      const fd = client.form_data || {};
+      if (currentNwView(fd) !== 'sheet' || !Array.isArray(fd.nw_sheet)) return;
+      fd.nw_sheet.filter(nwsRowHasData).forEach(r => {
+        const g = NWS_GROUPS.find(x => x.key === r.g);
+        fsRows.push([client.client_name||'', g ? g.label : r.g, (r.label||'').trim() || (g ? g.placeholder : ''),
+          nwsNum(r.value), nwsNum(r.debt), nwsNum(r.value) - nwsNum(r.debt),
+          nwsNum(r.savings), nwsNum(r.income), nwsNum(r.mdebt), r.notes||'']);
+      });
+    });
+    const fsSheet = XLSX.utils.aoa_to_sheet([fsHeaders, ...fsRows]);
+    fsSheet['!cols'] = [{wch:28},{wch:20},{wch:36},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:14},{wch:40}];
+    XLSX.utils.book_append_sheet(wb, fsSheet, 'Financial Statements');
 
     // Download
     XLSX.writeFile(wb, 'PFO_Client_Data_' + new Date().toISOString().slice(0,10) + '.xlsx');
