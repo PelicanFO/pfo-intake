@@ -362,12 +362,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .nws-add{font-size:12px;color:var(--navy-light);background:none;border:none;cursor:pointer;padding:2px 0;text-decoration:underline;font-family:'DM Sans',sans-serif;}
 .nws-total td{background:var(--cream-dark);font-weight:600;border-bottom:none;padding-top:9px;padding-bottom:9px;}
 .nws-total td:first-child{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);}
-.nws-statement{width:100%;border-collapse:collapse;font-size:12px;margin:.25rem 0 .75rem;}
-.nws-statement th{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid var(--border);}
-.nws-statement th:first-child,.nws-statement td:first-child{text-align:left;}
-.nws-statement td{padding:3px 6px;text-align:right;border-bottom:1px solid rgba(15,37,53,.05);font-variant-numeric:tabular-nums;}
-.nws-statement .nws-st-note td{text-align:left;color:var(--text-light);font-style:italic;padding-top:0;}
-.nws-statement .nws-st-total td{font-weight:600;border-top:1px solid var(--border);}
 
 /* BIZ LARGEST HEADER */
 .biz-largest-header{margin:1rem 0 .75rem;padding:10px 14px;background:var(--navy);border-radius:8px;color:#fff;font-size:13px;font-weight:500;line-height:1.5;}
@@ -1113,10 +1107,7 @@ function printPlan() {
   }).join('');
   win.document.write('<!DOCTYPE html><html><head><title>'+esc(client)+' — Action Plan</title>'
     +'<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>'
-    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}'
-    +'.nws-statement{width:100%;border-collapse:collapse;font-family:DM Sans,sans-serif;font-size:11px;}.nws-statement th{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#888;font-weight:500;text-align:right;padding:4px 6px;border-bottom:1px solid #ddd;}'
-    +'.nws-statement th:first-child,.nws-statement td:first-child{text-align:left;}.nws-statement td{padding:3px 6px;text-align:right;border-bottom:1px solid #f0eee9;}'
-    +'.nws-statement .nws-st-note td{text-align:left;color:#999;font-style:italic;padding-top:0;}.nws-statement .nws-st-total td{font-weight:600;border-top:1px solid #ccc;}</style>'
+    +'<style>body{margin:1.5cm;font-family:Cormorant Garamond,serif;color:#1a1a18;}@media print{body{margin:1cm;}}</style>'
     +'</head><body>'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #0f2535;">'
     +'<div><div style="font-size:22px;font-weight:600;color:#0f2535;">'+esc(client)+'</div>'
@@ -1753,6 +1744,10 @@ const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','mu
 // Net worth section has two input formats; fields tagged nwView only show in their view
 function currentNwView(fd) { return (fd || currentFormData).nw_view === 'sheet' ? 'sheet' : 'simple'; }
 function visibleFields(fields, fd) { return fields.filter(f => !f.nwView || f.nwView === currentNwView(fd)); }
+// Answered fields for read-only summaries (responses panel, PDF, email)
+function answeredFields(fields, fd) {
+  return visibleFields(fields, fd).filter(f => f.type !== 'nwviewtoggle' && fd[f.id] !== undefined && fd[f.id] !== '' && !(Array.isArray(fd[f.id]) && fd[f.id].length === 0));
+}
 function countSectionQuestions(fields) {
   fields = visibleFields(fields);
   let n = 0, i = 0;
@@ -2615,21 +2610,32 @@ function saveNwSheet() {
   autosave();
 }
 
-// Read-only financial statement for the responses panel
-function buildNwStatementHTML(rows) {
+// Read-only financial statement (responses panel, action plan, PDF, email).
+// Fully inline-styled so it renders the same in print windows and email clients.
+function buildNwStatementHTML(rows, font) {
   rows = (Array.isArray(rows) ? rows : []).filter(nwsRowHasData);
   if (!rows.length) return '';
+  font = font || "'DM Sans',sans-serif";
   const t = nwsTotals(rows);
   const cell = n => n ? nwsFmt(n) : '—';
-  let html = `<div style="overflow-x:auto;"><table class="nws-statement"><thead><tr><th>Asset / liability</th>${NWS_COLS.map(c => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>`;
+  const base = `font-family:${font};font-size:11.5px;padding:4px 6px;border-bottom:1px solid #f0ede6;white-space:nowrap;`;
+  const th = (txt, left) => `<th style="font-family:${font};font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#999;font-weight:normal;padding:4px 6px;border-bottom:1px solid #ddd;text-align:${left?'left':'right'};">${txt}</th>`;
+  const td = (txt, left, extra) => `<td style="${base}text-align:${left?'left':'right'};color:#1a1a18;${left?'white-space:normal;':''}${extra||''}">${txt}</td>`;
+  let html = `<div style="overflow-x:auto;margin:4px 0 10px;"><table style="width:100%;border-collapse:collapse;" cellpadding="0" cellspacing="0"><thead><tr>${th('Asset / liability', true)}${NWS_COLS.map(c => th(esc(c.label))).join('')}</tr></thead><tbody>`;
   NWS_GROUPS.forEach(g => {
-    rows.filter(r => r.g === g.key).forEach(r => {
+    const groupRows = rows.filter(r => r.g === g.key);
+    if (!groupRows.length) return;
+    html += `<tr><td colspan="${NWS_COLS.length+1}" style="font-family:${font};font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:#0f2535;font-weight:bold;padding:7px 6px 3px;background:#f7f4ef;">${esc(g.label)}</td></tr>`;
+    groupRows.forEach(r => {
       const label = (r.label||'').trim() || g.placeholder;
-      html += `<tr><td>${esc(label)}</td>${NWS_COLS.map(c => `<td>${cell(c.calc ? nwsNum(r.value) - nwsNum(r.debt) : nwsNum(r[c.key]))}</td>`).join('')}</tr>`;
-      if ((r.notes||'').trim()) html += `<tr class="nws-st-note"><td colspan="${NWS_COLS.length+1}">↳ ${esc(r.notes)}</td></tr>`;
+      const hasNotes = (r.notes||'').trim();
+      const noBorder = hasNotes ? 'border-bottom:none;' : '';
+      html += `<tr>${td(esc(label), true, noBorder)}${NWS_COLS.map(c => { const n = c.calc ? nwsNum(r.value) - nwsNum(r.debt) : nwsNum(r[c.key]); return td(cell(n), false, noBorder + (n < 0 ? 'color:#b80008;' : '')); }).join('')}</tr>`;
+      if (hasNotes) html += `<tr><td colspan="${NWS_COLS.length+1}" style="font-family:${font};font-size:11px;color:#999;font-style:italic;padding:0 6px 5px 14px;border-bottom:1px solid #f0ede6;">${esc(r.notes)}</td></tr>`;
     });
   });
-  html += `<tr class="nws-st-total"><td>Total · Net worth</td>${NWS_COLS.map(c => `<td>${cell(t[c.key])}</td>`).join('')}</tr></tbody></table></div>`;
+  const tot = 'font-weight:bold;border-top:1px solid #0f2535;border-bottom:none;background:#f7f4ef;';
+  html += `<tr>${td('Total · Net worth', true, tot)}${NWS_COLS.map(c => td(cell(t[c.key]), false, tot + (t[c.key] < 0 ? 'color:#b80008;' : ''))).join('')}</tr></tbody></table></div>`;
   return html;
 }
 
@@ -2912,7 +2918,7 @@ function buildResponsesHTML(fd) {
   };
   let html = '';
   FORM_SECTIONS.forEach(sec=>{
-    const relevant=visibleFields(sec.fields,fd).filter(f=>f.type!=='nwviewtoggle'&&fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
+    const relevant=answeredFields(sec.fields,fd);
     if(!relevant.length)return;
     html+=`<div class="response-section-title">${sec.title}</div>`;
     relevant.forEach(f=>{
@@ -4164,10 +4170,11 @@ function buildPDFResponsesHTML(fd) {
   };
   let html=`<div style="margin-bottom:1.5rem;"><div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid #ede9e0;">Client profile</div>`;
   FORM_SECTIONS.forEach(sec=>{
-    const relevant=sec.fields.filter(f=>fd[f.id]!==undefined&&fd[f.id]!==''&&!(Array.isArray(fd[f.id])&&fd[f.id].length===0));
+    const relevant=answeredFields(sec.fields,fd);
     if(!relevant.length)return;
     html+=`<div style="margin-bottom:.75rem;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:'DM Sans',sans-serif;margin-bottom:.35rem;">${sec.title}</div>`;
     relevant.forEach(f=>{
+      if(f.type==='nwsheet'){html+=buildNwStatementHTML(fd[f.id]);return;}
       html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;"><span style="color:#888;min-width:175px;flex-shrink:0;">${esc(f.label)}</span><span style="color:#1a1a18;">${esc(fmt(fd[f.id]))}</span></div>`;
       if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;padding-left:12px;"><span style="color:#aaa;min-width:163px;flex-shrink:0;">↳ ${esc(ff.label)}</span><span style="color:#1a1a18;">${esc(fmt(fd[ff.id]))}</span></div>`;});
     });
@@ -4324,12 +4331,16 @@ async function sendEmail() {
     formSectionsHtml += '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
       +'<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:16px;font-family:Arial,sans-serif;">Client profile</div>';
     FORM_SECTIONS.forEach(sec => {
-      const relevant = sec.fields.filter(f => fd[f.id] !== undefined && fd[f.id] !== '' && !(Array.isArray(fd[f.id]) && fd[f.id].length===0));
+      const relevant = answeredFields(sec.fields, fd);
       if (!relevant.length) return;
       formSectionsHtml += '<div style="margin-bottom:12px;">'
         +'<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:Arial,sans-serif;margin-bottom:6px;">'+sec.title+'</div>'
         +'<table style="width:100%;border-collapse:collapse;">';
       relevant.forEach(f => {
+        if (f.type === 'nwsheet') {
+          formSectionsHtml += '<tr><td colspan="2" style="padding:3px 0;">'+buildNwStatementHTML(fd[f.id], 'Arial,sans-serif')+'</td></tr>';
+          return;
+        }
         formSectionsHtml += '<tr><td style="padding:3px 0;font-size:12px;color:#888;font-family:Arial,sans-serif;width:180px;vertical-align:top;">'+escPlain(f.label)+'</td>'
           +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(fd[f.id]))+'</td></tr>';
         if (f.follow) f.follow.forEach(ff => {
