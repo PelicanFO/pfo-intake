@@ -2467,7 +2467,7 @@ const NWS_COLS = [
   {key:'debt',    label:'Debt'},
   {key:'equity',  label:'Equity', calc:true},
   {key:'savings', label:'Annual savings'},
-  {key:'income',  label:'Monthly income'},
+  {key:'income',  label:'Annual income'},
   {key:'mdebt',   label:'Monthly debt'},
 ];
 const NWS_NUM_KEYS = ['value','debt','savings','income','mdebt'];
@@ -2648,10 +2648,10 @@ function buildNwStatementText(rows) {
   const lines = rows.map(r => {
     const g = NWS_GROUPS.find(x => x.key === r.g);
     const label = (r.label||'').trim() || (g ? g.placeholder : 'Item');
-    return `- [${g ? g.label : r.g}] ${label}: value ${c(r.value)} | debt ${c(r.debt)} | equity ${nwsFmt(nwsNum(r.value)-nwsNum(r.debt))} | annual savings ${c(r.savings)} | monthly income ${c(r.income)} | monthly debt payment ${c(r.mdebt)}${(r.notes||'').trim() ? ' | notes: '+r.notes.trim() : ''}`;
+    return `- [${g ? g.label : r.g}] ${label}: value ${c(r.value)} | debt ${c(r.debt)} | equity ${nwsFmt(nwsNum(r.value)-nwsNum(r.debt))} | annual savings ${c(r.savings)} | annual income ${c(r.income)} | monthly debt payment ${c(r.mdebt)}${(r.notes||'').trim() ? ' | notes: '+r.notes.trim() : ''}`;
   });
   const t = nwsTotals(rows);
-  lines.push(`TOTALS — assets ${nwsFmt(t.value)} | debt ${nwsFmt(t.debt)} | NET WORTH ${nwsFmt(t.equity)} | annual savings ${nwsFmt(t.savings)} | monthly income ${nwsFmt(t.income)} | monthly debt payments ${nwsFmt(t.mdebt)}`);
+  lines.push(`TOTALS — assets ${nwsFmt(t.value)} | debt ${nwsFmt(t.debt)} | NET WORTH ${nwsFmt(t.equity)} | annual savings ${nwsFmt(t.savings)} | annual income ${nwsFmt(t.income)} | monthly debt payments ${nwsFmt(t.mdebt)}`);
   return lines.join('\n');
 }
 
@@ -4620,7 +4620,7 @@ async function exportAllToXLSX() {
     XLSX.utils.book_append_sheet(wb, detailSheet, 'Focus Areas');
 
     // ── Sheet 3: Financial statements (Spreadsheet View line items) ─
-    const fsHeaders = ['Client Name','Category','Asset / Liability','Value','Debt','Equity','Annual Savings','Monthly Income','Monthly Debt','Notes'];
+    const fsHeaders = ['Client Name','Category','Asset / Liability','Value','Debt','Equity','Annual Savings','Annual Income','Monthly Debt','Notes'];
     const fsRows = [];
     clients.forEach(client => {
       const fd = client.form_data || {};
