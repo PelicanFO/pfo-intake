@@ -2697,12 +2697,21 @@ function nwsAllocation(rows) {
   return { total, items: NWS_ASSET_TYPES.filter(t => totals[t.key]).map(t => ({...t, value: totals[t.key], pct: nwsPct(totals[t.key], total)})).sort((a,b) => b.value - a.value) };
 }
 
-// Gross annual income: income section first (projected, then prior year), else the sheet's annual income column
+// Gross annual income for debt-to-income: everything reported in the Income section
+// (employment, business, investment and other income). Falls back to projected income,
+// then the statement's annual income column.
+const NWS_INCOME_PARTS = [
+  {label:'employment', ids:['w2_income','business_income']},
+  {label:'investment', ids:['st_cap_gains','lt_cap_gains','interest_income','qualified_dividends','nonqualified_dividends','investment_income']},
+  {label:'other',      ids:['other_income']},
+];
 function nwsAnnualIncome(rows, fd) {
   fd = fd || {};
-  const proj = nwsNum(fd.projected_income), prior = nwsNum(fd.total_income_display);
+  const parts = NWS_INCOME_PARTS.map(p => ({label: p.label, amount: p.ids.reduce((a, id) => a + nwsNum(fd[id]), 0)})).filter(p => p.amount > 0);
+  const reported = parts.reduce((a, p) => a + p.amount, 0);
+  if (reported > 0) return {amount: reported, source: 'income (' + parts.map(p => p.label + ' ' + nwsFmt(p.amount)).join(' + ') + ')'};
+  const proj = nwsNum(fd.projected_income);
   if (proj > 0) return {amount: proj, source: 'projected income'};
-  if (prior > 0) return {amount: prior, source: 'prior-year income'};
   const sheet = nwsTotals(Array.isArray(rows) ? rows : []).income;
   return sheet > 0 ? {amount: sheet, source: 'annual income from statement'} : {amount: 0, source: ''};
 }
@@ -2714,7 +2723,6 @@ function nwsDebtRatios(rows, fd) {
   const annualPayments = t.mdebt * 12;
   const ratios = [
     {key:'dta', label:'Debt-to-asset',  pct: nwsPct(t.debt, t.value), detail: `${nwsFmt(t.debt)} debt ÷ ${nwsFmt(t.value)} assets`, bands:[30,50]},
-    {key:'dte', label:'Debt-to-net worth', pct: t.equity > 0 ? nwsPct(t.debt, t.equity) : null, detail: t.equity > 0 ? `${nwsFmt(t.debt)} debt ÷ ${nwsFmt(t.equity)} net worth` : 'Net worth is zero or negative', bands:[50,100]},
     {key:'dti', label:'Debt-to-income (payments)', pct: nwsPct(annualPayments, inc.amount), detail: inc.amount ? `${nwsFmt(annualPayments)}/yr payments ÷ ${nwsFmt(inc.amount)} ${inc.source}` : 'Add income to calculate', bands:[36,43]},
   ];
   const loans = rows.filter(r => nwsNum(r.debt) > 0).map(r => {
@@ -2777,7 +2785,7 @@ function buildNwDebtRatiosHTML(rows, fd, font) {
   const th = (txt, left) => `<th style="font-family:${font};font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#999;font-weight:normal;padding:4px 6px;border-bottom:1px solid #ddd;text-align:${left?'left':'right'};">${txt}</th>`;
   return `<div style="margin:4px 0 10px;">
     <table style="width:100%;border-collapse:collapse;" cellpadding="0" cellspacing="0">${ratioRows}</table>
-    <div style="font-family:${font};font-size:10.5px;color:#999;margin:5px 0 12px;">Guides: debt-to-asset ≤30% healthy · ≤50% moderate. Debt-to-net worth ≤50% · ≤100%. Debt-to-income ≤36% · ≤43%.</div>
+    <div style="height:12px;"></div>
     <table style="width:100%;border-collapse:collapse;" cellpadding="0" cellspacing="0"><thead><tr>${th('Debt by loan', true)}${th('Balance')}${th('% of total debt')}${th('Loan-to-value')}</tr></thead><tbody>${loanRows}</tbody></table>
   </div>`;
 }
@@ -4620,7 +4628,6 @@ const CSV_FORM_FIELDS = [
   {id:'nws_total_debt',label:'Total Debt (Spreadsheet)',calc:fd => nwsHasNumbers(fd.nw_sheet) ? nwsTotals(fd.nw_sheet).debt : ''},
   {id:'nws_asset_alloc',label:'Asset Allocation',calc:fd => nwsHasNumbers(fd.nw_sheet) ? nwsAllocation(fd.nw_sheet).items.map(i => i.label+' '+nwsPctFmt(i.pct)).join('; ') : ''},
   {id:'nws_dta',label:'Debt-to-Asset %',calc:fd => nwsRatioCell(fd, 'dta')},
-  {id:'nws_dte',label:'Debt-to-Net Worth %',calc:fd => nwsRatioCell(fd, 'dte')},
   {id:'nws_dti',label:'Debt-to-Income %',calc:fd => nwsRatioCell(fd, 'dti')},
   {id:'net_worth',label:'Net Worth'},
   {id:'nw_tax_deferred',label:'NW $ Tax-Deferred Retirement'},{id:'nw_roth',label:'NW $ Roth Retirement'},
