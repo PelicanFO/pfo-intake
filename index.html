@@ -1744,7 +1744,20 @@ async function openIntakeById(clientId, clientName) {
 // Pre-compute total top-level question count across all sections (once, after FORM_SECTIONS defined)
 const SPECIAL_TYPES = ['sectionheader','calc','taxslider','coverageanalysis','multibizblock','bizlargestheader','advisorcheck','disabilitynotes','nwviewtoggle','nwsheet','nwalloc','nwdebt'];
 // Net worth section has two input formats; fields tagged nwView only show in their view
-function currentNwView(fd) { return (fd || currentFormData).nw_view === 'sheet' ? 'sheet' : 'simple'; }
+// Spreadsheet View is the default. Clients who answered Simplified View questions before the
+// toggle existed (no nw_view saved, no statement) stay on Simplified so their answers stay visible.
+function currentNwView(fd) {
+  fd = fd || currentFormData || {};
+  if (fd.nw_view === 'sheet' || fd.nw_view === 'simple') return fd.nw_view;
+  if (Array.isArray(fd.nw_sheet) && fd.nw_sheet.length) return 'sheet';
+  return hasSimplifiedNwAnswers(fd) ? 'simple' : 'sheet';
+}
+function hasSimplifiedNwAnswers(fd) {
+  const sec = FORM_SECTIONS.find(x => x.id === 'networth');
+  const ids = [];
+  sec.fields.filter(f => f.nwView === 'simple').forEach(f => { ids.push(f.id); (f.follow || []).forEach(ff => ids.push(ff.id)); });
+  return ids.some(id => { const v = fd[id]; return Array.isArray(v) ? v.length > 0 : (v !== undefined && v !== null && String(v).trim() !== ''); });
+}
 function visibleFields(fields, fd) { return fields.filter(f => !f.nwView || f.nwView === currentNwView(fd)); }
 // Answered fields for read-only summaries (responses panel, PDF, email)
 function answeredFields(fields, fd) {
