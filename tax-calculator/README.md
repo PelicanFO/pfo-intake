@@ -12,24 +12,31 @@ It does two things:
    workbook's departures from tax law. Every number comes with a line-by-line audit trail, and each
    fix can be switched off to see what it is worth. See [docs/TAX-LAW-REVIEW.md](docs/TAX-LAW-REVIEW.md).
 
-## On the intake site (beta)
+## On the intake site
 
 The main site (`/index.html`) uses this engine for its **Tax strategies** step, between the intake
 and Priorities. The code is in `src/site/` (`tax-step.js`, `tax-step.css`).
 
 - **Inputs come from the intake.** That covers filing status, state, ages, every prior-year income
-  line, and retirement age. Optional inputs on the page (DB contribution, Roth conversion, planning
-  fee, strategy assumptions) are saved with the client under `form_data.__tax`.
-- **Calculation method:** the spreadsheet method, i.e. the workbook's math, with one fix. Strategy
-  amounts that would come out negative are set to $0 (`SITE_RULES` in `tax-step.js`). Corrections
-  can be turned on later by changing `SITE_RULES`.
+  line, and the pre-tax retirement balance. Optional inputs on the page (DB contribution, Roth
+  conversion, and under *Strategy assumptions* the planning fee and each strategy's assumptions)
+  are saved with the client under `form_data.__tax`.
+- **Total tax liability** means tax + strategy contribution. Savings are the reduction in it (less
+  any planning fee), also shown as a % of the current liability.
+- **Calculation method:** the spreadsheet method, i.e. the workbook's math, with one fix: strategy
+  amounts that would come out negative are set to $0 (`SITE_RULES` in `tax-step.js`).
+- **Suggestions** (`suggestions()` in `tax-step.js`, tested in `tests/site.test.js`):
+  - A DB plan contribution is suggested when there is at least $50,000 of business income.
+  - A Roth conversion is suggested when there is a pre-tax retirement balance and converting
+    beats paying the assumed 35% on later withdrawals, either on its own or paired with a strategy.
+  - Each suggestion has an "Add" button.
 - **States:** Louisiana; Texas and the other states with no wage tax (AK, FL, NV, NH, SD, TN, WY);
-  any other state asks for one number, an approximate flat rate. That rate is pre-filled from the
-  intake's prior-year state tax ÷ income when available.
-- **Bypass:** users can skip the step from the step bar, or tick "Skip this beta step after the
-  intake" (remembered per browser).
-- **Detailed Results** shows each strategy without vs. with, how it's sized, its costs, the tax by
-  bracket, and an expandable full calculation.
+  any other state asks for an approximate flat rate. That rate is pre-filled from prior-year state
+  tax ÷ income.
+- **Flows through:** the Review & Share PDF and email include a Tax Strategy Estimates table, and
+  the priorities prompt includes the estimates.
+- **Detailed Results** shows each strategy without vs. with, how it's sized, the contribution, the
+  tax, and an expandable full calculation.
 
 ## Running it
 
@@ -101,7 +108,7 @@ later.
 
 ## How we know it's right
 
-`tests/` (190 checks):
+`tests/` (204 checks):
 
 - **Replica = Excel.** Every formula cell in the workbook is recalculated from scratch and compared
   with the value Excel saved. All of them match exactly, except the Solar sizing loop. Excel saved

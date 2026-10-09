@@ -93,16 +93,104 @@ function blocksFor(model) {
   return ['base', ...(model.db.contribution > 0 ? ['db'] : []), ...(model.roth.conversion > 0 ? ['roth'] : [])];
 }
 
+// "Total tax liability" = tax + strategy contribution (what the client pays out). The planning fee is
+// kept out of it; it still reduces savings and is shown on its own when entered.
+const liabilityOf = (r) => r.rows.totalOutlay - r.rows.fee;
+
 function strategyRows(cmp, block) {
   const blk = cmp.blocks[block];
   const none = blk.scenarios.none;
   return SCENARIOS.filter((s) => s.id !== 'none').map((s) => {
     const r = blk.scenarios[s.id];
-    const cost = r.rows.contribution + r.rows.fee;
     // A strategy applies if it costs something or changes the tax (the planning fee alone doesn't count).
     const applies = Math.abs(r.rows.contribution) > 0.5 || Math.abs(r.rows.totalTax - none.rows.totalTax) > 0.5;
-    return { id: s.id, label: s.label, r, cost, applies, savings: r.savings, taxAfter: r.rows.totalTax };
+    return { id: s.id, label: s.label, r, applies, savings: r.savings, liability: liabilityOf(r), pct: blk.baseline > 0 ? r.savings / blk.baseline : 0 };
   }).sort((a, b) => (b.applies - a.applies) || (b.savings - a.savings));
+}
+
+// ------------------------------------------------------------------ suggestions (DB plan, Roth conversion)
+/** Pre-tax retirement balance from the intake (financial statement rows, or the simplified-view field). */
+export function taxDeferredBalance(fd = {}) {
+  const sheet = Array.isArray(fd.nw_sheet) ? fd.nw_sheet : [];
+  if (sheet.length && fd.nw_view !== 'simple') {
+    const v = sheet.filter((r) => !/roth/i.test(r.label || '') && /pre-tax|401|403|457|\bira\b|deferred|\bsep\b/i.test(r.label || ''))
+      .reduce((s, r) => s + num(r.value), 0);
+    if (v > 0) return v;
+  }
+  return num(fd.nw_tax_deferred);
+}
+
+const bestSavings = (blk) => Math.max(0, ...SCENARIOS.filter((s) => s.id !== 'none').map((s) => blk.scenarios[s.id].savings));
+const bestLabel = (blk) => SCENARIOS.filter((s) => s.id !== 'none').reduce((b, s) => (blk.scenarios[s.id].savings > blk.scenarios[b.id].savings ? s : b), SCENARIOS[1]).label;
+const round = (x, step) => Math.round(x / step) * step;
+
+/**
+ * When a DB plan contribution or Roth conversion looks worthwhile under the calculator's own model,
+ * returns short suggestions: [{ kind: 'db'|'roth', amount, savings, text }].
+ *   DB plan: needs business income (a DB plan is funded from it). Suggested size is half of business
+ *     income, capped at $150,000, in $10,000 steps; shown when it lowers this year's tax by > $2,500.
+ *   Roth conversion: needs a pre-tax retirement balance. Tries converting 25%, 50% and 100% of it
+ *     (capped at $1,000,000). Suggests the amount that saves the most on its own versus paying tax
+ *     on later withdrawals at the assumed future rate; if a conversion only pays off when paired
+ *     with a strategy, says so.
+ */
+export function suggestions(fd = {}) {
+  const saved = fd.__tax || {};
+  const base = analyze(fd);
+  if (base.income <= 0) return [];
+  const out = [];
+  const p = base.model.profile;
+  const baseTax = base.comparison.blocks.base.scenarios.none.rows.totalTax;
+
+  if (!num(saved.dbContribution) && p.businessIncome >= 50000) {
+    const c = Math.max(25000, Math.floor(Math.min(150000, p.businessIncome * 0.5) / 10000) * 10000);
+    const a = analyze({ ...fd, __tax: { ...saved, dbContribution: c } });
+    const s = baseTax - a.comparison.blocks.db.scenarios.none.rows.totalTax;
+    if (s > 2500) {
+      const has = fd.business_defined_benefit === 'Yes';
+      out.push({ kind: 'db', amount: c, savings: s, text: has
+        ? `Given the business's defined benefit plan, consider adding this year's contribution. About ${money(c)} would lower tax by roughly ${money(s)}.`
+        : `Given ${money(p.businessIncome)} of business income, consider adding a defined benefit plan contribution. About ${money(c)} would lower tax by roughly ${money(s)}, and the money stays the client's.` });
+    }
+  }
+
+  const balance = taxDeferredBalance(fd);
+  if (!num(saved.rothConversion) && balance >= 25000) {
+    const amounts = [...new Set([0.25, 0.5, 1].map((f) => round(Math.min(balance * f, 1000000), 5000)))].filter((c) => c >= 10000);
+    const baseBest = bestSavings(base.comparison.blocks.base);
+    const tries = amounts.map((c) => {
+      const a = analyze({ ...fd, __tax: { ...saved, rothConversion: c } });
+      const blk = a.comparison.blocks.roth;
+      return { c, alone: blk.baseline - blk.scenarios.none.rows.totalTax, paired: bestSavings(blk) - baseBest, label: bestLabel(blk), rate: a.model.roth.projectedTaxRate };
+    });
+    const alone = tries.reduce((b, t) => (t.alone > b.alone ? t : b), tries[0]);
+    const paired = tries.find((t) => t.c === round(Math.min(balance * 0.5, 1000000), 5000)) || tries[0];
+    if (alone && alone.alone > 2000) {
+      out.push({ kind: 'roth', amount: alone.c, savings: alone.alone, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion. Converting about ${money(alone.c)} this year would save roughly ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on those withdrawals later${alone.paired > alone.alone + 1000 ? `, or ${money(alone.paired)} paired with ${alone.label}` : ''}.` });
+    } else if (paired && paired.paired > 5000) {
+      out.push({ kind: 'roth', amount: paired.c, savings: paired.paired, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion paired with ${paired.label}. Converting about ${money(paired.c)} would add roughly ${money(paired.paired)} in savings versus not converting.` });
+    }
+  }
+  return out;
+}
+
+/** Compact summary for Review & Share (PDF / email) and the priorities prompt. Null without income. */
+export function taxSummary(fd = {}) {
+  const a = analyze(fd);
+  if (a.income <= 0) return null;
+  const cmp = a.comparison;
+  const rows = strategyRows(cmp, 'base').filter((r) => r.applies);
+  const scenarios = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
+    const r = strategyRows(cmp, b).find((x) => x.applies);
+    return r ? { label: BLOCK_LABEL[b] + (b === 'db' ? ` (${money(a.model.db.contribution)})` : ` (${money(a.model.roth.conversion)})`), strategy: r.label, savings: r.savings, pct: r.pct } : null;
+  }).filter(Boolean);
+  return {
+    liability: cmp.blocks.base.baseline,
+    strategies: rows.map((r) => ({ label: r.label, savings: r.savings, pct: r.pct, liabilityAfter: r.liability })),
+    best: rows.find((r) => r.savings > 0.5) ? { label: rows[0].label, savings: rows[0].savings, pct: rows[0].pct } : null,
+    scenarios,
+    suggestions: suggestions(fd).map((s) => s.text),
+  };
 }
 
 // ------------------------------------------------------------------ step page
@@ -118,8 +206,9 @@ export function renderTaxStep(root, fd, handlers) {
   const optionsEl = root.querySelector('#tx-options');
 
   const draw = () => {
-    const a = analyze({ ...fd, __tax: saved });
-    resultsEl.innerHTML = resultsHTML(a, saved);
+    const f = { ...fd, __tax: saved };
+    const tips = suggestions(f);
+    resultsEl.innerHTML = resultsHTML(analyze(f), saved, tips);
   };
   const built = intakeToModel({ ...fd, __tax: saved });
   optionsEl.innerHTML = optionsHTML(built, saved, fd);
@@ -147,6 +236,17 @@ export function renderTaxStep(root, fd, handlers) {
   root.onclick = (e) => {
     const b = e.target.closest('[data-tx-block]');
     if (b) { saved.block = b.dataset.txBlock; draw(); handlers.save({ ...saved }); return; }
+    const ap = e.target.closest('[data-tx-apply]');
+    if (ap) {
+      const [kind, amount] = ap.dataset.txApply.split(':');
+      const key = kind === 'db' ? 'dbContribution' : 'rothConversion';
+      saved[key] = +amount;
+      saved.block = kind;
+      const input = optionsEl.querySelector(`[data-tax="${key}"]`);
+      if (input) input.value = commas(+amount);
+      draw(); handlers.save({ ...saved });
+      return;
+    }
     const d = e.target.closest('[data-tx-detail]');
     if (d) { handlers.openDetail(d.dataset.txDetail, saved.block || 'base'); return; }
     const ed = e.target.closest('[data-tx-edit]');
@@ -154,6 +254,7 @@ export function renderTaxStep(root, fd, handlers) {
     const reset = e.target.closest('[data-tx-reset]');
     if (reset) {
       delete saved.params;
+      delete saved.planningFee;
       optionsEl.innerHTML = optionsHTML(intakeToModel({ ...fd, __tax: saved }), saved, fd);
       draw(); handlers.save({ ...saved });
     }
@@ -173,7 +274,9 @@ function profileChips(a) {
   return chips.map(([k, v]) => `<div class="tx-chip"><span>${esc(k)}</span><b>${typeof v === 'number' ? money(v) : esc(v)}</b></div>`).join('');
 }
 
-function resultsHTML(a, saved) {
+const pctOf = (x) => `${(Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '')}%`;
+
+function resultsHTML(a, saved, tips = []) {
   const { model, comparison: cmp } = a;
   const blocks = blocksFor(model);
   const block = blocks.includes(saved.block) ? saved.block : 'base';
@@ -192,37 +295,36 @@ function resultsHTML(a, saved) {
   }
 
   const blk = cmp.blocks[block];
-  const none = blk.scenarios.none;
   const rows = strategyRows(cmp, block);
   const best = rows.find((r) => r.applies && r.savings > 0.5);
-  const income = a.income + (block === 'roth' ? model.roth.conversion : 0);
-  const baseTax = cmp.blocks.base.scenarios.none.rows.totalTax;
   const maxSav = Math.max(1, ...rows.map((r) => Math.abs(r.savings)));
 
   const tabs = blocks.length > 1 ? `<div class="tx-seg" role="tablist">${blocks.map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${esc(BLOCK_LABEL[b])}${b === 'db' ? ` · ${money(model.db.contribution)}` : b === 'roth' ? ` · ${money(model.roth.conversion)}` : ''}</button>`).join('')}</div>` : '';
 
+  const overDb = block === 'db' && model.db.contribution > Math.max(0, model.profile.businessIncome);
   const context = block === 'db'
-    ? `With a ${money(model.db.contribution)} defined benefit plan contribution (it stays the client's money, so it isn't counted as a cost).`
+    ? `With a ${money(model.db.contribution)} defined benefit plan contribution (it stays the client's money, so it isn't part of the tax liability).${overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : ''}`
     : block === 'roth'
-      ? `With a ${money(model.roth.conversion)} Roth conversion, compared with not converting and paying tax on IRA withdrawals later (${money(cmp.roth.pvRmdTax)} in today's dollars).`
+      ? `With a ${money(model.roth.conversion)} Roth conversion. Tax liability without converting includes ${money(cmp.roth.pvRmdTax)} (today's dollars) of tax on future IRA withdrawals.`
       : '';
 
   const heroLabel = block === 'roth' ? 'Estimated savings vs. not converting' : 'Estimated tax savings this year';
-  const taxLabel = block === 'roth' ? 'Tax with the conversion, no strategy' : block === 'db' ? 'Tax with the DB plan, no strategy' : 'Current estimated tax';
-  const blockTax = block === 'base' ? baseTax : none.rows.totalTax;
+  const liabLabel = block === 'roth' ? 'Tax liability without converting' : 'Current tax liability';
   const hero = best
     ? `<section class="tx-hero">
         <div><div class="tx-hero-label">${heroLabel}</div>
           <div class="tx-hero-value">${money(best.savings)}</div>
-          <div class="tx-hero-sub">with <b>${esc(best.label)}</b> · net of the strategy's cost</div></div>
+          <div class="tx-hero-sub">with <b>${esc(best.label)}</b> · ${pctOf(best.pct)} of total tax liability</div></div>
         <div class="tx-hero-side">
-          <div><span>${taxLabel}</span><b>${money(blockTax)}</b></div>
-          <div><span>Tax + cost with ${esc(best.label)}</span><b>${money(best.r.rows.totalOutlay)}</b></div>
-          <div><span>Cost as % of income</span><b>${pct(none.effectiveRate)} → ${pct(best.r.effectiveRate)}</b></div>
+          <div><span>${liabLabel}</span><b>${money(blk.baseline)}</b></div>
+          <div><span>Tax liability with ${esc(best.label)}</span><b>${money(best.liability)}</b></div>
         </div></section>`
     : `<section class="tx-hero tx-hero-none"><div><div class="tx-hero-label">${heroLabel}</div>
-        <div class="tx-hero-value">—</div><div class="tx-hero-sub">None of the modeled strategies lower this client's total cost at this income.</div></div>
-        <div class="tx-hero-side"><div><span>${taxLabel}</span><b>${money(blockTax)}</b></div></div></section>`;
+        <div class="tx-hero-value">—</div><div class="tx-hero-sub">None of the modeled strategies lower this client's tax liability at this income.</div></div>
+        <div class="tx-hero-side"><div><span>${liabLabel}</span><b>${money(blk.baseline)}</b></div></div></section>`;
+
+  const tipHTML = tips.map((s) => `<section class="tx-suggest"><p>${esc(s.text)}</p>
+      <button type="button" class="btn btn-sm" data-tx-apply="${s.kind}:${Math.round(s.amount)}">Add ${s.kind === 'db' ? 'DB contribution' : 'Roth conversion'} of ${money(s.amount)}</button></section>`).join('');
 
   const cards = rows.map((r) => {
     if (!r.applies) {
@@ -232,20 +334,22 @@ function resultsHTML(a, saved) {
     }
     const w = Math.max(2, Math.abs(r.savings) / maxSav * 100);
     const note = r.r.warnings.find((x) => /negative|carries|more than|does not apply/.test(x));
+    const neg = r.savings < 0;
     return `<button type="button" class="tx-row" data-tx-detail="${r.id}">
       <div class="tx-row-main"><div class="tx-row-title">${esc(r.label)}${best && best.id === r.id ? '<span class="tx-best">Best</span>' : ''}</div>
         <div class="tx-row-desc">${esc(STRATEGY_BLURB[r.id])}</div>
-        <div class="tx-row-facts"><span>Tax ${money(none.rows.totalTax)} → ${money(r.taxAfter)}</span><span>Strategy cost ${money(r.cost)}</span></div>
+        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span></div>
         ${note ? `<div class="tx-row-note">${esc(simplifyWarning(note))}</div>` : ''}</div>
-      <div class="tx-row-value"><div class="tx-sav ${r.savings < 0 ? 'neg' : ''}">${r.savings < 0 ? '−' : ''}${money(Math.abs(r.savings)).replace('−', '')}</div>
-        <div class="tx-bar"><i class="${r.savings < 0 ? 'neg' : ''}" style="width:${w}%"></i></div>
+      <div class="tx-row-value"><div class="tx-sav-label">${neg ? 'Added cost' : 'Savings'}</div>
+        <div class="tx-sav ${neg ? 'neg' : ''}">${money(Math.abs(r.savings))}</div>
+        <div class="tx-bar" role="img" aria-label="${neg ? 'Added cost' : 'Savings'} ${pctOf(Math.abs(r.pct))} of tax liability"><i class="${neg ? 'neg' : ''}" style="width:${w}%"></i></div>
+        <div class="tx-row-pct">${pctOf(Math.abs(r.pct))} of tax liability</div>
         <div class="tx-row-cta">Details →</div></div></button>`;
   }).join('');
 
-  return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}
+  return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}${tipHTML}
     <section class="tx-card"><div class="tx-card-head"><h3>Strategy comparison</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
       <div class="tx-list">${cards}</div>
-      <p class="tx-foot">Savings = current tax − (tax with the strategy + its cost), using the PFO Tax Strategy Calculator method and 2026 federal rates. Income of ${money(income)}. Estimates for discussion, not tax advice.</p>
     </section>`;
 }
 
@@ -267,19 +371,20 @@ function simplifyWarning(w) {
 
 function optionsHTML(built, saved, fd) {
   const m = built.model;
-  const field = (key, label, value, hint, attrs = '') => `<label class="tx-field"><span>${esc(label)}</span>
-    <span class="tx-input ${attrs.includes('pct') ? 'tx-pct' : 'tx-money'}"><input type="text" inputmode="decimal" data-tax="${key}" ${attrs.includes('pct') ? '' : 'data-money'} value="${esc(value)}" placeholder="0"></span>
+  const field = (key, label, value, hint, kind = 'money') => `<label class="tx-field"><span>${esc(label)}</span>
+    <span class="tx-input tx-${kind}"><input type="text" inputmode="decimal" data-tax="${key}" ${kind === 'money' ? 'data-money' : ''} value="${esc(value)}" placeholder="0"></span>
     ${hint ? `<small>${hint}</small>` : ''}</label>`;
-  const taxDeferred = num(fd.nw_tax_deferred) || (Array.isArray(fd.nw_sheet) ? fd.nw_sheet.filter((r) => /401|ira|retire|deferred/i.test(r.label || '')).reduce((s, r) => s + num(r.value), 0) : 0);
+  const taxDeferred = taxDeferredBalance(fd);
   let html = `<section class="tx-card tx-options"><h3>Scenario options</h3>`;
   if (built.stateCode === 'CUSTOM') {
     const v = saved.stateRate !== undefined && saved.stateRate !== null ? +(saved.stateRate * 100).toFixed(3) : (built.stateRate ? +(built.stateRate * 100).toFixed(2) : '');
     html += field('stateRate', `${built.stateName} income tax rate`, v, built.stateRateSource === 'intake' ? 'Estimated from the prior-year state tax in the intake.' : 'Approximate flat rate on income.', 'pct');
   }
-  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), 'Adds a "With DB plan" comparison.');
-  html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Tax-deferred balance in the intake: ${money(taxDeferred)}.` : 'Adds a "With Roth conversion" comparison.');
-  html += field('planningFee', 'Planning fee', commas(m.profile.planningFee), 'Counted as a cost of each strategy.');
+  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), m.profile.businessIncome > 0 ? 'Adds a "With DB plan" comparison.' : 'Funded from business income; none in the intake.');
+  html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Adds a "With Roth conversion" comparison.');
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
+  html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
+  html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;
   for (const s of Object.values(STRATEGIES)) {
     html += `<div class="tx-assume-title">${esc(s.name)}</div>`;
     for (const p of s.params) {
@@ -337,9 +442,9 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     line('State income tax', N.totals.state, R.totals.state, { goodWhenDown: true }),
     line('Total tax', none.rows.totalTax, res.rows.totalTax, { cls: 'sub', goodWhenDown: true }),
     line('Strategy contribution', 0, res.rows.contribution, { goodWhenDown: true }),
-    res.rows.fee ? line('Planning fee', 0, res.rows.fee, { goodWhenDown: true }) : '',
     pv ? line('Tax on future IRA withdrawals (present value)', pv, 0, { goodWhenDown: true, hint: 'avoided by converting' }) : '',
-    line('Total cost', none.rows.totalOutlay + pv, res.rows.totalOutlay, { cls: 'sub', goodWhenDown: true }),
+    line('Total tax liability', none.rows.totalOutlay + pv, liabilityOf(res), { cls: 'sub', goodWhenDown: true, hint: 'tax + strategy contribution' }),
+    res.rows.fee ? line('Planning fee', 0, res.rows.fee, { goodWhenDown: true }) : '',
   ].join('');
 
   // How the strategy is sized: the "sizing" sections of the ledger.
@@ -359,8 +464,8 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     <section class="tx-hero tx-hero-detail">
       <div><div class="tx-hero-label">${esc(strat.label)} · ${esc(BLOCK_LABEL[block])}</div>
         <div class="tx-hero-value ${res.savings < 0 ? 'neg' : ''}">${res.savings < 0 ? '−' : ''}${money(Math.abs(res.savings)).replace('−', '')}</div>
-        <div class="tx-hero-sub">${block === 'roth' ? 'estimated savings vs. not converting' : 'estimated tax savings this year'}</div></div>
-      <div class="tx-hero-side"><div><span>Total cost</span><b>${money(none.rows.totalOutlay + pv)} → ${money(res.rows.totalOutlay)}</b></div></div>
+        <div class="tx-hero-sub">${block === 'roth' ? 'estimated savings vs. not converting' : 'estimated tax savings this year'} · ${pctOf(Math.abs(res.savings) / Math.max(1, none.rows.totalOutlay + pv))} of total tax liability</div></div>
+      <div class="tx-hero-side"><div><span>Total tax liability</span><b>${money(none.rows.totalOutlay + pv)} → ${money(liabilityOf(res))}</b></div></div>
     </section>
     ${warnings.length ? `<ul class="tx-warnlist">${warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
     <section class="tx-card"><h3>Without vs. with ${esc(strat.label)}</h3>
@@ -370,7 +475,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     </section>
     <section class="tx-card"><h3>How it's calculated</h3>
       ${sizingHTML ? `<h4>Sizing</h4>${sizingHTML}` : ''}
-      ${costs ? `<h4>Cost</h4><table class="tx-how">${costs}</table>` : ''}
+      ${costs ? `<h4>Contribution</h4><table class="tx-how">${costs}</table>` : ''}
       <h4>Tax · ${esc(FILING_LABEL[model.profile.filingStatus].toLowerCase())}, 2026 rates</h4><table class="tx-how">${taxLines(R)}</table>
       ${notes.length ? `<p class="tx-foot">${notes.map(esc).join(' ')}</p>` : ''}
       <details class="tx-full"><summary>Full calculation</summary>${fullLedger(res.ledger)}</details>
