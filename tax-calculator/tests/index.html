@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calculator Tests</title>
+  <style>
+    :root { --bg: #f7f4ef; --ink: #1a1a18; --muted: #6b6760; --ok: #1a7a3c; --bad: #b80008; --card: #fff; --border: rgba(15,37,53,.12); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0c1820; --ink: #ece8e1; --muted: #a3adb5; --ok: #5fd08d; --bad: #ff8a8f; --card: #13232f; --border: rgba(255,255,255,.1); } }
+    :root[data-theme="dark"] { --bg: #0c1820; --ink: #ece8e1; --muted: #a3adb5; --ok: #5fd08d; --bad: #ff8a8f; --card: #13232f; --border: rgba(255,255,255,.1); }
+    body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, sans-serif; }
+    main { max-width: 900px; margin: 0 auto; }
+    h1 { font: 600 26px Georgia, serif; margin: 0 0 4px; }
+    .summary { font-size: 16px; margin: 10px 0 16px; }
+    .suite { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
+    .ok { color: var(--ok); } .fail { color: var(--bad); }
+    pre { white-space: pre-wrap; color: var(--bad); font-size: 12px; margin: 6px 0 0; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Calculator tests</h1>
+  <p class="muted">Excel replica vs. the values saved in the workbook, engine vs. replica on random clients, and hand-calculated 2026 tax cases. Also runnable from a terminal: <code>sh tests/run-cli.sh</code>.</p>
+  <div id="out" class="summary">Running…</div>
+  <div id="suites"></div>
+</main>
+<script type="module">
+  import { runAll } from './harness.js';
+  import './all.js';
+  setTimeout(() => {
+    const results = runAll();
+    const failed = results.reduce((s, r) => s + r.failures.length, 0);
+    const passed = results.reduce((s, r) => s + r.passed, 0);
+    document.getElementById('out').innerHTML = failed
+      ? `<span class="fail">✗ ${failed} failed</span>, ${passed} checks passed`
+      : `<span class="ok">✓ All ${passed} checks passed</span> across ${results.length} suites`;
+    document.getElementById('suites').innerHTML = results.map((r) => `<div class="suite"><span class="${r.failures.length ? 'fail' : 'ok'}">${r.failures.length ? '✗' : '✓'}</span> ${r.name} <span class="muted">(${r.passed} checks, ${r.ms} ms)</span>${r.failures.length ? `<pre>${r.failures.map((f) => f.replace(/</g, '&lt;')).join('\n')}</pre>` : ''}</div>`).join('');
+  }, 30);
+</script>
+</body>
+</html>

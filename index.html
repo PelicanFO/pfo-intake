@@ -6,6 +6,7 @@
 <title>Pelican Family Office — Focus Prioritizer</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css"/>
 <style>
 :root {
   --navy:#0f2535;--navy-mid:#1a3a5c;--navy-light:#2a5280;
@@ -377,7 +378,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 }
 
 /* View transitions */
-#view-home,#view-clients,#view-intake,#view-analysis,#view-prioritizer,#view-plan,#view-export{
+#view-home,#view-clients,#view-intake,#view-tax,#view-taxdetail,#view-analysis,#view-prioritizer,#view-plan,#view-export{
   animation:fadeIn .2s ease;
 }
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
@@ -414,6 +415,22 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 
 /* Section jump nav */
 .section-nav{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1.25rem;}
+/* FLOW STEPPER — the client journey, shown on every client step */
+.flow-stepper{display:flex;align-items:center;margin:-.75rem 0 1.5rem;padding:.45rem .5rem;background:var(--white);border:1px solid var(--border);border-radius:12px;overflow-x:auto;scrollbar-width:none;}
+.flow-stepper::-webkit-scrollbar{display:none;}
+.flow-step{display:flex;align-items:center;gap:8px;padding:6px 10px;border:none;background:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text-muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .12s,color .12s;}
+.flow-step:hover:not(:disabled):not(.active){background:var(--cream);color:var(--text);}
+.flow-num{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;border:1.5px solid var(--border);color:var(--text-light);background:var(--white);flex-shrink:0;}
+.flow-step.done .flow-num{background:var(--green-row);border-color:rgba(26,122,60,.35);color:var(--green);}
+.flow-step.active{color:var(--navy);font-weight:500;cursor:default;}
+.flow-step.active .flow-num{background:var(--navy);border-color:var(--navy);color:#fff;}
+.flow-step:disabled{cursor:not-allowed;opacity:.45;}
+.flow-sep{flex:1 1 10px;min-width:10px;height:1px;background:var(--border);}
+.beta-pill{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7a5500;background:#fef3cd;border:1px solid rgba(180,130,0,.2);vertical-align:middle;line-height:1.5;}
+@media(max-width:1100px){.flow-step:not(.active) .flow-label,.flow-step:not(.active) .beta-pill{display:none;}.flow-step{padding:6px 7px;}}
+@media(max-width:700px){.flow-stepper{margin:0 0 1.25rem 42px;}}
+.tax-autoskip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-muted);cursor:pointer;margin-top:.25rem;}
+.tax-autoskip input{accent-color:var(--navy);width:auto;}
 .section-nav-btn{padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-muted);cursor:pointer;transition:all .13s;white-space:nowrap;line-height:1.4;}
 .section-nav-btn:hover{border-color:rgba(15,37,53,.22);color:var(--text);background:var(--cream-dark);}
 .section-nav-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500;}
@@ -484,6 +501,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
   </aside>
 
   <main class="main">
+    <nav class="flow-stepper" id="flow-stepper" aria-label="Client steps" style="display:none;"></nav>
 
     <!-- HOME -->
     <div id="view-home" style="display:none;">
@@ -548,6 +566,34 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <div class="section-nav" id="cf-section-nav"></div>
       <div id="cf-form-body"></div>
       <div style="display:flex;gap:8px;margin-top:1.75rem;flex-wrap:wrap;" id="cf-nav-buttons"></div>
+    </div>
+
+    <!-- TAX STRATEGIES (BETA) -->
+    <div id="view-tax" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);letter-spacing:.01em;" id="tax-client-title"></div>
+          <div style="font-size:13px;color:var(--text-muted);">Tax strategies <span class="beta-pill">Beta</span></div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <button class="btn btn-sm" id="tax-detail-btn">Detailed results</button>
+          <button class="btn btn-gold btn-sm" id="tax-continue-btn">Continue to priorities →</button>
+        </div>
+      </div>
+      <div id="tax-root"></div>
+      <label class="tax-autoskip"><input type="checkbox" id="tax-autoskip"/> Skip this beta step after the intake</label>
+    </div>
+
+    <!-- TAX STRATEGIES — DETAILED RESULTS -->
+    <div id="view-taxdetail" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);letter-spacing:.01em;" id="taxdetail-client-title"></div>
+          <div style="font-size:13px;color:var(--text-muted);">Detailed results <span class="beta-pill">Beta</span></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="taxdetail-back-btn">← Tax strategies</button>
+      </div>
+      <div id="taxdetail-root"></div>
     </div>
 
     <!-- ANALYSIS -->
@@ -771,7 +817,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.1.3'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.2.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1026,15 +1072,237 @@ async function checkLogin() {
 // ══════════════════════════════════
 //  VIEWS
 // ══════════════════════════════════
-const ALL_VIEWS = ['home','clients','intake','analysis','prioritizer','plan','export','followup','access'];
+const ALL_VIEWS = ['home','clients','intake','tax','taxdetail','analysis','prioritizer','plan','export','followup','access'];
+let currentView = '';
 function showView(name) {
   ALL_VIEWS.forEach(v => {
     const el = document.getElementById('view-'+v);
     if (el) el.style.display = v===name ? '' : 'none';
   });
+  currentView = name;
+  renderFlowStepper();
   document.getElementById('nav-home').classList.toggle('active', name==='home');
   document.getElementById('nav-clients').classList.toggle('active', name==='clients');
   document.getElementById('nav-access').classList.toggle('active', name==='access');
+}
+
+// ══════════════════════════════════
+//  CLIENT STEPS (flow stepper)
+// ══════════════════════════════════
+// One bar across the top of every client page: jump to any step, skip the ones you don't need.
+const FLOW_STAGES = [
+  {key:'intake',      label:'Intake form',     views:['intake']},
+  {key:'tax',         label:'Tax strategies',  views:['tax','taxdetail'], beta:true},
+  {key:'prioritizer', label:'Priorities',      views:['prioritizer','analysis']},
+  {key:'plan',        label:'Action plan',     views:['plan']},
+  {key:'export',      label:'Review & share',  views:['export']},
+];
+let pClientId = null;          // client whose priorities (pItems) are loaded in memory
+let flowInfo = {clientId:null, formComplete:false, hasPriorities:false, hasPlan:false};
+let flowInfoSeq = 0;
+
+function renderFlowStepper(opts) {
+  const nav = document.getElementById('flow-stepper');
+  if (!nav) return;
+  const stage = FLOW_STAGES.find(s => s.views.includes(currentView));
+  if (!stage || !currentClientId) { nav.style.display = 'none'; return; }
+  nav.style.display = '';
+  const info = flowInfo.clientId === currentClientId ? flowInfo : {formComplete:false, hasPriorities:false, hasPlan:false};
+  const done = {intake: info.formComplete, tax: false, prioritizer: info.hasPriorities, plan: info.hasPlan, export: false};
+  const needsPriorities = k => (k === 'plan' || k === 'export') && !info.hasPriorities;
+  nav.innerHTML = FLOW_STAGES.map((s, i) => {
+    const active = s.key === stage.key;
+    const disabled = !active && needsPriorities(s.key);
+    const cls = 'flow-step' + (active ? ' active' : '') + (done[s.key] && !active ? ' done' : '');
+    const title = ` title="${esc(s.label)}${disabled ? ' — generate priorities first' : ''}"`;
+    return (i ? '<span class="flow-sep" aria-hidden="true"></span>' : '') +
+      `<button type="button" class="${cls}" data-stage="${s.key}"${disabled ? ' disabled' : ''}${active ? ' aria-current="step"' : ''}${title}>`+
+      `<span class="flow-num">${done[s.key] && !active ? '✓' : i + 1}</span><span class="flow-label">${esc(s.label)}</span>${s.beta ? ' <span class="beta-pill">Beta</span>' : ''}</button>`;
+  }).join('');
+  if (!(opts && opts.noRefresh)) refreshFlowInfo();
+}
+
+// Completion status comes from the database; refresh it quietly and redraw when it changes.
+async function refreshFlowInfo() {
+  const cid = currentClientId, seq = ++flowInfoSeq;
+  if (!cid) return;
+  try {
+    const [rec, intake] = await Promise.all([dbGet(TBL_CLIENTS, cid), getIntakeForClient(cid)]);
+    if (seq !== flowInfoSeq || cid !== currentClientId) return;
+    const plan = intake?.form_data?.__plan_data;
+    const next = {
+      clientId: cid,
+      formComplete: rec?.form_status === 'complete',
+      hasPriorities: !!(intake && ((intake.items && intake.items.length) || (intake.ai_items && intake.ai_items.length))),
+      hasPlan: !!(plan && (plan.goals?.length || plan.friction?.length || plan.actions?.length)),
+    };
+    const changed = ['clientId','formComplete','hasPriorities','hasPlan'].some(k => next[k] !== flowInfo[k]);
+    flowInfo = next;
+    if (changed) renderFlowStepper({noRefresh:true});
+  } catch(e) { /* status is cosmetic */ }
+}
+
+// Save whatever is pending on the current page before leaving it.
+async function flushStageSaves() {
+  if (currentView === 'intake') await flushSave();
+  if (currentView === 'prioritizer' && pCurrentId && pClientId === currentClientId) {
+    clearTimeout(autosavePTimer);
+    await dbUpdate(TBL_INTAKES, pCurrentId, {items: JSON.parse(JSON.stringify(pItems))});
+  }
+  if (currentView === 'plan' && planClientId === currentClientId) {
+    clearTimeout(planSaveTimer);
+    await savePlanData();
+  }
+  if (currentView === 'tax' || currentView === 'taxdetail') await flushSave();
+}
+
+async function goToStage(key) {
+  if (!currentClientId) return;
+  const from = currentView;
+  await flushStageSaves();
+  const prioritiesLoaded = pClientId === currentClientId && pItems.length > 0;
+  if (key === 'intake') {
+    await openIntakeById(currentClientId, currentClientName, {keepSection:true});
+  } else if (key === 'tax') {
+    await openTaxStep();
+  } else if (key === 'prioritizer') {
+    if (prioritiesLoaded) { renderPForm(); showView('prioritizer'); updatePlanBtnLabel(); }
+    else await openPrioritiesById(currentClientId);
+  } else if (key === 'plan') {
+    const planLoaded = planClientId === currentClientId && planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length || planData.accomplished?.length);
+    if (planLoaded) showView('plan');
+    else if (prioritiesLoaded) await goToPlan();
+    else await openPlanById(currentClientId, currentClientName);
+  } else if (key === 'export') {
+    if (from === 'plan') await goToExport();
+    else if (prioritiesLoaded) await savePrioritizerAndGoToExport();
+    else await openExportById(currentClientId, currentClientName);
+  }
+  window.scrollTo(0, 0);
+}
+
+// ══════════════════════════════════
+//  TAX STRATEGIES (BETA)
+// ══════════════════════════════════
+const TAX_AUTOSKIP_KEY = 'pfo_tax_beta_autoskip';
+let taxModule = null;
+let taxDetailState = {scenario:null, block:'base', clientId:null};
+function taxAutoSkip() { try { return localStorage.getItem(TAX_AUTOSKIP_KEY) === '1'; } catch { return false; } }
+async function loadTaxModule() {
+  if (!taxModule) taxModule = await import('./tax-calculator/src/site/tax-step.js?v=' + encodeURIComponent(APP_VERSION));
+  return taxModule;
+}
+let taxFormClientId = null;   // client whose form data the tax pages last loaded
+async function loadTaxFormData() {
+  const rec = await dbGet(TBL_CLIENTS, currentClientId);
+  currentFormData = (rec && rec.form_data) ? rec.form_data : {};
+  taxFormClientId = currentClientId;
+}
+async function openTaxStep() {
+  if (!currentClientId) return;
+  if (taxDetailState.clientId !== currentClientId) taxDetailState = {scenario:null, block:'base', clientId:currentClientId};
+  // Reuse in-memory data when it is already this client's (it may hold option edits not yet autosaved).
+  if (taxFormClientId !== currentClientId) await loadTaxFormData();
+  document.getElementById('tax-client-title').textContent = currentClientName;
+  document.getElementById('tax-autoskip').checked = taxAutoSkip();
+  const root = document.getElementById('tax-root');
+  showView('tax');
+  root.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);font-size:14px;">Calculating…</div>';
+  try {
+    const mod = await loadTaxModule();
+    const status = mod.renderTaxStep(root, currentFormData, {
+      save: inputs => { currentFormData.__tax = inputs; autosave(); },
+      editIntake: sectionId => goToIntakeSection(sectionId),
+      openDetail: (scenario, block) => openTaxDetail(scenario, block),
+    });
+    document.getElementById('tax-detail-btn').style.display = status && status.hasResults ? '' : 'none';
+  } catch(e) {
+    console.error('Tax step failed:', e);
+    document.getElementById('tax-detail-btn').style.display = 'none';
+    root.innerHTML = '<div class="card" style="color:var(--red-s);font-size:14px;">The tax calculator could not load. You can continue to priorities — this step is optional.</div>';
+  }
+}
+async function openTaxDetail(scenario, block) {
+  if (!currentClientId) return;
+  // Normally reached from the tax step (data already loaded, possibly with unsaved option edits).
+  if (taxFormClientId !== currentClientId) { await loadTaxFormData(); taxDetailState = {scenario:null, block:'base', clientId:currentClientId}; }
+  if (scenario) taxDetailState.scenario = scenario;
+  if (block) taxDetailState.block = block;
+  document.getElementById('taxdetail-client-title').textContent = currentClientName;
+  const root = document.getElementById('taxdetail-root');
+  try {
+    const mod = await loadTaxModule();
+    const draw = () => mod.renderTaxDetail(root, currentFormData, taxDetailState, {
+      select: (sc, bl) => { taxDetailState = {scenario: sc, block: bl, clientId: currentClientId}; draw(); },
+    });
+    draw();
+    showView('taxdetail');
+    window.scrollTo(0, 0);
+  } catch(e) {
+    console.error('Tax detail failed:', e);
+    toast('Could not open detailed results.');
+  }
+}
+async function goToIntakeSection(sectionId) {
+  await flushStageSaves();
+  await openIntakeById(currentClientId, currentClientName);
+  const idx = FORM_SECTIONS.findIndex(s => s.id === sectionId);
+  if (idx >= 0) { cfSection = idx; renderCFSection(); }
+  window.scrollTo(0, 0);
+}
+
+// ══════════════════════════════════
+//  NUMBER ENTRY — thousands separators while typing
+// ══════════════════════════════════
+// Dollar fields get commas as you type (1000 → 1,000) so amounts can't be misread or mistyped.
+const MONEY_INPUT_SEL = '.currency-wrap input, .multibiz-currency-wrap input, .nws-cur input, input[data-money]';
+function formatMoneyText(raw) {
+  let s = String(raw ?? '').replace(/[^0-9.\-]/g, '');
+  if (!s) return '';
+  const neg = s.charAt(0) === '-';
+  s = s.replace(/-/g, '');
+  const dot = s.indexOf('.');
+  let int = dot >= 0 ? s.slice(0, dot) : s;
+  const dec = dot >= 0 ? s.slice(dot + 1).replace(/\./g, '').slice(0, 2) : null;
+  int = int.replace(/^0+(?=\d)/, '');
+  if (int === '' && dec !== null) int = '0';
+  return (neg ? '-' : '') + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dec !== null ? '.' + dec : '');
+}
+function formatMoneyInput(el) {
+  const before = el.value;
+  const after = formatMoneyText(before);
+  if (after === before) return;
+  const caret = el.selectionStart ?? before.length;
+  const significant = before.slice(0, caret).replace(/[^0-9.\-]/g, '').length;
+  el.value = after;
+  let pos = 0, seen = 0;
+  while (pos < after.length && seen < significant) { if (/[0-9.\-]/.test(after.charAt(pos))) seen++; pos++; }
+  if (document.activeElement === el) { try { el.setSelectionRange(pos, pos); } catch(e) {} }
+}
+// Capture phase: format before the field's own handler saves the value.
+document.addEventListener('input', e => {
+  if (e.target && e.target.matches && e.target.matches(MONEY_INPUT_SEL)) formatMoneyInput(e.target);
+}, true);
+// Backspace/Delete next to a comma removes the neighbouring digit instead of the (re-added) comma.
+document.addEventListener('keydown', e => {
+  const el = e.target;
+  if (!(el && el.matches && el.matches(MONEY_INPUT_SEL)) || el.selectionStart !== el.selectionEnd) return;
+  const i = el.selectionStart;
+  if (e.key === 'Backspace' && i > 0 && el.value.charAt(i - 1) === ',') el.setSelectionRange(i - 1, i - 1);
+  if (e.key === 'Delete' && el.value.charAt(i) === ',') el.setSelectionRange(i + 1, i + 1);
+}, true);
+// Dollar answers in summaries (profile panel, PDF, email) always read "$400,000", however they were typed.
+function displayAnswer(f, v) {
+  if (!f || v === undefined || v === null || Array.isArray(v) || typeof v === 'object') return v;
+  const isMoney = f.type === 'currency' || f.id === 'total_income_display';
+  if (!isMoney || !/\d/.test(String(v)) || /[a-z]/i.test(String(v))) return v;
+  const t = formatMoneyText(v);
+  return t.charAt(0) === '-' ? '-$' + t.slice(1) : '$' + t;
+}
+function formatAllMoneyInputs(root) {
+  (root || document).querySelectorAll(MONEY_INPUT_SEL).forEach(el => {
+    if (el.value) { const f = formatMoneyText(el.value); if (f !== el.value) el.value = f; }
+  });
 }
 
 // ══════════════════════════════════
@@ -1196,6 +1464,19 @@ function wireButtons() {
   document.getElementById('delete-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeDeleteModal(); });
 
   document.getElementById('nav-access').addEventListener('click', openAccessView);
+
+  // Client steps + tax strategies (beta)
+  document.getElementById('flow-stepper').addEventListener('click', e => {
+    const b = e.target.closest('[data-stage]');
+    if (b && !b.disabled && !b.classList.contains('active')) goToStage(b.dataset.stage);
+  });
+  document.getElementById('tax-continue-btn').addEventListener('click', () => goToStage('prioritizer'));
+  document.getElementById('tax-detail-btn').addEventListener('click', () => openTaxDetail(taxDetailState.scenario, taxDetailState.block));
+  document.getElementById('taxdetail-back-btn').addEventListener('click', () => openTaxStep());
+  document.getElementById('tax-autoskip').addEventListener('change', e => {
+    try { localStorage.setItem(TAX_AUTOSKIP_KEY, e.target.checked ? '1' : '0'); } catch(err) {}
+    toast(e.target.checked ? 'The intake will go straight to priorities' : 'Tax strategies will follow the intake');
+  });
   document.getElementById('add-cpa-form').addEventListener('submit', addCpaUser);
   document.getElementById('delete-user-cancel-btn').addEventListener('click', closeDeleteUserModal);
   document.getElementById('delete-user-confirm-btn').addEventListener('click', confirmDeleteUser);
@@ -1211,6 +1492,7 @@ async function startSession() {
   if (!name) { nameInput.focus(); return; }
   currentClientName = name;
   currentFormData = {};
+  taxFormClientId = null;
   cfSection = 0;
   // Determine cpa_code: CPA users use their own code; admins read from the selector
   let cpaCode = null;
@@ -1411,7 +1693,7 @@ async function renderClientList() {
           const field = document.getElementById('csf-'+id);
           const isOpen = field.classList.toggle('open');
           btn.textContent = isOpen ? '✎ Status' : '+ Status';
-          if (isOpen) field.querySelector('input').focus();
+          if (isOpen) field.querySelector('textarea').focus();
         }
       });
     });
@@ -1725,15 +2007,19 @@ const FORM_SECTIONS = [
 
 
 
-async function openIntakeById(clientId, clientName) {
+async function openIntakeById(clientId, clientName, opts) {
+  taxFormClientId = null;
   // Reset client-specific state when switching clients (privacy guard)
-  if (currentClientId !== clientId) {
+  const sameClient = currentClientId === clientId;
+  if (!sameClient) {
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
     planClientId = null;
-    pItems = []; pCurrentId = null; pClientFormData = {};
+    pItems = []; pCurrentId = null; pClientFormData = {}; pClientId = null;
     aiItems = [];
+    taxDetailState = {scenario:null, block:'base', clientId:null};
   }
-  currentClientId = clientId; currentClientName = clientName; cfSection = 0;
+  currentClientId = clientId; currentClientName = clientName;
+  if (!(opts && opts.keepSection && sameClient)) cfSection = 0;
   const rec = await dbGet(TBL_CLIENTS, clientId);
   currentFormData = (rec && rec.form_data) ? rec.form_data : {};
   document.getElementById('intake-client-title').textContent = clientName;
@@ -2913,7 +3199,7 @@ function handleDisabilityInput(fid, val) {
 
 function afterSectionRender() {
   // Recalculate displayed totals after section loads
-  setTimeout(()=>{updateCalcFields();checkWillYear();updateTaxSliderVisibility();updateCoverageAnalysis();},50);
+  setTimeout(()=>{formatAllMoneyInputs(document.getElementById('cf-form-body'));updateCalcFields();checkWillYear();updateTaxSliderVisibility();updateCoverageAnalysis();},50);
 }
 // Find a field definition anywhere in the form (including nested follow fields)
 function findFieldDef(fid, fields) {
@@ -2968,7 +3254,8 @@ async function cfSubmit() {
   clearTimeout(autosaveTimer);
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
   pSessionComplete = true;
-  goDirectToPrioritizer(currentClientId);
+  if (taxAutoSkip()) goDirectToPrioritizer(currentClientId);
+  else openTaxStep();
 }
 
 function updatePlanBtnLabel() {
@@ -2979,6 +3266,7 @@ function updatePlanBtnLabel() {
 }
 
 async function goDirectToPrioritizer(clientId) {
+  pClientId = clientId;
   // PRIVACY GUARD: reset plan state whenever switching to a different client
   if (planClientId !== clientId) {
     planData = { goals:[], friction:[], actions:[], accomplished:[] };
@@ -3104,8 +3392,8 @@ function buildResponsesHTML(fd) {
     html+=`<div class="response-section-title">${sec.title}</div>`;
     relevant.forEach(f=>{
       if(f.type==='nwsheet'||NWS_CALC_TYPES.includes(f.type)){html+=nwsSummaryBlockWithTitle(f,fd);return;}
-      html+=`<div class="response-row"><span class="response-label">${esc(f.label)}</span><span class="response-value">${esc(fmt(fd[f.id]))}</span></div>`;
-      if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div class="response-row"><span class="response-label" style="padding-left:12px;color:var(--text-light);">↳ ${esc(ff.label)}</span><span class="response-value">${esc(fmt(fd[ff.id]))}</span></div>`;});
+      html+=`<div class="response-row"><span class="response-label">${esc(f.label)}</span><span class="response-value">${esc(fmt(displayAnswer(f,fd[f.id])))}</span></div>`;
+      if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div class="response-row"><span class="response-label" style="padding-left:12px;color:var(--text-light);">↳ ${esc(ff.label)}</span><span class="response-value">${esc(fmt(displayAnswer(ff,fd[ff.id])))}</span></div>`;});
     });
   });
   return html;
@@ -3604,6 +3892,7 @@ async function openPlanById(clientId, clientName) {
   if (!intake) { toast('No plan found. Complete the prioritizer first.'); return; }
 
   // Restore prioritizer state so Save & Share works
+  pClientId = clientId;
   pCurrentId = intake.id;
   pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
   pClientFormData = intake.form_data || currentFormData;
@@ -3632,6 +3921,7 @@ async function openExportById(clientId, clientName) {
   if (!intake) { toast('No data found. Complete the prioritizer first.'); return; }
 
   // Restore prioritizer state
+  pClientId = clientId;
   pCurrentId = intake.id;
   pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
   pClientFormData = intake.form_data || currentFormData;
@@ -4030,7 +4320,7 @@ ${optItems || 'None set'}
 
 KEY FINANCIAL FACTS:
 - Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${(() => { const n = ['federal_tax_liability','state_tax_liability','tax_liability'].reduce((a,k)=>a+(parseFloat(String(fd[k]||'').replace(/[^0-9.-]/g,''))||0),0); return n ? '$'+n.toLocaleString() : 'N/A'; })()}${fd.tax_planning_rating ? ' | Tax planning focus: '+fd.tax_planning_rating+'/5' : ''}
-- Net worth: ${fd.net_worth ? '$'+Number(fd.net_worth).toLocaleString() : 'N/A'}
+- Net worth: ${fd.net_worth ? '$'+(parseFloat(String(fd.net_worth).replace(/[^0-9.-]/g,''))||0).toLocaleString() : 'N/A'}
 - Business owner: ${fd.has_business === 'Yes' ? 'Yes' : 'No'}
 - Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
 - Goals: ${fd.financial_goals || 'N/A'}
@@ -4357,8 +4647,8 @@ function buildPDFResponsesHTML(fd) {
     html+=`<div style="margin-bottom:.75rem;"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:'DM Sans',sans-serif;margin-bottom:.35rem;">${sec.title}</div>`;
     relevant.forEach(f=>{
       if(f.type==='nwsheet'||NWS_CALC_TYPES.includes(f.type)){html+=nwsSummaryBlockWithTitle(f,fd);return;}
-      html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;"><span style="color:#888;min-width:175px;flex-shrink:0;">${esc(f.label)}</span><span style="color:#1a1a18;">${esc(fmt(fd[f.id]))}</span></div>`;
-      if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;padding-left:12px;"><span style="color:#aaa;min-width:163px;flex-shrink:0;">↳ ${esc(ff.label)}</span><span style="color:#1a1a18;">${esc(fmt(fd[ff.id]))}</span></div>`;});
+      html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;"><span style="color:#888;min-width:175px;flex-shrink:0;">${esc(f.label)}</span><span style="color:#1a1a18;">${esc(fmt(displayAnswer(f,fd[f.id])))}</span></div>`;
+      if(f.follow)f.follow.forEach(ff=>{if(fd[ff.id])html+=`<div style="display:flex;gap:12px;font-size:12px;font-family:'DM Sans',sans-serif;margin-bottom:.2rem;padding-left:12px;"><span style="color:#aaa;min-width:163px;flex-shrink:0;">↳ ${esc(ff.label)}</span><span style="color:#1a1a18;">${esc(fmt(displayAnswer(ff,fd[ff.id])))}</span></div>`;});
     });
     html+='</div>';
   });
@@ -4524,10 +4814,10 @@ async function sendEmail() {
           return;
         }
         formSectionsHtml += '<tr><td style="padding:3px 0;font-size:12px;color:#888;font-family:Arial,sans-serif;width:180px;vertical-align:top;">'+escPlain(f.label)+'</td>'
-          +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(fd[f.id]))+'</td></tr>';
+          +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(displayAnswer(f,fd[f.id])))+'</td></tr>';
         if (f.follow) f.follow.forEach(ff => {
           if (fd[ff.id]) formSectionsHtml += '<tr><td style="padding:3px 0 3px 12px;font-size:12px;color:#aaa;font-family:Arial,sans-serif;">↳ '+escPlain(ff.label)+'</td>'
-            +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(fd[ff.id]))+'</td></tr>';
+            +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(displayAnswer(ff,fd[ff.id])))+'</td></tr>';
         });
       });
       formSectionsHtml += '</table></div>';
