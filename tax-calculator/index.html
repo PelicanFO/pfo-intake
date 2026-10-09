@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tax Strategy Calculator</title>
+  <meta name="description" content="PFO tax strategy calculator with a line-by-line audit trail and an exact replica of the Excel workbook.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/ui/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">PFO</span>
+      <div>
+        <h1>Tax Strategy Calculator</h1>
+        <p class="sub">2026 tax year · internal tool · not yet linked from the main site</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="segmented" role="radiogroup" aria-label="Calculation">
+        <button type="button" data-mode="corrected" role="radio">Corrected</button>
+        <button type="button" data-mode="compare" role="radio">Side by side</button>
+        <button type="button" data-mode="excel" role="radio">Excel replica</button>
+      </div>
+      <button type="button" class="ghost" id="reset">Reset to sample</button>
+      <a class="ghost" href="tests/index.html" target="_blank" rel="noopener">Tests</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="inputs" id="inputs" aria-label="Inputs"></aside>
+    <main class="results" id="results" aria-live="polite"></main>
+  </div>
+
+  <noscript>This calculator needs JavaScript.</noscript>
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>
