@@ -3,3 +3,4 @@ import './excel-replica.test.js';
 import './tax-law.test.js';
 import './parity.test.js';
 import './strategies.test.js';
+import './site.test.js';

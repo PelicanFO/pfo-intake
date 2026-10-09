@@ -201,6 +201,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* RESPONSE DISPLAY */
 
 /* CLIENT STATUS TAGS */
+.client-rename-btn{background:none;border:none;padding:2px 6px;margin-left:4px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-light);cursor:pointer;border-radius:5px;vertical-align:middle;}
+.client-rename-btn:hover{color:var(--navy);background:var(--cream-dark);}
+.client-rename-input{font-family:'Cormorant Garamond',serif !important;font-size:18px !important;font-weight:600;color:var(--navy);padding:3px 8px !important;width:260px !important;max-width:100%;vertical-align:middle;}
 .cf-tag{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:500;margin-left:8px;vertical-align:middle;letter-spacing:.02em;}
 .cf-tag-pending{background:#fef3cd;color:#7a5500;border:1px solid rgba(180,130,0,.15);}
 .cf-tag-complete{background:var(--green-bg);color:var(--green-chip);border:1px solid rgba(26,122,60,.15);}
@@ -429,8 +432,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 .beta-pill{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7a5500;background:#fef3cd;border:1px solid rgba(180,130,0,.2);vertical-align:middle;line-height:1.5;}
 @media(max-width:1100px){.flow-step:not(.active) .flow-label,.flow-step:not(.active) .beta-pill{display:none;}.flow-step{padding:6px 7px;}}
 @media(max-width:700px){.flow-stepper{margin:0 0 1.25rem 42px;}}
-.tax-autoskip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-muted);cursor:pointer;margin-top:.25rem;}
-.tax-autoskip input{accent-color:var(--navy);width:auto;}
+
 .section-nav-btn{padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--white);font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-muted);cursor:pointer;transition:all .13s;white-space:nowrap;line-height:1.4;}
 .section-nav-btn:hover{border-color:rgba(15,37,53,.22);color:var(--text);background:var(--cream-dark);}
 .section-nav-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:500;}
@@ -568,12 +570,12 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <div style="display:flex;gap:8px;margin-top:1.75rem;flex-wrap:wrap;" id="cf-nav-buttons"></div>
     </div>
 
-    <!-- TAX STRATEGIES (BETA) -->
+    <!-- TAX STRATEGIES -->
     <div id="view-tax" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);letter-spacing:.01em;" id="tax-client-title"></div>
-          <div style="font-size:13px;color:var(--text-muted);">Tax strategies <span class="beta-pill">Beta</span></div>
+          <div style="font-size:13px;color:var(--text-muted);">Tax strategies</div>
         </div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
           <button class="btn btn-sm" id="tax-detail-btn">Detailed results</button>
@@ -581,7 +583,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         </div>
       </div>
       <div id="tax-root"></div>
-      <label class="tax-autoskip"><input type="checkbox" id="tax-autoskip"/> Skip this beta step after the intake</label>
     </div>
 
     <!-- TAX STRATEGIES — DETAILED RESULTS -->
@@ -589,7 +590,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--navy);letter-spacing:.01em;" id="taxdetail-client-title"></div>
-          <div style="font-size:13px;color:var(--text-muted);">Detailed results <span class="beta-pill">Beta</span></div>
+          <div style="font-size:13px;color:var(--text-muted);">Detailed results</div>
         </div>
         <button class="btn btn-ghost btn-sm" id="taxdetail-back-btn">← Tax strategies</button>
       </div>
@@ -817,7 +818,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.2.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.3.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1092,7 +1093,7 @@ function showView(name) {
 // One bar across the top of every client page: jump to any step, skip the ones you don't need.
 const FLOW_STAGES = [
   {key:'intake',      label:'Intake form',     views:['intake']},
-  {key:'tax',         label:'Tax strategies',  views:['tax','taxdetail'], beta:true},
+  {key:'tax',         label:'Tax strategies',  views:['tax','taxdetail']},
   {key:'prioritizer', label:'Priorities',      views:['prioritizer','analysis']},
   {key:'plan',        label:'Action plan',     views:['plan']},
   {key:'export',      label:'Review & share',  views:['export']},
@@ -1166,11 +1167,15 @@ async function goToStage(key) {
   } else if (key === 'tax') {
     await openTaxStep();
   } else if (key === 'prioritizer') {
-    if (prioritiesLoaded) { renderPForm(); showView('prioritizer'); updatePlanBtnLabel(); }
+    if (prioritiesLoaded) { document.getElementById('p-client-title').textContent = currentClientName; renderPForm(); showView('prioritizer'); updatePlanBtnLabel(); }
     else await openPrioritiesById(currentClientId);
   } else if (key === 'plan') {
     const planLoaded = planClientId === currentClientId && planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length || planData.accomplished?.length);
-    if (planLoaded) showView('plan');
+    if (planLoaded) {
+      document.getElementById('plan-client-title').textContent = currentClientName;
+      renderPlanView(false);
+      showView('plan');
+    }
     else if (prioritiesLoaded) await goToPlan();
     else await openPlanById(currentClientId, currentClientName);
   } else if (key === 'export') {
@@ -1182,12 +1187,10 @@ async function goToStage(key) {
 }
 
 // ══════════════════════════════════
-//  TAX STRATEGIES (BETA)
+//  TAX STRATEGIES
 // ══════════════════════════════════
-const TAX_AUTOSKIP_KEY = 'pfo_tax_beta_autoskip';
 let taxModule = null;
 let taxDetailState = {scenario:null, block:'base', clientId:null};
-function taxAutoSkip() { try { return localStorage.getItem(TAX_AUTOSKIP_KEY) === '1'; } catch { return false; } }
 async function loadTaxModule() {
   if (!taxModule) taxModule = await import('./tax-calculator/src/site/tax-step.js?v=' + encodeURIComponent(APP_VERSION));
   return taxModule;
@@ -1204,7 +1207,6 @@ async function openTaxStep() {
   // Reuse in-memory data when it is already this client's (it may hold option edits not yet autosaved).
   if (taxFormClientId !== currentClientId) await loadTaxFormData();
   document.getElementById('tax-client-title').textContent = currentClientName;
-  document.getElementById('tax-autoskip').checked = taxAutoSkip();
   const root = document.getElementById('tax-root');
   showView('tax');
   root.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);font-size:14px;">Calculating…</div>';
@@ -1219,7 +1221,7 @@ async function openTaxStep() {
   } catch(e) {
     console.error('Tax step failed:', e);
     document.getElementById('tax-detail-btn').style.display = 'none';
-    root.innerHTML = '<div class="card" style="color:var(--red-s);font-size:14px;">The tax calculator could not load. You can continue to priorities — this step is optional.</div>';
+    root.innerHTML = '<div class="card" style="color:var(--red-s);font-size:14px;">The tax calculator could not load. You can continue to priorities.</div>';
   }
 }
 async function openTaxDetail(scenario, block) {
@@ -1242,6 +1244,46 @@ async function openTaxDetail(scenario, block) {
     console.error('Tax detail failed:', e);
     toast('Could not open detailed results.');
   }
+}
+
+// Tax strategy estimates for Review & Share and the priorities prompt (null when there's no income).
+function currentTaxSummary() {
+  try { return (taxModule && currentClientId) ? taxModule.taxSummary(currentFormData || {}) : null; }
+  catch(e) { console.error('Tax summary failed:', e); return null; }
+}
+const fmtUSD = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+const fmtPct = x => (Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%';
+function buildTaxSummaryHTML(email) {
+  const t = currentTaxSummary();
+  if (!t || !t.strategies.length) return '';
+  const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
+  const e = email ? escPlain : esc;
+  const cell = 'padding:5px 8px;border-bottom:1px solid #f0ede6;font-size:12px;font-family:'+font+';';
+  const rows = t.strategies.map(r => '<tr><td style="'+cell+'color:#1a1a18;">'+e(r.label)+'</td>'
+    +'<td style="'+cell+'text-align:right;color:#555;">'+fmtUSD(r.liabilityAfter)+'</td>'
+    +'<td style="'+cell+'text-align:right;font-weight:600;color:'+(r.savings < 0 ? '#b80008' : '#1a7a3c')+';">'+fmtUSD(r.savings)+'</td>'
+    +'<td style="'+cell+'text-align:right;color:#555;">'+fmtPct(r.savings / Math.max(1, t.liability))+'</td></tr>').join('');
+  const head = h => '<th style="padding:5px 8px;font-size:10px;color:#aaa;font-weight:normal;text-align:'+(h==='Strategy'?'left':'right')+';font-family:'+font+';">'+h+'</th>';
+  const extra = t.scenarios.map(x => '<div style="font-size:12px;color:#555;font-family:'+font+';margin-top:4px;">'+e(x.label)+': '+e(x.strategy)+' saves '+fmtUSD(x.savings)+' ('+fmtPct(x.pct)+' of tax liability)</div>').join('');
+  const tips = t.suggestions.map(x => '<div style="font-size:12px;color:#7a5500;font-family:'+font+';margin-top:4px;">'+e(x)+'</div>').join('');
+  const title = email
+    ? '<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:8px;font-family:Arial,sans-serif;">Tax Strategy Estimates</div>'
+    : '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:.5rem;">Tax Strategy Estimates</div>';
+  return '<div style="margin-top:'+(email?'24px':'1.5rem')+';padding-top:'+(email?'20px':'1rem')+';border-top:'+(email?'2px solid #f0ede6':'1px solid #ede9e0')+';">'+title
+    +'<div style="font-size:12px;color:#888;font-family:'+font+';margin-bottom:8px;">Current tax liability '+fmtUSD(t.liability)
+    +(t.best ? ' · Best: '+e(t.best.label)+' saves '+fmtUSD(t.best.savings)+' ('+fmtPct(t.best.pct)+')' : '')+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f7f4ef;">'+head('Strategy')+head('Tax liability')+head('Savings')+head('% of liability')+'</tr></thead><tbody>'+rows+'</tbody></table>'
+    +extra+tips
+    +'<div style="font-size:10px;color:#aaa;font-family:'+font+';margin-top:6px;">PFO Tax Strategy Calculator method, 2026 federal rates. Estimates for discussion, not tax advice.</div></div>';
+}
+function buildTaxSummaryPrompt(fd) {
+  let t = null;
+  try { t = taxModule ? taxModule.taxSummary(fd || {}) : null; } catch(e) { t = null; }
+  if (!t || !t.strategies.length) return 'Not calculated';
+  return 'Current tax liability '+fmtUSD(t.liability)+'. '
+    + t.strategies.map(r => r.label+' saves '+fmtUSD(r.savings)+' ('+fmtPct(r.savings / Math.max(1, t.liability))+')').join('; ')+'.'
+    + (t.scenarios.length ? ' '+t.scenarios.map(x => x.label+': '+x.strategy+' saves '+fmtUSD(x.savings)).join('; ')+'.' : '')
+    + (t.suggestions.length ? ' Suggestions: '+t.suggestions.join(' ') : '');
 }
 async function goToIntakeSection(sectionId) {
   await flushStageSaves();
@@ -1320,6 +1362,7 @@ async function goToExport() {
     pClientFormData = merged;
     await dbUpdate(TBL_INTAKES, pCurrentId, {form_data: merged});
   }
+  try { await loadTaxModule(); } catch(e) { /* tax summary is optional */ }
   buildPDFPreview();
   const backPlanBtn = document.getElementById('back-to-plan-btn');
   const backPBtn = document.getElementById('back-to-p-btn');
@@ -1343,6 +1386,7 @@ async function savePrioritizerAndGoToExport() {
   if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
   else pCurrentId = await dbInsert(TBL_INTAKES, payload);
   document.getElementById('p-saved-status').textContent = 'Saved ✓';
+  try { await loadTaxModule(); } catch(e) { /* tax summary is optional */ }
   buildPDFPreview();
   const backPlanBtn = document.getElementById('back-to-plan-btn');
   const backPBtn = document.getElementById('back-to-p-btn');
@@ -1465,7 +1509,7 @@ function wireButtons() {
 
   document.getElementById('nav-access').addEventListener('click', openAccessView);
 
-  // Client steps + tax strategies (beta)
+  // Client steps + tax strategies
   document.getElementById('flow-stepper').addEventListener('click', e => {
     const b = e.target.closest('[data-stage]');
     if (b && !b.disabled && !b.classList.contains('active')) goToStage(b.dataset.stage);
@@ -1473,10 +1517,7 @@ function wireButtons() {
   document.getElementById('tax-continue-btn').addEventListener('click', () => goToStage('prioritizer'));
   document.getElementById('tax-detail-btn').addEventListener('click', () => openTaxDetail(taxDetailState.scenario, taxDetailState.block));
   document.getElementById('taxdetail-back-btn').addEventListener('click', () => openTaxStep());
-  document.getElementById('tax-autoskip').addEventListener('change', e => {
-    try { localStorage.setItem(TAX_AUTOSKIP_KEY, e.target.checked ? '1' : '0'); } catch(err) {}
-    toast(e.target.checked ? 'The intake will go straight to priorities' : 'Tax strategies will follow the intake');
-  });
+
   document.getElementById('add-cpa-form').addEventListener('submit', addCpaUser);
   document.getElementById('delete-user-cancel-btn').addEventListener('click', closeDeleteUserModal);
   document.getElementById('delete-user-confirm-btn').addEventListener('click', confirmDeleteUser);
@@ -1519,6 +1560,39 @@ async function startSession() {
   document.getElementById('intake-client-title').textContent = name;
   renderCFSection();
   showView('intake');
+}
+
+// Rename a client's label in the list (the names inside the intake form are unchanged).
+function startClientRename(card, id, oldName) {
+  const nameEl = card.querySelector('.client-name-text');
+  const btn = card.querySelector('.client-rename-btn');
+  if (!nameEl || card.querySelector('.client-rename-input')) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'client-rename-input';
+  input.value = oldName;
+  input.setAttribute('aria-label', 'Client name');
+  nameEl.replaceWith(input);
+  if (btn) btn.style.display = 'none';
+  input.focus(); input.select();
+  let done = false;
+  const finish = async save => {
+    if (done) return; done = true;
+    const name = input.value.trim();
+    if (save && name && name !== oldName) {
+      await dbUpdate(TBL_CLIENTS, id, {client_name: name});
+      const intake = await getIntakeForClient(id);
+      if (intake) await dbUpdate(TBL_INTAKES, intake.id, {client_name: name});
+      if (String(currentClientId) === String(id)) currentClientName = name;
+      toast('Renamed to ' + name);
+    }
+    renderClientList();
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 function setClientSort(mode) {
@@ -1641,7 +1715,8 @@ async function renderClientList() {
     card.innerHTML =
       `<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
         <div>
-          <span style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
+          <span class="client-name-text" style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:var(--navy);">${esc(c.client_name||'Unknown')}</span>
+          <button class="client-rename-btn" data-action="rename-client" data-id="${esc(String(c.id))}" title="Rename client" aria-label="Rename ${esc(c.client_name||'client')}">Rename</button>
           <span class="cf-tag ${complete?'cf-tag-complete':'cf-tag-pending'}">${complete?'Complete':'Pending'}</span>
           ${cpaInfo}${cpaAssign}${progressBadge}
           <div style="font-size:12px;color:var(--text-light);margin-top:3px;">${date}</div>
@@ -1682,6 +1757,7 @@ async function renderClientList() {
         else if (action === 'open-plan') openPlanById(id, btn.dataset.name||'');
         else if (action === 'open-export') openExportById(id, btn.dataset.name||'');
         else if (action === 'open-followup') openFollowUpById(id, btn.dataset.name||'');
+        else if (action === 'rename-client') startClientRename(card, id, c.client_name || '');
         else if (action === 'delete-client') { pendingDeleteId = id; document.getElementById('delete-modal').classList.add('open'); }
         else if (action === 'toggle-client-notes') {
           const field = document.getElementById('cnf-'+id);
@@ -3254,8 +3330,7 @@ async function cfSubmit() {
   clearTimeout(autosaveTimer);
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
   pSessionComplete = true;
-  if (taxAutoSkip()) goDirectToPrioritizer(currentClientId);
-  else openTaxStep();
+  openTaxStep();
 }
 
 function updatePlanBtnLabel() {
@@ -3443,6 +3518,7 @@ Federal tax liability: ${cur(fd.federal_tax_liability)} | State tax liability: $
 Ideal tax paid: ${fd.tax_planning_rating ? '$'+Number(fd.ideal_tax_amount||0).toLocaleString()+' ('+(fd.ideal_tax_slider||0)+'% of current) | Tax planning focus rating: '+fd.tax_planning_rating+'/5 (5 = highly focused on reducing tax)' : 'N/A'}
 Projected income (current year): ${cur(fd.projected_income)}
 Income notes: ${yn(fd.income_notes)}
+Tax strategy estimates (PFO calculator): ${buildTaxSummaryPrompt(fd)}
 
 NET WORTH & ASSETS
 Total net worth: ${cur(fd.net_worth)}
@@ -3935,6 +4011,7 @@ async function openExportById(clientId, clientName) {
     ? savedPlan
     : { goals:[], friction:[], actions:[], accomplished:[] };
 
+  try { await loadTaxModule(); } catch(e) { /* tax summary is optional */ }
   buildPDFPreview();
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   // Show "Back to plan" if a plan exists, otherwise "Back to priorities"
@@ -4515,7 +4592,7 @@ function renderPlanColumn(key) {
       const ownerInput = document.createElement('input');
       ownerInput.type = 'text';
       ownerInput.className = 'plan-item-owner-input';
-      ownerInput.placeholder = 'Unassigned';
+      ownerInput.placeholder = '';
       ownerInput.value = item.owner || '';
       ownerInput.addEventListener('input', () => {
         const it = planData[key].find(i => i.id === item.id);
@@ -4591,6 +4668,7 @@ function buildPDFPreview() {
     </table>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2rem;">${sc(critical,'Critical','#b6f2cc','#0d5229')}${sc(optional,'Optional','#d8d8d8','#3a3a3a')}${sc(bypass,'Bypass','#ffb3b6','#800006')}${sc(unset,'Unset','#f0ede6','#999')}</div>
     ${buildPDFPlanHTML()}
+    ${buildTaxSummaryHTML(false)}
     ${buildPDFResponsesHTML(pClientFormData)}
     <div style="border-top:1px solid #ede9e0;padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:#ccc;font-family:'DM Sans',sans-serif;margin-top:1rem;"><span>Pelican Family Office — Confidential</span><span>Generated ${today}</span></div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;font-family:'DM Sans',sans-serif;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>
@@ -4842,6 +4920,7 @@ async function sendEmail() {
     +'<tbody>'+rowsHtml+'</tbody></table>'
     +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
     +buildEmailPlanHTML()
+    +buildTaxSummaryHTML(true)
     +formSectionsHtml
     +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>'
@@ -5173,6 +5252,7 @@ wireButtons();
 
 function initApp() {
   showView('home');
+  loadTaxModule().catch(() => {}); // so Review & Share and the priorities prompt can include tax estimates
 }
 </script>
 </body>
