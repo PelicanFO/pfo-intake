@@ -12,6 +12,25 @@ It does two things:
    workbook's departures from tax law. Every number comes with a line-by-line audit trail, and each
    fix can be switched off to see what it is worth. See [docs/TAX-LAW-REVIEW.md](docs/TAX-LAW-REVIEW.md).
 
+## On the intake site (beta)
+
+The main site (`/index.html`) uses this engine for its **Tax strategies** step, between the intake
+and Priorities. The code is in `src/site/` (`tax-step.js`, `tax-step.css`).
+
+- **Inputs come from the intake.** That covers filing status, state, ages, every prior-year income
+  line, and retirement age. Optional inputs on the page (DB contribution, Roth conversion, planning
+  fee, strategy assumptions) are saved with the client under `form_data.__tax`.
+- **Calculation method:** the spreadsheet method, i.e. the workbook's math, with one fix. Strategy
+  amounts that would come out negative are set to $0 (`SITE_RULES` in `tax-step.js`). Corrections
+  can be turned on later by changing `SITE_RULES`.
+- **States:** Louisiana; Texas and the other states with no wage tax (AK, FL, NV, NH, SD, TN, WY);
+  any other state asks for one number, an approximate flat rate. That rate is pre-filled from the
+  intake's prior-year state tax ÷ income when available.
+- **Bypass:** users can skip the step from the step bar, or tick "Skip this beta step after the
+  intake" (remembered per browser).
+- **Detailed Results** shows each strategy without vs. with, how it's sized, its costs, the tax by
+  bracket, and an expandable full calculation.
+
 ## Running it
 
 ES modules need a web server (opening the file directly won't work). From the repo root:
@@ -30,7 +49,7 @@ sh tax-calculator/tests/run-cli.sh
 
 ## Using the page
 
-- **Corrected / Side by side / Excel replica**: choose which numbers the table shows. Side by side
+- **Excel replica / Side by side / Corrected**: choose which numbers the table shows (Excel replica is the default for now). Side by side
   shows the corrected value with the workbook's value and the difference underneath.
 - **Tabs**: Strategies, With DB plan, With Roth conversion, Roth projection, and Corrections (the
   dollar effect of every fix on every strategy).
@@ -65,13 +84,14 @@ tax-calculator/
     strategies/               one file per strategy: film, solar, charitable, leap
     tables/
       federal.js              2026 federal numbers (Rev. Proc. 2025-32 / OBBBA), RMD table
-      states/index.js         state tables (Louisiana, "no income tax")
+      states/index.js         state tables (Louisiana, Texas, no-income-tax states, custom flat rate)
     excel/
       workbook-data.js        GENERATED: the workbook's formulas and inputs
       workbook.js             spreadsheet engine that recalculates them
       formula.js              Excel formula parser
       mapping.js              calculator inputs ↔ workbook cells
-    ui/                       page rendering and styles
+    ui/                       standalone calculator page
+    site/                     the intake site's Tax strategies step (beta)
   tests/                      browser runner (index.html), CLI runner, test files
   tools/export_workbook.py    regenerates workbook-data.js from an .xlsx
 ```
@@ -81,7 +101,7 @@ later.
 
 ## How we know it's right
 
-`tests/` (185 checks):
+`tests/` (190 checks):
 
 - **Replica = Excel.** Every formula cell in the workbook is recalculated from scratch and compared
   with the value Excel saved. All of them match exactly, except the Solar sizing loop. Excel saved

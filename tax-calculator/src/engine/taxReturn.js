@@ -13,7 +13,7 @@ import { normalizeRules } from './rules.js';
 
 const sum = (xs, f = (x) => x.amount) => xs.reduce((s, x) => s + (f(x) || 0), 0);
 const pos = (x) => Math.max(0, x);
-const FS_LABEL = { mfj: 'married filing jointly', single: 'single', hoh: 'head of household' };
+const FS_LABEL = { mfj: 'married filing jointly', single: 'single', hoh: 'head of household', mfs: 'married filing separately' };
 
 export function emptySituation() {
   return {
@@ -39,7 +39,7 @@ export function emptySituation() {
 export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
   const R = normalizeRules(rulesIn);
   const T = federalTables(sit.year);
-  const S = stateTables(sit.state, sit.year);
+  const S = stateTables(sit.state, sit.year, sit.stateCustom);
   const fs = sit.filingStatus;
   const L = ledger ? new Ledger('Tax return') : new NullLedger();
   const inc = sit.income;
@@ -164,13 +164,14 @@ export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
   let deduction, deductionLabel, saltAllowed = 0, itemized = charitableAllowed, usedStandard = false;
   let seniorDeduction = 0, standard = 0, limitReduction = 0;
   if (R.standardDeduction) {
-    standard = T.standardDeduction[fs] + seniors * (fs === 'mfj' ? T.agedDeduction.married : T.agedDeduction.unmarried);
+    const married = fs === 'mfj' || fs === 'mfs';
+    standard = T.standardDeduction[fs] + seniors * (married ? T.agedDeduction.married : T.agedDeduction.unmarried);
     L.line('Standard deduction', standard, {
-      calc: `${money(T.standardDeduction[fs])}${seniors ? ` + ${seniors} × ${money(fs === 'mfj' ? T.agedDeduction.married : T.agedDeduction.unmarried)} (age 65+)` : ''}`,
+      calc: `${money(T.standardDeduction[fs])}${seniors ? ` + ${seniors} × ${money(married ? T.agedDeduction.married : T.agedDeduction.unmarried)} (age 65+)` : ''}`,
       source: 'IRC §63(c), (f); Rev. Proc. 2025-32 §3.14',
     });
     const saltPaid = state.tax + (sit.propertyTax || 0);
-    const cap = Math.max(T.salt.floor, T.salt.cap - T.salt.rate * pos(agi - T.salt.threshold));
+    const cap = Math.max(T.salt.floor[fs], T.salt.cap[fs] - T.salt.rate * pos(agi - T.salt.threshold[fs]));
     saltAllowed = Math.min(saltPaid, cap);
     itemized = charitableAllowed + saltAllowed + (sit.otherItemized || 0);
     L.line('Itemized: state & local taxes', saltAllowed, { calc: `lesser of ${money(saltPaid)} paid (state income tax${sit.propertyTax ? ' + property tax' : ''}) or the ${money(cap)} cap`, source: 'IRC §164(b)(7)' });
@@ -185,14 +186,14 @@ export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
     usedStandard = standard >= itemized;
     deduction = Math.max(standard, itemized);
     deductionLabel = usedStandard ? 'Deduction taken: standard' : 'Deduction taken: itemized';
-    if (seniors) {
+    if (seniors && T.seniorDeduction.threshold[fs] !== null) {
       const sd = T.seniorDeduction;
       seniorDeduction = pos(seniors * sd.perPerson - sd.rate * pos(agi - sd.threshold[fs]));
       L.line('Senior deduction (age 65+, 2025–2028)', seniorDeduction, { calc: `${seniors} × ${money(sd.perPerson)} less 6% × (${money(agi)} − ${money(sd.threshold[fs])})`, source: 'IRC §151(d)(5)(C) (OBBBA §70103)' });
     }
   } else {
     deduction = charitableAllowed;
-    deductionLabel = 'Deduction taken (spreadsheet: none besides strategy gifts)';
+    deductionLabel = gifts ? 'Deduction taken (spreadsheet method: charitable gift only)' : 'No deduction (spreadsheet method)';
   }
   L.line(deductionLabel, deduction, { kind: 'total' });
 
@@ -259,7 +260,8 @@ export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
     const base = pos(amti - exemption);
     const amtPref = Math.min(pos(prefIncome), base); // Form 6251 Part III: net capital gain + qualified dividends, limited to the AMT base
     const amtOrd = base - amtPref;
-    const tmtOrd = 0.26 * Math.min(amtOrd, A.rate28Threshold) + 0.28 * pos(amtOrd - A.rate28Threshold);
+    const t28 = A.rate28Threshold[fs];
+    const tmtOrd = 0.26 * Math.min(amtOrd, t28) + 0.28 * pos(amtOrd - t28);
     const tmtCg = capitalGainsTax(amtPref, amtOrd, T.capitalGains[fs], { stacked: true }).tax;
     const tmt = tmtOrd + tmtCg;
     amt = pos(tmt - regularTax);

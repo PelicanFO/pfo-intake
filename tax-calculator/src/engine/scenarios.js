@@ -17,7 +17,7 @@ export const SCENARIOS = [
   { id: 'charitable', label: 'Charitable', steps: [{ strategy: 'charitable' }] },
   // As in the workbook: the gift only brings ordinary income down to the top of the 24% bracket,
   // then Solar is sized against what is left.
-  { id: 'solarCharitable', label: 'Solar & Charitable', steps: [{ strategy: 'charitable', options: { capToBracket: 0.24 } }, { strategy: 'solar' }] },
+  { id: 'solarCharitable', label: 'Solar & Charitable', steps: [{ strategy: 'charitable', options: { capToBracket: 0.24 } }, { strategy: 'solar', options: { excelVariant: 'afterCharitable' } }] },
   { id: 'leap', label: 'LEAP', steps: [{ strategy: 'leap' }] },
   { id: 'leapCharitable', label: 'LEAP & Charitable', steps: [{ strategy: 'leap' }, { strategy: 'charitable' }] },
 ];
@@ -39,11 +39,16 @@ export function situationFor(model, blockId) {
   s.year = model.year;
   s.filingStatus = p.filingStatus;
   s.state = p.state;
+  s.stateCustom = p.stateCustom || null; // { rate, name } for CUSTOM / NONE
   s.ages = { taxpayer: p.age ?? null, spouse: p.spouseAge ?? null };
   s.income = {
     w2: +p.w2 || 0, business: +p.businessIncome || 0, stcg: +p.stcg || 0, ltcg: +p.ltcg || 0, interest: +p.interest || 0,
     qualifiedDividends: +p.qualifiedDividends || 0, nonqualifiedDividends: +p.nonqualifiedDividends || 0, otherOrdinary: 0,
   };
+  if (+p.otherIncome) {
+    s.income.otherOrdinary += +p.otherIncome;
+    s.otherOrdinaryItems.push({ label: 'Other income (rental, royalties, etc.)', amount: +p.otherIncome });
+  }
   s.propertyTax = +p.propertyTax || 0;
   s.otherItemized = +p.otherItemized || 0;
   s.businessType = p.businessType || 'passthrough';
@@ -141,7 +146,7 @@ export function runScenario(model, blockId, scenario) {
 
   const r = computeReturn(sit, rules, { ledger: true });
   const cf = r.carryforwards;
-  if (cf.credit > 1) ctx.warnings.push(`${money(cf.credit)} of credit can't be used this year (business credit limit). It carries back 1 year / forward 20 and is not counted in these savings.`);
+  if (cf.credit > 1) ctx.warnings.push(`${money(cf.credit)} of credit is more than this year's tax can absorb. It carries back 1 year / forward 20 and is not counted in these savings.`);
   if (cf.nol > 1) ctx.warnings.push(`${money(cf.nol)} of strategy losses exceed the excess business loss limit. It becomes a net operating loss carryforward and is not counted in these savings.`);
   if (cf.charitable > 1) ctx.warnings.push(`${money(cf.charitable)} of the donation is over the AGI limit. It carries forward up to 5 years and is not counted in these savings.`);
   if (cf.capitalLoss > 1) ctx.warnings.push(`${money(cf.capitalLoss)} of capital loss carries forward to future years and is not counted in these savings.`);

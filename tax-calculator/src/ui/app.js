@@ -19,7 +19,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 const ui = {
   model: load() || defaultModel(),
-  mode: 'corrected',      // corrected | compare | excel
+  mode: 'excel',          // excel (default for now) | compare | corrected
   tab: 'base',            // base | db | roth | projection | corrections
   selected: { block: 'base', scenario: 'film', row: 'savings' },
   auditView: null,        // corrected | excel | reconcile
@@ -57,8 +57,9 @@ const GROUPS = () => [
   {
     title: 'Client', open: true, note: 'Yellow-edged fields are the workbook\'s yellow input cells.',
     fields: [
-      F('profile.filingStatus', 'Filing status', 'select', { yellow: 'Strategy comparison!C4', options: [['mfj', 'Married filing jointly'], ['single', 'Single'], ['hoh', 'Head of household']] }),
-      F('profile.state', 'State', 'select', { options: Object.entries(STATES).map(([k, s]) => [k, s.name]) }),
+      F('profile.filingStatus', 'Filing status', 'select', { yellow: 'Strategy comparison!C4', options: [['mfj', 'Married filing jointly'], ['single', 'Single'], ['hoh', 'Head of household'], ['mfs', 'Married filing separately']] }),
+      F('profile.state', 'State', 'select', { options: Object.entries(STATES).map(([k, s]) => [k, k === 'CUSTOM' ? 'Other state (enter a rate)' : s.name]) }),
+      F('profile.stateCustom.rate', 'Other state: flat rate', 'pct', { nullable: true }),
       F('profile.w2', 'W-2 wages', 'money', { yellow: 'Strategy comparison!C5' }),
       F('profile.businessIncome', 'Business income', 'money', { yellow: 'Strategy comparison!C6' }),
       F('profile.stcg', 'Short-term capital gains', 'money', { yellow: 'Strategy comparison!C7' }),

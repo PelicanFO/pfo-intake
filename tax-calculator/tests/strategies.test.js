@@ -13,14 +13,14 @@ import { applyModel, readGrid } from '../src/excel/mapping.js';
 const run = (m, block, id) => runScenario(m, block, scenarioById(id));
 
 suite('Strategies: Solar is sized so the credit exactly uses the allowed tax', (t) => {
-  for (const rules of [ALL_ON, ALL_OFF]) {
-    const m = { ...defaultModel(), rules };
-    const r = run(m, 'base', 'solar');
-    const ret = r.return;
-    const limit = rules.creditLimit ? ret.regularTax + ret.amt - 0.25 * Math.max(0, ret.regularTax - 25000) : ret.regularTax + ret.amt;
-    t.close(ret.creditAllowed, limit, 0.05, `credit used = limit (${rules === ALL_ON ? 'corrected' : 'spreadsheet rules'})`);
-    t.close(ret.carryforwards.credit, 0, 0.05, 'no unused credit');
-  }
+  const r = run(defaultModel(), 'base', 'solar');
+  const ret = r.return;
+  t.close(ret.creditAllowed, ret.regularTax + ret.amt - 0.25 * Math.max(0, ret.regularTax - 25000), 0.05, 'corrected: credit used = limit');
+  t.close(ret.carryforwards.credit, 0, 0.05, 'corrected: no unused credit');
+  // Spreadsheet mode sizes Solar the workbook's way (Solar!C18 ≈ $70,583 for the sample) and zeroes federal tax.
+  const xs = run({ ...defaultModel(), rules: ALL_OFF }, 'base', 'solar');
+  t.close(xs.rows.contribution, 70583, 30, 'spreadsheet: contribution matches the workbook');
+  t.close(xs.rows.fedOrdinary + xs.rows.fedLtcg, 0, 0.01, 'spreadsheet: federal tax zeroed');
   const m = defaultModel();
   m.sizing.base.solar = { solar: { contribution: 100000 } };
   const big = run(m, 'base', 'solar');

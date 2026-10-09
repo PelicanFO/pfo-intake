@@ -4,8 +4,8 @@
 // different strategy assumptions and manual sizing).
 //
 // Known, documented exceptions (they come from the workbook's mechanics, not the tax rules):
-//   • Solar and Solar & Charitable — the workbook sizes Solar with an iterative ±step search
-//     whose target includes NIIT and the state benefit; the engine solves its own sizing directly.
+//   • Solar and Solar & Charitable agree to within Excel's iteration step (Excel stops its ±0.01%
+//     search near the target; the engine solves the same equation exactly).
 //   • LEAP state tax — the workbook reduces Louisiana income by all business income and gains
 //     regardless of the K-1 amounts; the engine uses the K-1 amounts (equal when sized at 100%).
 //   • Roth conversion tax when there are long-term gains or qualified dividends — the workbook's
@@ -21,7 +21,9 @@ import { defaultModel } from '../src/engine/model.js';
 import { runComparison } from '../src/engine/compare.js';
 import { ALL_OFF } from '../src/engine/rules.js';
 
-const COMPARED = ['none', 'film', 'charitable', 'leap', 'leapCharitable'];
+const COMPARED = ['none', 'film', 'solar', 'charitable', 'solarCharitable', 'leap', 'leapCharitable'];
+// Excel's Solar loop stops within one ±0.01% step of its target, so Solar values agree to within that step.
+const tolFor = (sid, x) => (sid.startsWith('solar') ? Math.max(100, Math.abs(x) * 1e-3) : 0.01);
 const ROWS = ['fedOrdinary', 'fedLtcg', 'state', 'contribution', 'savings'];
 
 function compareModel(wb, model, t, tag) {
@@ -34,26 +36,34 @@ function compareModel(wb, model, t, tag) {
   const p = model.profile;
   const blankRate = model.roth.projectedTaxRate === null;
   const rmdSheetDiffers = blankRate && (p.ltcg || p.qualifiedDividends);
+  // Excel's Solar loop only settles when its target is big enough relative to its step size; for
+  // small targets it is still far away after thousands of iterations (and Excel only runs 100 per
+  // recalc). Those are spreadsheet artifacts, so we only compare Solar where the loop settled.
+  const settled = (sheet, b, tgt) => Math.abs(wb.num(`${sheet}!${b}`) - wb.num(`${sheet}!${tgt}`)) <= wb.num(`${sheet}!${tgt}`) * 1.5e-4 + 1;
+  const SOLAR_SHEETS = { base: ['Solar', 'Solar & Charitable'], db: ['Solar & DB', 'Solar & Charitable & DB'], roth: ['Solar & Roth', 'Solar & Charitable & Roth'] };
   for (const block of ['base', 'db', 'roth']) {
     if (block === 'roth' && (rmdSheetDiffers || (blankRate && !model.roth.conversion))) continue;
+    const solarOk = { solar: settled(SOLAR_SHEETS[block][0], 'E11', 'E5'), solarCharitable: settled(SOLAR_SHEETS[block][1], 'E43', 'E37') };
     for (const sid of COMPARED) {
+      if (sid in solarOk && !solarOk[sid]) continue;
       const e = eng.blocks[block].scenarios[sid];
       for (const row of ROWS) {
         const ev = row === 'savings' ? e.savings : e.rows[row];
         const xv = grid[block][sid][row].value;
         checks++;
-        if (typeof xv !== 'number' || Math.abs(ev - xv) > 0.01) fails.push(`${tag} ${block}/${sid}/${row}: engine ${ev?.toFixed?.(2)} vs Excel ${xv} (${grid[block][sid][row].ref})`);
+        if (typeof xv !== 'number' || Math.abs(ev - xv) > tolFor(sid, xv)) fails.push(`${tag} ${block}/${sid}/${row}: engine ${ev?.toFixed?.(2)} vs Excel ${xv} (${grid[block][sid][row].ref})`);
       }
     }
   }
   const x = grid.rothProjection;
   const solarPick = /^Solar/.test(String(x.strategyUsed.value));
-  if (!p.ltcg && !p.qualifiedDividends && !solarPick && !(blankRate && !model.roth.conversion)) {
+  if (!p.ltcg && !p.qualifiedDividends && !(blankRate && !model.roth.conversion)) {
     const pairs = [['conversionTax', eng.roth.conversionTax], ['pvRmdTax', eng.roth.pvRmdTax], ['traditionalAt100', eng.roth.at100.traditionalAfterTax],
       ['rothAt100', eng.roth.at100.roth], ['rothWithSavingsAt100', eng.roth.at100.rothWithSavings], ['strategySavings', eng.roth.strategySavings]];
     for (const [k, ev] of pairs) {
       checks++;
-      if (Math.abs(ev - x[k].value) > 0.01) fails.push(`${tag} roth/${k}: engine ${ev.toFixed(2)} vs Excel ${x[k].value}`);
+      const tol = solarPick && /Savings/.test(k) ? Math.max(60, Math.abs(x[k].value) * 5e-4) : 0.01;
+      if (Math.abs(ev - x[k].value) > tol) fails.push(`${tag} roth/${k}: engine ${ev.toFixed(2)} vs Excel ${x[k].value}`);
     }
   }
   t.ok(fails.length === 0, `${fails.length} differences:\n  ${fails.slice(0, 12).join('\n  ')}`);

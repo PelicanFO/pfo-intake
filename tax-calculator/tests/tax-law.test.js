@@ -133,3 +133,16 @@ suite('Tax law: spreadsheet mode reproduces the workbook\'s simplified math', (t
   t.close(r.totals.state, 12000, 0.001, 'Louisiana 3% of gross income');
   t.close(r.totals.niit + r.totals.payroll + r.totals.amt, 0, 0.001, 'NIIT, Medicare and AMT left out');
 });
+
+suite('Tax law: married filing separately, Texas and a custom state rate', (t) => {
+  // MFS, $200k wages, Texas. Taxable 200,000 − 16,100 = 183,900;
+  // tax 17,966 + 24% × (183,900 − 105,700) = 36,734. Additional Medicare 0.9% × (200,000 − 125,000) = 675.
+  const r = run(sit({ filingStatus: 'mfs', state: 'TX', income: { w2: 200000 } }));
+  t.close(r.totals.fedOrdinary, 36734, 0.01, 'MFS federal tax');
+  t.close(r.totals.payroll, 675, 0.01, 'MFS Additional Medicare threshold $125,000');
+  t.close(r.totals.state, 0, 0.001, 'Texas: no income tax');
+  t.close(bracketTax(384350, FEDERAL[2026].ordinaryBrackets.mfs).tax, 103291.75, 0.001, 'MFS 37% bracket starts at $384,350');
+  // Custom 5% state on $300k AGI (flat rate, no deduction).
+  const c = run(sit({ state: 'CUSTOM', stateCustom: { rate: 0.05 }, income: { w2: 300000 } }));
+  t.close(c.totals.state, 15000, 0.001, 'custom state 5% × 300,000');
+});

@@ -7,7 +7,7 @@ import { Ledger, money, pct } from './ledger.js';
 
 export function grossIncome(p) {
   return (+p.w2 || 0) + (+p.businessIncome || 0) + (+p.stcg || 0) + (+p.ltcg || 0) + (+p.interest || 0)
-    + (+p.qualifiedDividends || 0) + (+p.nonqualifiedDividends || 0);
+    + (+p.qualifiedDividends || 0) + (+p.nonqualifiedDividends || 0) + (+p.otherIncome || 0);
 }
 
 /**

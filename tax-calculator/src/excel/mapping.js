@@ -50,13 +50,14 @@ const SIZING_CELLS = (() => {
   return out;
 })();
 
-const FILING = { mfj: 'Married-Joint', single: 'Single', hoh: 'Single' };
+const FILING = { mfj: 'Married-Joint', single: 'Single', hoh: 'Single', mfs: 'Single' };
 
 /** Workbook cell values for a model. Returns { values: {ref: value}, warnings: [] }. */
 export function modelToCells(model) {
   const p = model.profile, warnings = [];
   const v = {};
-  if (p.filingStatus === 'hoh') warnings.push('The workbook has no head-of-household tables; the Excel replica uses Single.');
+  if (p.filingStatus === 'hoh' || p.filingStatus === 'mfs') warnings.push('The workbook only has joint and single tables; the Excel replica uses Single.');
+  if (+p.otherIncome) warnings.push('The workbook has no "other income" input; the Excel replica leaves it out.');
   if (p.state !== 'LA') warnings.push('The workbook only models Louisiana; the Excel replica still uses Louisiana\'s 3%.');
   Object.assign(v, {
     'Strategy comparison!C4': FILING[p.filingStatus],
