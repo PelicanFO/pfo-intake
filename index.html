@@ -201,6 +201,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* RESPONSE DISPLAY */
 
 /* CLIENT STATUS TAGS */
+.export-tax-opt{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-muted);cursor:pointer;margin-left:6px;}
+.export-tax-opt input{accent-color:var(--navy);width:auto;}
 .client-rename-btn{background:none;border:none;padding:2px 6px;margin-left:4px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-light);cursor:pointer;border-radius:5px;vertical-align:middle;}
 .client-rename-btn:hover{color:var(--navy);background:var(--cream-dark);}
 .client-rename-input{font-family:'Cormorant Garamond',serif !important;font-size:18px !important;font-weight:600;color:var(--navy);padding:3px 8px !important;width:260px !important;max-width:100%;vertical-align:middle;}
@@ -579,7 +581,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
         </div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
           <button class="btn btn-sm" id="tax-detail-btn">Detailed results</button>
-          <button class="btn btn-gold btn-sm" id="tax-continue-btn">Continue to priorities →</button>
         </div>
       </div>
       <div id="tax-root"></div>
@@ -692,6 +693,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/></svg>
           Email results
         </button>
+        <label class="export-tax-opt"><input type="checkbox" id="export-include-tax"/> Include tax strategy estimates</label>
+        <button class="btn btn-gold btn-sm" id="export-tax-btn" style="margin-left:auto;">Tax strategies →</button>
       </div>
       <!-- Email panel (hidden by default) -->
       <div id="email-panel" style="display:none;" class="card" style="margin-bottom:1.25rem;">
@@ -818,7 +821,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.3.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.3.1'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1093,10 +1096,10 @@ function showView(name) {
 // One bar across the top of every client page: jump to any step, skip the ones you don't need.
 const FLOW_STAGES = [
   {key:'intake',      label:'Intake form',     views:['intake']},
-  {key:'tax',         label:'Tax strategies',  views:['tax','taxdetail']},
   {key:'prioritizer', label:'Priorities',      views:['prioritizer','analysis']},
   {key:'plan',        label:'Action plan',     views:['plan']},
   {key:'export',      label:'Review & share',  views:['export']},
+  {key:'tax',         label:'Tax strategies',  views:['tax','taxdetail']}, // meeting 2 — kept out of the priorities and plan
 ];
 let pClientId = null;          // client whose priorities (pItems) are loaded in memory
 let flowInfo = {clientId:null, formComplete:false, hasPriorities:false, hasPlan:false};
@@ -1253,7 +1256,9 @@ function currentTaxSummary() {
 }
 const fmtUSD = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const fmtPct = x => (Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%';
+let includeTaxInExport = false; // tax strategies are for meeting 2, so Review & Share leaves them out unless ticked
 function buildTaxSummaryHTML(email) {
+  if (!includeTaxInExport) return '';
   const t = currentTaxSummary();
   if (!t || !t.strategies.length) return '';
   const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
@@ -1275,15 +1280,6 @@ function buildTaxSummaryHTML(email) {
     +'<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f7f4ef;">'+head('Strategy')+head('Tax liability')+head('Savings')+head('% of liability')+'</tr></thead><tbody>'+rows+'</tbody></table>'
     +extra+tips
     +'<div style="font-size:10px;color:#aaa;font-family:'+font+';margin-top:6px;">PFO Tax Strategy Calculator method, 2026 federal rates. Estimates for discussion, not tax advice.</div></div>';
-}
-function buildTaxSummaryPrompt(fd) {
-  let t = null;
-  try { t = taxModule ? taxModule.taxSummary(fd || {}) : null; } catch(e) { t = null; }
-  if (!t || !t.strategies.length) return 'Not calculated';
-  return 'Current tax liability '+fmtUSD(t.liability)+'. '
-    + t.strategies.map(r => r.label+' saves '+fmtUSD(r.savings)+' ('+fmtPct(r.savings / Math.max(1, t.liability))+')').join('; ')+'.'
-    + (t.scenarios.length ? ' '+t.scenarios.map(x => x.label+': '+x.strategy+' saves '+fmtUSD(x.savings)).join('; ')+'.' : '')
-    + (t.suggestions.length ? ' Suggestions: '+t.suggestions.join(' ') : '');
 }
 async function goToIntakeSection(sectionId) {
   await flushStageSaves();
@@ -1514,7 +1510,8 @@ function wireButtons() {
     const b = e.target.closest('[data-stage]');
     if (b && !b.disabled && !b.classList.contains('active')) goToStage(b.dataset.stage);
   });
-  document.getElementById('tax-continue-btn').addEventListener('click', () => goToStage('prioritizer'));
+  document.getElementById('export-tax-btn').addEventListener('click', () => goToStage('tax'));
+  document.getElementById('export-include-tax').addEventListener('change', e => { includeTaxInExport = e.target.checked; buildPDFPreview(); });
   document.getElementById('tax-detail-btn').addEventListener('click', () => openTaxDetail(taxDetailState.scenario, taxDetailState.block));
   document.getElementById('taxdetail-back-btn').addEventListener('click', () => openTaxStep());
 
@@ -2093,6 +2090,7 @@ async function openIntakeById(clientId, clientName, opts) {
     pItems = []; pCurrentId = null; pClientFormData = {}; pClientId = null;
     aiItems = [];
     taxDetailState = {scenario:null, block:'base', clientId:null};
+    includeTaxInExport = false;
   }
   currentClientId = clientId; currentClientName = clientName;
   if (!(opts && opts.keepSection && sameClient)) cfSection = 0;
@@ -3330,7 +3328,7 @@ async function cfSubmit() {
   clearTimeout(autosaveTimer);
   await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
   pSessionComplete = true;
-  openTaxStep();
+  goDirectToPrioritizer(currentClientId);
 }
 
 function updatePlanBtnLabel() {
@@ -3403,7 +3401,7 @@ async function runAnalysisBackground(clientId) {
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) return;
-    aiItems = JSON.parse(match[0]);
+    aiItems = JSON.parse(match[0]).filter(i => i && !MEETING2_TERMS.test((i.title||'') + ' ' + (i.rationale||'')));
     await saveAIItems(clientId);
   } catch(e) { console.error('Background analysis failed:', e); }
 }
@@ -3415,7 +3413,7 @@ async function runAnalysisAndPopulate(clientId) {
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('No JSON');
-    aiItems = JSON.parse(match[0]);
+    aiItems = JSON.parse(match[0]).filter(i => i && !MEETING2_TERMS.test((i.title||'') + ' ' + (i.rationale||'')));
     pItems = aiItems.map(item=>({id:++pItemCounter, text:item.title, status:null, notes:''}));
     await saveAIItems(clientId);
     // Update pCurrentId after save
@@ -3518,7 +3516,6 @@ Federal tax liability: ${cur(fd.federal_tax_liability)} | State tax liability: $
 Ideal tax paid: ${fd.tax_planning_rating ? '$'+Number(fd.ideal_tax_amount||0).toLocaleString()+' ('+(fd.ideal_tax_slider||0)+'% of current) | Tax planning focus rating: '+fd.tax_planning_rating+'/5 (5 = highly focused on reducing tax)' : 'N/A'}
 Projected income (current year): ${cur(fd.projected_income)}
 Income notes: ${yn(fd.income_notes)}
-Tax strategy estimates (PFO calculator): ${buildTaxSummaryPrompt(fd)}
 
 NET WORTH & ASSETS
 Total net worth: ${cur(fd.net_worth)}
@@ -3587,7 +3584,8 @@ CRITICAL RULES:
 1. READ ALL THE DATA. Every number, gap, concern, and stated goal above must inform your output.
 2. CENTER THE CLIENT'S OWN WORDS. The "Goals & Concerns" section contains what the client said in their own words — treat those as ground truth about what matters most to them. Your focus areas should visibly connect to those stated priorities.
 3. BE HYPER-SPECIFIC. Do not write generic titles. Reference their actual situation — income level, specific gaps, stated concerns, business type, estate, goals, life stage. "Tax Strategy Review" is too vague. "Tax Minimization Strategy — $${fd.effective_tax_rate_display ? fd.effective_tax_rate_display : 'high'} effective rate with no advanced strategies implemented" is correct.
-4. ONLY INCLUDE WHAT APPLIES. No real estate → no cost segregation. Not a business owner → no business items. Young client with small estate → no estate tax flag.
+4. KEEP IT BALANCED. Cover the client's whole picture (cash flow, retirement, investments, risk/insurance, estate, business, tax) in proportion to their data and stated goals. At most 3 tax-related items. Do NOT name specific tax strategies, products or programs (e.g. film, solar, LEAP, leveraged charitable gifts, DB plans) or quote estimated tax savings; specific strategies are reviewed in a later meeting.
+4b. ONLY INCLUDE WHAT APPLIES. No real estate → no cost segregation. Not a business owner → no business items. Young client with small estate → no estate tax flag.
 5. COVER THE REAL GAPS. Outdated will → flag it. High effective tax rate with no strategies → top priority. Life insurance not reviewed in years → flag it. Dissatisfied advisors → flag it. Disability gap visible from their income and stated coverage → flag it.
 6. FOR BUSINESS OWNERS: include 3–6 business-specific priorities based on actual numbers (revenue, profit, exit timeline, key person risk, employee benefits, buy-sell, tax strategy).
 7. CONNECT TO LIFE GOALS. Where possible, frame priorities in terms of what they enable for the client (e.g., "Retirement Readiness — gap between current trajectory and stated goal to retire at age ${fd.retirement_target_age || 'target'}").
@@ -3605,7 +3603,7 @@ async function runAnalysis(clientId) {
     const text = data.content?.[0]?.text||'';
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('No JSON');
-    aiItems = JSON.parse(match[0]);
+    aiItems = JSON.parse(match[0]).filter(i => i && !MEETING2_TERMS.test((i.title||'') + ' ' + (i.rationale||'')));
     // Save AI items to intake record immediately
     await saveAIItems(clientId || currentClientId);
     document.getElementById('analysis-loading-panel').style.display='none';
@@ -4369,9 +4367,9 @@ async function generatePlanWithAI() {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     const parsed = JSON.parse(match[0]);
-    planData.goals = (parsed.goals || []).map(t => ({id: uid(), text: t}));
-    planData.friction = (parsed.friction || []).map(t => ({id: uid(), text: t}));
-    planData.actions = (parsed.actions || []).map(t => ({id: uid(), text: t}));
+    planData.goals = keepMeeting1Items(parsed.goals).map(t => ({id: uid(), text: t}));
+    planData.friction = keepMeeting1Items(parsed.friction).map(t => ({id: uid(), text: t}));
+    planData.actions = keepMeeting1Items(parsed.actions).map(t => ({id: uid(), text: t}));
     planData.accomplished = planData.accomplished || [];
     await savePlanData();
     renderPlanView(false);
@@ -4386,8 +4384,11 @@ function buildPlanPrompt() {
   const fd = pClientFormData || currentFormData || {};
   const critItems = pItems.filter(i => i.status === 'critical').map((i,n) => `${n+1}. ${i.text}`).join('\n');
   const optItems  = pItems.filter(i => i.status === 'optional').map((i,n) => `${n+1}. ${i.text}`).join('\n');
+  const money = v => { const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g,'')); return n ? '$'+Math.round(n).toLocaleString('en-US') : 'N/A'; };
+  const yn = v => (Array.isArray(v) ? v.join(', ') : v) || 'N/A';
+  const taxPaid = ['federal_tax_liability','state_tax_liability','tax_liability'].reduce((a,k)=>a+(parseFloat(String(fd[k]||'').replace(/[^0-9.-]/g,''))||0),0);
 
-  return `You are a senior financial advisor generating a concise client action plan for ${fd.fname||''} ${fd.lname||''} based on their financial intake and prioritized focus areas.
+  return `You are a senior financial advisor writing a concise first-meeting action plan for ${fd.fname||''} ${fd.lname||''}, based on their intake and prioritized focus areas.
 
 CRITICAL FOCUS AREAS:
 ${critItems || 'None set'}
@@ -4395,16 +4396,18 @@ ${critItems || 'None set'}
 OPTIONAL FOCUS AREAS:
 ${optItems || 'None set'}
 
-KEY FINANCIAL FACTS:
-- Income: ${fd.total_income_display ? '$'+Number(fd.total_income_display).toLocaleString() : 'N/A'} | Tax liability: ${(() => { const n = ['federal_tax_liability','state_tax_liability','tax_liability'].reduce((a,k)=>a+(parseFloat(String(fd[k]||'').replace(/[^0-9.-]/g,''))||0),0); return n ? '$'+n.toLocaleString() : 'N/A'; })()}${fd.tax_planning_rating ? ' | Tax planning focus: '+fd.tax_planning_rating+'/5' : ''}
-- Net worth: ${fd.net_worth ? '$'+(parseFloat(String(fd.net_worth).replace(/[^0-9.-]/g,''))||0).toLocaleString() : 'N/A'}
-- Business owner: ${fd.has_business === 'Yes' ? 'Yes' : 'No'}
-- Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
+KEY FACTS (use what is relevant; do not force every area):
+- Income: ${money(fd.total_income_display)} | Taxes paid last year: ${taxPaid ? money(taxPaid) : 'N/A'} | Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
+- Net worth: ${money(fd.net_worth)}
+- Retirement: target age ${fd.retirement_target_age || 'N/A'} | on track: ${yn(fd.retirement_on_track)} | maximizing contributions: ${yn(fd.max_contributions)} | income needed: ${money(fd.retirement_income_need)}
+- Protection: life insurance ${yn(fd.has_life_ins)}${fd.life_ins_coverage ? ' ('+money(fd.life_ins_coverage)+')' : ''} | adequate: ${yn(fd.life_ins_adequate)} | long-term care plan: ${yn(fd.has_ltc_thought)}
+- Estate: will ${yn(fd.has_will)}${fd.will_last_updated ? ' (reviewed '+fd.will_last_updated+')' : ''} | trust ${yn(fd.has_trust)} | beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
+- Business owner: ${fd.has_business === 'Yes' ? 'Yes' + (fd.business_entity ? ' ('+fd.business_entity+')' : '') + (fd.biz_exit_plan ? ' | exit plan: '+fd.biz_exit_plan : '') : 'No'}
 - Goals: ${fd.financial_goals || 'N/A'}
 - Biggest concerns: ${fd.biggest_concerns || fd.biggest_concern || 'N/A'}
 - Building toward: ${fd.building_toward || 'N/A'}
 
-Generate a professional client action plan with exactly three columns. Each item should be a short, specific, actionable phrase (10–20 words max). Generate 4–7 items per column.
+Write three columns. Each item is a short, specific phrase (10–20 words). 4–6 items per column.
 
 Return ONLY valid JSON (no markdown, no explanation):
 {
@@ -4413,10 +4416,21 @@ Return ONLY valid JSON (no markdown, no explanation):
   "actions": ["item1","item2",...]
 }
 
-Goals & Dreams: what the client truly wants for their life — aspirational, big-picture, emotionally resonant. These should reflect the client's hopes and vision (financial freedom, legacy, lifestyle, family, purpose), NOT advisor action items. Think: what is in the client's head when they imagine their ideal future? Keep these high-level and personal.
-Friction Points & Opportunities: specific financial obstacles, gaps, or underutilized opportunities visible in their profile and priorities. These are detailed and factual.
-Action Items: concrete next steps for the advisor and client to take together, derived from the critical focus areas. Specific and actionable.`;
+Goals & Dreams: what the client wants for their life, in their own voice where possible (freedom, family, legacy, lifestyle, purpose). Aspirational, not advisor tasks.
+Friction Points & Opportunities: specific obstacles, gaps or under-used opportunities visible in their profile and priorities. Factual.
+Action Items: concrete next steps for the advisor and client, led by the critical focus areas.
+
+BALANCE RULES:
+1. Spread each column across the client's real planning areas (cash flow, retirement, investments, protection, estate, business, tax), weighted by their priorities and concerns. No single area may take more than 2 items in a column.
+2. Tax belongs in the plan but must not dominate it: at most 2 tax items per column.
+3. Do NOT name specific tax strategies, products or programs (e.g. film, solar, LEAP, leveraged charitable gifts, defined benefit plans, donor-advised funds) and do NOT quote projected tax savings. Strategy specifics are presented in a later meeting; refer to them generally (e.g. "Review proactive tax planning options").
+4. Use each dollar figure at most once across the whole plan.
+5. Skip areas that don't apply (e.g. no business → no business items).`;
 }
+
+// Strategy names and savings projections are for meeting 2; drop any plan item that names one anyway.
+const MEETING2_TERMS = /\b(LEAP|film (?:tax|credit|investment|production|strateg)|solar (?:tax|credit|investment|strateg|project)|tax[- ]credit purchase)\w*/i;
+function keepMeeting1Items(items) { return (items || []).filter(t => typeof t === 'string' && t.trim() && !MEETING2_TERMS.test(t)); }
 
 function uid() {
   return Math.random().toString(36).slice(2,10);
@@ -4626,6 +4640,8 @@ function renderPlanColumn(key) {
 
 
 function buildPDFPreview() {
+  const taxBox = document.getElementById('export-include-tax');
+  if (taxBox) taxBox.checked = includeTaxInExport;
   const client = currentClientName||'—';
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   // Update subtitle

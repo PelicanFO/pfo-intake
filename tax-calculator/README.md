@@ -33,8 +33,8 @@ and Priorities. The code is in `src/site/` (`tax-step.js`, `tax-step.css`).
 - **States:** Louisiana; Texas and the other states with no wage tax (AK, FL, NV, NH, SD, TN, WY);
   any other state asks for an approximate flat rate. That rate is pre-filled from prior-year state
   tax ÷ income.
-- **Flows through:** the Review & Share PDF and email include a Tax Strategy Estimates table, and
-  the priorities prompt includes the estimates.
+- **Order:** step 5, after Review & share. Review & Share includes a Tax Strategy Estimates table only when "Include tax strategy estimates" is ticked;
+  the estimates are kept out of the priorities and action-plan prompts (meeting 2 material).
 - **Detailed Results** shows each strategy without vs. with, how it's sized, the contribution, the
   tax, and an expandable full calculation.
 
