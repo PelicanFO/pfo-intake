@@ -821,7 +821,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.3.1'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.3.2'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -2071,6 +2071,7 @@ const FORM_SECTIONS = [
       {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'Share anything — retirement, business exit, legacy, family, lifestyle...'},
       {id:'biggest_concerns',label:'What are your biggest financial concerns?',type:'textarea',placeholder:''},
       {id:'building_toward',label:'What are you ultimately building toward?',type:'textarea',placeholder:''},
+      {id:'one_year_to_live',label:'If you only had 1 year to live, what would you be doing?',type:'textarea',placeholder:''},
       {id:'time_money_aligned',label:'Are the way you spend your time and money aligned with these goals?',type:'textarea',placeholder:''},
       {id:'what_else_needed',label:'What else needs to happen to make these goals possible?',type:'textarea',placeholder:''},
       {id:'additional_info',label:'Is there anything else that is important for us to know about you?',type:'textarea',placeholder:''},
@@ -3571,6 +3572,7 @@ GOALS & CONCERNS (in client's own words)
 Financial goals: ${yn(fd.financial_goals)}
 Biggest concerns: ${yn(fd.biggest_concerns)}
 Building toward: ${yn(fd.building_toward)}
+If only 1 year to live, would be doing: ${yn(fd.one_year_to_live)}
 Time/money aligned with goals: ${yn(fd.time_money_aligned)}
 What else needs to happen: ${yn(fd.what_else_needed)}
 Additional info: ${yn(fd.additional_info)}`;
@@ -4406,6 +4408,7 @@ KEY FACTS (use what is relevant; do not force every area):
 - Goals: ${fd.financial_goals || 'N/A'}
 - Biggest concerns: ${fd.biggest_concerns || fd.biggest_concern || 'N/A'}
 - Building toward: ${fd.building_toward || 'N/A'}
+- If only 1 year to live: ${fd.one_year_to_live || 'N/A'}
 
 Write three columns. Each item is a short, specific phrase (10–20 words). 4–6 items per column.
 
@@ -5089,6 +5092,7 @@ const CSV_FORM_FIELDS = [
   {id:'wealth_mgr_satisfied',label:'WM Satisfaction'},{id:'wealth_mgr_gaps',label:'WM Gaps'},
   {id:'advisory_gaps',label:'Underserved Areas'},{id:'financial_goals',label:'Financial Goals'},
   {id:'biggest_concern',label:'Biggest Concern'},{id:'success_definition',label:'Success Definition'},
+  {id:'one_year_to_live',label:'If Only 1 Year to Live'},
   {id:'additional_info',label:'Additional Info'},{id:'comments',label:'Comments'},
 ]
 
