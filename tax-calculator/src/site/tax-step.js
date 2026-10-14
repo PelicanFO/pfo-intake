@@ -234,6 +234,8 @@ export function renderTaxStep(root, fd, handlers) {
     t = setTimeout(() => { draw(); handlers.save({ ...saved }); }, 250);
   });
   root.onclick = (e) => {
+    const g = e.target.closest('[data-tx-rate]');
+    if (g) { growthRate = +g.dataset.txRate; draw(); return; }
     const b = e.target.closest('[data-tx-block]');
     if (b) { saved.block = b.dataset.txBlock; draw(); handlers.save({ ...saved }); return; }
     const ap = e.target.closest('[data-tx-apply]');
@@ -338,7 +340,8 @@ function resultsHTML(a, saved, tips = []) {
     return `<button type="button" class="tx-row" data-tx-detail="${r.id}">
       <div class="tx-row-main"><div class="tx-row-title">${esc(r.label)}${best && best.id === r.id ? '<span class="tx-best">Best</span>' : ''}</div>
         <div class="tx-row-desc">${esc(STRATEGY_BLURB[r.id])}</div>
-        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span>${r.r.rows.investmentAccount > 0.5 ? `<span>Investment account ${money(r.r.rows.investmentAccount)} → ${money(futureValue(r.r.rows.investmentAccount, 0.07, 20))} in 20 years at 7%</span>` : ''}</div>
+        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span></div>
+        ${r.r.rows.investmentAccount > 0.5 ? `<div class="tx-row-growth">Investment account ${money(r.r.rows.investmentAccount)} → <b>${money(futureValue(r.r.rows.investmentAccount, growthRate, 20))}</b> in 20 years at ${pctOf(growthRate)}</div>` : ''}
         ${note ? `<div class="tx-row-note">${esc(simplifyWarning(note))}</div>` : ''}</div>
       <div class="tx-row-value"><div class="tx-sav-label">${neg ? 'Added cost' : 'Savings'}</div>
         <div class="tx-sav ${neg ? 'neg' : ''}">${money(Math.abs(r.savings))}</div>
@@ -347,7 +350,13 @@ function resultsHTML(a, saved, tips = []) {
         <div class="tx-row-cta">Details →</div></div></button>`;
   }).join('');
 
-  return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}${tipHTML}
+  const leapBest = rows.find((r) => r.applies && r.r.rows.investmentAccount > 0.5);
+  const longTerm = leapBest ? growthHTML(leapBest.r, {
+    title: 'Long-term value',
+    sub: `With ${leapBest.label}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
+    cls: 'tx-longterm',
+  }) : '';
+  return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}${longTerm}${tipHTML}
     <section class="tx-card"><div class="tx-card-head"><h3>Strategy comparison</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
       <div class="tx-list">${cards}</div>
     </section>`;
@@ -503,15 +512,17 @@ const GROWTH_YEARS = [10, 15, 20];
 export const futureValue = (amount, rate, years) => amount * Math.pow(1 + rate, years);
 export const futureValueOfAnnual = (amount, rate, years) => (rate ? amount * (Math.pow(1 + rate, years) - 1) / rate : amount * years);
 
-function growthHTML(res) {
+function growthHTML(res, opts = {}) {
   const account = res.rows.investmentAccount || 0;
   if (account <= 0.5) return '';
   const savings = Math.max(0, res.savings);
   const r = growthRate;
+  const title = opts.title || 'Growth over time';
+  const sub = opts.sub || `The LEAP investment account and this year's tax savings, invested at ${pctOf(r)} a year.`;
   const row = (label, today, fn, cls = '') => `<tr class="${cls}"><th scope="row">${esc(label)}</th><td>${today === null ? '' : money(today)}</td>${GROWTH_YEARS.map((y) => `<td>${money(fn(y))}</td>`).join('')}</tr>`;
-  return `<section class="tx-card"><div class="tx-card-head"><h3>Growth over time</h3>
+  return `<section class="tx-card ${opts.cls || ''}"><div class="tx-card-head"><h3>${esc(title)}</h3>
       <div class="tx-pills tx-pills-sm">${GROWTH_RATES.map((g) => `<button type="button" data-tx-rate="${g}" aria-selected="${Math.abs(g - r) < 1e-9}">${pctOf(g)}</button>`).join('')}</div></div>
-    <p class="tx-card-sub">The LEAP investment account and this year's tax savings, invested at ${pctOf(r)} a year.</p>
+    <p class="tx-card-sub">${esc(sub)}</p>
     <div class="tx-table-wrap"><table class="tx-compare tx-growth"><thead><tr><th></th><th>Today</th>${GROWTH_YEARS.map((y) => `<th>${y} years</th>`).join('')}</tr></thead><tbody>
       ${row('Investment account', account, (y) => futureValue(account, r, y))}
       ${savings ? row('Tax savings, invested', savings, (y) => futureValue(savings, r, y)) : ''}

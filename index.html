@@ -822,7 +822,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.4.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.4.1'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1958,6 +1958,11 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'tax_strategies_detail',label:'Which strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, backdoor Roth...'},
           {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning about tax strategies applicable to your financial profile?',type:'radio',options:['Yes','No','Possibly']},
         ]},
+      {id:'charitable_giving',label:'Do you make charitable contributions of more than $30,000 a year?',type:'radio',options:['Yes','No'],
+        follow:[
+          {show:'Yes',id:'charitable_amount',label:'Approximate annual giving',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'charitable_strategy',label:'How do you currently give?',type:'multicheck',options:['Cash / check / card','Appreciated stock','Donor-advised fund','Charitable trust']},
+        ]},
     ]
   },
 
@@ -1975,6 +1980,7 @@ const FORM_SECTIONS = [
         ]},
 
       {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'disabilitynotes',placeholder:'e.g. 60%, employer-sponsored plan, private policy...'},
+      {id:'aging_independence',label:'How will you remain independent as you age?',type:'radio',options:['Assets','Kids','Long term care policy',"I don't know"]},
     ]
   },
   {
@@ -2353,8 +2359,8 @@ function renderField(f, qNum) {
   else if (f.type==='percent') inner=`<div class="percent-wrap"><input type="text" id="cf-${f.id}" placeholder="${esc(f.placeholder||'0')}" inputmode="numeric" oninput="saveField('${f.id}',this.value)"/></div>`;
   else if (f.type==='textarea') inner=`<textarea id="cf-${f.id}" placeholder="${esc(f.placeholder||'')}" rows="3" oninput="saveField('${f.id}',this.value)"></textarea>`;
   else if (f.type==='select'){const opts=f.options.map(o=>`<option value="${esc(o)}">${o||'Select…'}</option>`).join('');inner=`<select id="cf-${f.id}" onchange="saveField('${f.id}',this.value)">${opts}</select>`;}
-  else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="radioToggle(event,'${f.id}','${esc(o).replace(/'/g,"\\'")}')"><input type="radio" name="cf-${f.id}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div>`;
-  else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="handleCheckCard(event,'${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}','${esc(o).replace(/'/g,String.fromCharCode(92)+"'")}')" ><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onclick="event.stopPropagation()"/> ${esc(o)}</label>`).join('')}</div>`;
+  else if (f.type==='radio') inner=`<div class="radio-group" id="rg-${f.id}">${f.options.map(o=>`<label class="radio-item" id="rl-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="radioToggle(event,'${f.id}','${esc(jsStr(o))}')"><input type="radio" name="cf-${f.id}" value="${esc(o)}"/> ${esc(o)}</label>`).join('')}</div>`;
+  else if (f.type==='multicheck') inner=`<div class="multi-check-grid">${f.options.map(o=>`<label class="check-card" id="cc-${f.id}-${o.replace(/[^a-z0-9]/gi,'_')}" onclick="handleCheckCard(event,'${f.id}','${o.replace(/[^a-z0-9]/gi,'_')}','${esc(jsStr(o))}')" ><input type="checkbox" name="cf-${f.id}" value="${esc(o)}" onclick="event.stopPropagation()"/> ${esc(o)}</label>`).join('')}</div>`;
   // Group follow fields by their show value — all with same show go in ONE container
   let followHtml = '';
   if (f.follow) {
@@ -3524,6 +3530,7 @@ Pension: ${yn(fd.has_pension)} | Value: ${cur(fd.pension_value)} | Monthly: ${cu
 Annuities: ${yn(fd.has_annuities)}${fd.annuity_type?' ('+arr(fd.annuity_type)+')':''} | Total value: ${cur(fd.annuity_total_value)} | Annual benefit: ${cur(fd.annuity_annual_benefit)} | Satisfied: ${yn(fd.annuity_satisfied)}
 
 INSURANCE
+How they will remain independent as they age: ${yn(fd.aging_independence)}
 Life insurance: ${yn(fd.has_life_ins)}${fd.life_ins_types?' ('+arr(fd.life_ins_types)+')':''} | Coverage: ${cur(fd.life_ins_coverage)} | Adequate: ${yn(fd.life_ins_adequate)}
 Disability insurance: ${yn(fd.has_disability_ins)}${fd.disability_coverage?' — monthly benefit: '+cur(fd.disability_coverage):''}
 Has insurance agent: ${yn(fd.has_insurance_agent)}${fd.insurance_agent_detail?' ('+fd.insurance_agent_detail+')':''}
@@ -4383,7 +4390,7 @@ KEY FACTS (use what is relevant; do not force every area):
 - Income: ${money(fd.total_income_display)} | Taxes paid last year: ${taxPaid ? money(taxPaid) : 'N/A'} | Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
 - Net worth: ${money(fd.net_worth)}
 - Retirement: target age ${fd.retirement_target_age || 'N/A'} | on track: ${yn(fd.retirement_on_track)} | maximizing contributions: ${yn(fd.max_contributions)} | income needed: ${money(fd.retirement_income_need)}
-- Protection: life insurance ${yn(fd.has_life_ins)}${fd.life_ins_coverage ? ' ('+money(fd.life_ins_coverage)+')' : ''} | adequate: ${yn(fd.life_ins_adequate)}
+- Independence as they age: ${yn(fd.aging_independence)} | Protection: life insurance ${yn(fd.has_life_ins)}${fd.life_ins_coverage ? ' ('+money(fd.life_ins_coverage)+')' : ''} | adequate: ${yn(fd.life_ins_adequate)}
 - Estate: will ${yn(fd.has_will)}${fd.will_last_updated ? ' (reviewed '+fd.will_last_updated+')' : ''} | trust ${yn(fd.has_trust)} | beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
 - Business owner: ${fd.has_business === 'Yes' ? 'Yes' + (fd.business_entity ? ' ('+fd.business_entity+')' : '') + (fd.biz_exit_plan ? ' | exit plan: '+fd.biz_exit_plan : '') : 'No'}
 - Goals: ${fd.financial_goals || 'N/A'}
@@ -4890,34 +4897,35 @@ async function sendEmail() {
     }).join('; ');
     return v.join(', ') || '—';
   };
+  // Compact client profile: plain rows with minimal styling (the email service caps message size at ~50 KB).
   let formSectionsHtml = '';
   if (fd && Object.keys(fd).length) {
-    formSectionsHtml += '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
-      +'<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:16px;font-family:Arial,sans-serif;">Client profile</div>';
+    const lab = 'padding:2px 10px 2px 0;color:#888;vertical-align:top;width:45%;';
+    let rows = '';
     FORM_SECTIONS.forEach(sec => {
-      const relevant = answeredFields(sec.fields, fd);
+      const relevant = answeredFields(sec.fields, fd).filter(f => !NWS_CALC_TYPES.includes(f.type));
       if (!relevant.length) return;
-      formSectionsHtml += '<div style="margin-bottom:12px;">'
-        +'<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:Arial,sans-serif;margin-bottom:6px;">'+sec.title+'</div>'
-        +'<table style="width:100%;border-collapse:collapse;">';
+      rows += '<tr><td colspan="2" style="padding:12px 0 3px;color:#aaa;font-size:10px;letter-spacing:.08em;text-transform:uppercase;">'+escPlain(sec.title)+'</td></tr>';
       relevant.forEach(f => {
-        if (f.type === 'nwsheet' || NWS_CALC_TYPES.includes(f.type)) {
-          formSectionsHtml += '<tr><td colspan="2" style="padding:3px 0;">'+nwsSummaryBlockWithTitle(f, fd, 'Arial,sans-serif')+'</td></tr>';
+        if (f.type === 'nwsheet') {
+          const t = nwsTotals((fd.nw_sheet || []).filter(nwsRowHasData));
+          rows += '<tr><td style="'+lab+'">Financial statement</td><td>Assets '+fmtUSD(t.value)+' · Debt '+fmtUSD(t.debt)+' · Net worth '+fmtUSD(t.equity)+'</td></tr>';
           return;
         }
-        formSectionsHtml += '<tr><td style="padding:3px 0;font-size:12px;color:#888;font-family:Arial,sans-serif;width:180px;vertical-align:top;">'+escPlain(f.label)+'</td>'
-          +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(displayAnswer(f,fd[f.id])))+'</td></tr>';
+        rows += '<tr><td style="'+lab+'">'+escPlain(f.label)+'</td><td>'+escPlain(fmtVal(displayAnswer(f,fd[f.id])))+'</td></tr>';
         if (f.follow) f.follow.forEach(ff => {
-          if (fd[ff.id]) formSectionsHtml += '<tr><td style="padding:3px 0 3px 12px;font-size:12px;color:#aaa;font-family:Arial,sans-serif;">↳ '+escPlain(ff.label)+'</td>'
-            +'<td style="padding:3px 0;font-size:12px;color:#1a1a18;font-family:Arial,sans-serif;">'+escPlain(fmtVal(displayAnswer(ff,fd[ff.id])))+'</td></tr>';
+          if (fd[ff.id]) rows += '<tr><td style="'+lab+'padding-left:12px;color:#aaa;">↳ '+escPlain(ff.label)+'</td><td>'+escPlain(fmtVal(displayAnswer(ff,fd[ff.id])))+'</td></tr>';
         });
       });
-      formSectionsHtml += '</table></div>';
     });
-    formSectionsHtml += '</div>';
+    formSectionsHtml = '<div style="margin-top:24px;padding-top:20px;border-top:2px solid #f0ede6;">'
+      +'<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:6px;font-family:Arial,sans-serif;">Client profile</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;color:#1a1a18;">'+rows+'</table></div>';
   }
+  const EMAIL_LIMIT = 45000; // bytes, leaving headroom under EmailJS's 50 KB variable limit
+  const profileNote = '<div style="margin-top:24px;padding-top:16px;border-top:2px solid #f0ede6;font-size:12px;color:#888;font-family:Arial,sans-serif;">The full client profile is in the PDF from Review &amp; Share.</div>';
 
-  const htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
+  const buildBody = profileHtml => '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
     +'<div style="max-width:620px;margin:0 auto;padding:32px 16px;">'
     +'<div style="background:#0f2535;border-radius:12px 12px 0 0;padding:24px 28px;display:flex;align-items:center;gap:16px;">'
     +'<div><div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Pelican Family Office</div>'
@@ -4935,10 +4943,12 @@ async function sendEmail() {
     +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
     +buildEmailPlanHTML()
     +buildTaxSummaryHTML(true)
-    +formSectionsHtml
+    +profileHtml
     +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>'
     +'</div></div></body></html>';
+  let htmlBody = buildBody(formSectionsHtml);
+  if (new Blob([htmlBody]).size > EMAIL_LIMIT) htmlBody = buildBody(profileNote);
 
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
     // Mailto fallback — plain text only (mailto can\'t send HTML)
@@ -4987,8 +4997,9 @@ async function sendEmail() {
     status.style.color = 'var(--green)';
     document.getElementById('email-send-btn').disabled = false;
   } catch(e) {
-    console.error(e);
-    status.textContent = 'Send failed — check console.';
+    console.error('Email send failed:', e);
+    const why = (e && (e.text || e.message)) || (e && e.status ? 'error ' + e.status : 'unknown error');
+    status.textContent = 'Send failed: ' + why;
     status.style.color = 'var(--red-s)';
     document.getElementById('email-send-btn').disabled = false;
   }
@@ -5041,7 +5052,7 @@ const CSV_FORM_FIELDS = [
   {id:'tax_pain',label:'Tax Frustration'},
   {id:'tax_strategies_tried',label:'Advanced Tax Strategies'},{id:'tax_strategies_detail',label:'Tax Strategies Detail'},
   {id:'charitable_giving',label:'Charitable Giving'},{id:'charitable_amount',label:'Annual Giving'},
-  {id:'charitable_strategy',label:'Giving Strategy'},
+  {id:'charitable_strategy',label:'Giving Strategy'},{id:'aging_independence',label:'Independence as They Age'},
   {id:'retirement_target_age',label:'Target Retirement Age'},
   {id:'retirement_income_need',label:'Retirement Income Need'},
   {id:'retirement_accts',label:'Retirement Accounts'},{id:'max_contributions',label:'Maximizing Contributions'},
@@ -5272,6 +5283,8 @@ async function confirmDelete(){
 // ══════════════════════════════════
 let toastTimer;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
+// Escape a value for use inside a single-quoted JS string in an inline handler (apply esc() after).
+function jsStr(str){return String(str||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // ══════════════════════════════════
 //  INIT
