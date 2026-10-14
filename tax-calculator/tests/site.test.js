@@ -1,6 +1,6 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
-import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual } from '../src/site/tax-step.js';
+import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
@@ -28,7 +28,7 @@ suite('Site: DB plan and Roth conversion suggestions', (t) => {
   const kinds = (fd) => suggestions(fd).map((x) => x.kind).join(',');
   t.equal(kinds({ ...LA, w2_income: '400000' }), '', 'W-2 only, no retirement balance: nothing to suggest');
   const db = suggestions({ ...LA, business_income: '300,000' }).find((x) => x.kind === 'db');
-  t.ok(db && db.amount === 150000 && db.savings > 30000, `business owner gets a DB suggestion (${db && db.amount}, ${db && Math.round(db.savings)})`);
+  t.ok(db && db.amount >= 200000 && db.amount <= 270000 && db.savings > 30000, `business owner gets a DB suggestion (${db && db.amount}, ${db && Math.round(db.savings)})`);
   t.equal(kinds({ ...LA, business_income: '300000', __tax: { dbContribution: 100000 } }), '', 'no DB suggestion once a contribution is entered');
   t.equal(kinds({ ...LA, business_income: '30000' }), '', 'small business income: no DB suggestion');
   // Retiree in a low bracket with a large IRA: converting on its own beats 35% on later withdrawals.
@@ -38,6 +38,21 @@ suite('Site: DB plan and Roth conversion suggestions', (t) => {
   const h = suggestions({ ...LA, age: '55', w2_income: '900000', nw_view: 'simple', nw_tax_deferred: '600000' }).find((x) => x.kind === 'roth');
   t.ok(h && /paired with/.test(h.text), `high earner gets a paired Roth suggestion (${h && h.text})`);
   t.equal(kinds({ ...LA, w2_income: '400000', nw_view: 'simple', nw_tax_deferred: '10000' }), '', 'tiny balance: no Roth suggestion');
+});
+
+suite('Site: DB and Roth suggestions scale with the client', (t) => {
+  const dbAt = (fd) => (suggestions(fd).find((x) => x.kind === 'db') || {}).amount || 0;
+  t.equal(dbMaxForAge('45'), 260000, 'front-loaded DB limit (45–49)');
+  t.equal(dbMaxForAge(''), 340000, 'no age: sized as 50–54');
+  t.ok(dbAt({ ...LA, age: '45', business_income: '150000' }) <= 150000 * 0.9, 'DB stays within 90% of business income');
+  const mid = dbAt({ ...LA, age: '58', business_income: '1000000' });
+  const big = dbAt({ ...LA, age: '62', business_income: '3000000' });
+  t.ok(mid > 300000 && big > mid && big <= dbMaxForAge('62'), `larger, older owners get larger DB contributions (${mid}, ${big})`);
+  const rothAt = (fd) => (suggestions(fd).find((x) => x.kind === 'roth') || {}).amount || 0;
+  const r1 = rothAt({ ...LA, age: '60', w2_income: '900000', nw_view: 'simple', nw_tax_deferred: '600000' });
+  const r2 = rothAt({ ...LA, age: '60', w2_income: '2000000', nw_view: 'simple', nw_tax_deferred: '5000000' });
+  t.ok(r2 > 1000000 && r2 > r1, `Roth conversions go past $1M for large clients (${r1}, ${r2})`);
+  t.ok(r2 <= 4000000, 'one year is capped at 2× income');
 });
 
 suite('Site: LEAP growth projection', (t) => {

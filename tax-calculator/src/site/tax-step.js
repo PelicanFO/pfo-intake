@@ -123,18 +123,68 @@ export function taxDeferredBalance(fd = {}) {
 const bestSavings = (blk) => Math.max(0, ...SCENARIOS.filter((s) => s.id !== 'none').map((s) => blk.scenarios[s.id].savings));
 const bestLabel = (blk) => SCENARIOS.filter((s) => s.id !== 'none').reduce((b, s) => (blk.scenarios[s.id].savings > blk.scenarios[b.id].savings ? s : b), SCENARIOS[1]).label;
 const round = (x, step) => Math.round(x / step) * step;
+const floorTo = (x, step) => Math.floor(x / step) * step;
+
+// Sizing knobs for the suggestions. Amounts scale with the client; these only bound them.
+export const SIZING = {
+  // Largest first-year DB (cash balance) contribution for one participant, by age, with the funding
+  // front-loaded (about 1.5× a level annual contribution under the 2026 §415(b) benefit limit).
+  // Actual figures come from the plan actuary.
+  dbMaxByAge: [[40, 150000], [45, 200000], [50, 260000], [55, 340000], [60, 430000], [65, 500000], [Infinity, 525000]],
+  dbAgeUnknown: 55,          // size as if 50–54 when the intake has no age
+  dbShareOfBusiness: 0.9,    // the plan is funded from business income
+  dbMin: 25000,
+  rothMin: 25000,
+  rothYearCap: { floor: 1000000, incomeMultiple: 2 }, // one year's conversion: up to max($1M, 2× income)
+  // Keep adding while each extra dollar still saves at least this much:
+  dbMarginalFloor: 0.12,     // DB: 12¢ of tax per extra dollar contributed
+  rothMarginalFloor: 0.05,   // Roth paired with a strategy: 5¢ per extra dollar converted
+};
+
+export function dbMaxForAge(age) {
+  const a = num(age) || SIZING.dbAgeUnknown - 1;
+  return SIZING.dbMaxByAge.find(([below]) => a < below)[1];
+}
+
+/**
+ * Walks amounts upward and keeps the largest one that is still efficient: each added dollar must save
+ * at least `floor` (the first pick is judged on its average rate). Returns { c, s } or null.
+ */
+function largestEfficient(amounts, savingsAt, floor) {
+  let pick = null;
+  for (const c of amounts) {
+    const s = savingsAt(c);
+    const rate = pick ? (s - pick.s) / (c - pick.c) : s / c;
+    if (rate >= floor) pick = { c, s };
+    else if (pick) break;
+  }
+  return pick;
+}
+
+let suggestCache = { key: null, value: null };
 
 /**
  * When a DB plan contribution or Roth conversion looks worthwhile under the calculator's own model,
- * returns short suggestions: [{ kind: 'db'|'roth', amount, savings, text }].
- *   DB plan: needs business income (a DB plan is funded from it). Suggested size is half of business
- *     income, capped at $150,000, in $10,000 steps; shown when it lowers this year's tax by > $2,500.
- *   Roth conversion: needs a pre-tax retirement balance. Tries converting 25%, 50% and 100% of it
- *     (capped at $1,000,000). Suggests the amount that saves the most on its own versus paying tax
- *     on later withdrawals at the assumed future rate; if a conversion only pays off when paired
- *     with a strategy, says so.
+ * returns short suggestions: [{ kind: 'db'|'roth', amount, savings, text }]. Amounts scale with the
+ * client and are as large as they stay efficient (see SIZING):
+ *   DB plan: needs business income. Tries amounts up to the smaller of the front-loaded age-based limit
+ *     and 90% of business income; keeps the largest amount where each extra dollar still saves 12¢. Shown
+ *     when it lowers this year's tax by > $2,500.
+ *   Roth conversion: needs a pre-tax retirement balance. Tries amounts up to the balance (one year
+ *     capped at max($1M, 2× income)). Standalone, the best amount is the one that saves the most
+ *     versus paying the projected rate on later withdrawals. Paired with a strategy, it is the
+ *     largest amount where each extra dollar converted still adds 5¢. Suggests the paired amount when it
+ *     saves more, and notes the standalone figure.
  */
 export function suggestions(fd = {}) {
+  const key = JSON.stringify(fd);
+  if (suggestCache.key === key) return suggestCache.value;
+  const value = computeSuggestions(fd);
+  suggestCache = { key, value };
+  return value;
+}
+
+function computeSuggestions(fd) {
   const saved = fd.__tax || {};
   const base = analyze(fd);
   if (base.income <= 0) return [];
@@ -143,37 +193,51 @@ export function suggestions(fd = {}) {
   const baseTax = base.comparison.blocks.base.scenarios.none.rows.totalTax;
 
   if (!num(saved.dbContribution) && p.businessIncome >= 50000) {
-    const c = Math.max(25000, Math.floor(Math.min(150000, p.businessIncome * 0.5) / 10000) * 10000);
-    const a = analyze({ ...fd, __tax: { ...saved, dbContribution: c } });
-    const s = baseTax - a.comparison.blocks.db.scenarios.none.rows.totalTax;
-    if (s > 2500) {
+    const cap = floorTo(Math.min(dbMaxForAge(fd.age), p.businessIncome * SIZING.dbShareOfBusiness), 5000);
+    const amounts = [];
+    const dbStep = cap > 300000 ? 50000 : 25000;
+    for (let c = SIZING.dbMin; c < cap; c += dbStep) amounts.push(c);
+    if (cap >= SIZING.dbMin) amounts.push(cap);
+    const pick = largestEfficient(amounts, (c) =>
+      baseTax - analyze({ ...fd, __tax: { ...saved, dbContribution: c } }).comparison.blocks.db.scenarios.none.rows.totalTax, SIZING.dbMarginalFloor);
+    if (pick && pick.s > 2500) {
       const has = fd.business_defined_benefit === 'Yes';
-      out.push({ kind: 'db', amount: c, savings: s, text: has
-        ? `Given the business's defined benefit plan, consider adding this year's contribution. About ${money(c)} would lower tax by roughly ${money(s)}.`
-        : `Given ${money(p.businessIncome)} of business income, consider adding a defined benefit plan contribution. About ${money(c)} would lower tax by roughly ${money(s)}, and the money stays the client's.` });
+      out.push({ kind: 'db', amount: pick.c, savings: pick.s, text: has
+        ? `Given the business's defined benefit plan, consider adding this year's contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}.`
+        : `Given ${money(p.businessIncome)} of business income, consider adding a defined benefit plan contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}, and the money stays the client's.` });
     }
   }
 
   const balance = taxDeferredBalance(fd);
   if (!num(saved.rothConversion) && balance >= 25000) {
-    const amounts = [...new Set([0.25, 0.5, 1].map((f) => round(Math.min(balance * f, 1000000), 5000)))].filter((c) => c >= 10000);
+    const yearCap = Math.max(SIZING.rothYearCap.floor, base.income * SIZING.rothYearCap.incomeMultiple);
+    const top = Math.min(balance, yearCap);
+    const step = top > 2000000 ? 50000 : top > 500000 ? 25000 : 5000;
+    const amounts = [...new Set([0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+      .map((f) => (f === 1 ? floorTo(top, 5000) : round(top * f, step))))].filter((c) => c >= SIZING.rothMin);
     const baseBest = bestSavings(base.comparison.blocks.base);
-    const tries = amounts.map((c) => {
-      const a = analyze({ ...fd, __tax: { ...saved, rothConversion: c } });
-      const blk = a.comparison.blocks.roth;
-      return { c, alone: blk.baseline - blk.scenarios.none.rows.totalTax, paired: bestSavings(blk) - baseBest, label: bestLabel(blk), rate: a.model.roth.projectedTaxRate };
-    });
-    const alone = tries.reduce((b, t) => (t.alone > b.alone ? t : b), tries[0]);
-    const paired = tries.find((t) => t.c === round(Math.min(balance * 0.5, 1000000), 5000)) || tries[0];
-    if (alone && alone.alone > 2000) {
-      out.push({ kind: 'roth', amount: alone.c, savings: alone.alone, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion. Converting about ${money(alone.c)} this year would save roughly ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on those withdrawals later${alone.paired > alone.alone + 1000 ? `, or ${money(alone.paired)} paired with ${alone.label}` : ''}.` });
-    } else if (paired && paired.paired > 5000) {
-      out.push({ kind: 'roth', amount: paired.c, savings: paired.paired, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion paired with ${paired.label}. Converting about ${money(paired.c)} would add roughly ${money(paired.paired)} in savings versus not converting.` });
+    const runs = new Map();
+    const at = (c) => {
+      if (!runs.has(c)) {
+        const a = analyze({ ...fd, __tax: { ...saved, rothConversion: c } });
+        const blk = a.comparison.blocks.roth;
+        runs.set(c, { c, alone: blk.baseline - blk.scenarios.none.rows.totalTax, paired: bestSavings(blk) - baseBest, label: bestLabel(blk), rate: a.model.roth.projectedTaxRate });
+      }
+      return runs.get(c);
+    };
+    const alone = amounts.map(at).reduce((b, t) => (t.alone > b.alone ? t : b), at(amounts[0]));
+    const pairedPick = largestEfficient(amounts, (c) => at(c).paired, SIZING.rothMarginalFloor);
+    const paired = pairedPick && at(pairedPick.c);
+    const later = (c) => (balance - c >= SIZING.rothMin ? ` That leaves ${money(balance - c)} to convert in later years.` : '');
+    if (paired && paired.paired > 5000 && paired.paired > alone.alone + 1000) {
+      const solo = alone.alone > 2000 ? ` On its own, ${money(alone.c)} is the most efficient conversion (saves about ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on withdrawals later).` : '';
+      out.push({ kind: 'roth', amount: paired.c, savings: paired.paired, text: `Given ${money(balance)} in pre-tax retirement accounts, consider a Roth conversion paired with ${paired.label}. Converting about ${money(paired.c)} this year would add roughly ${money(paired.paired)} in savings versus not converting.${solo}${later(paired.c)}` });
+    } else if (alone.alone > 2000) {
+      out.push({ kind: 'roth', amount: alone.c, savings: alone.alone, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion. Converting about ${money(alone.c)} this year would save roughly ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on those withdrawals later.${later(alone.c)}` });
     }
   }
   return out;
 }
-
 /** Compact summary for Review & Share (PDF / email) and the priorities prompt. Null without income. */
 export function taxSummary(fd = {}) {
   const a = analyze(fd);
@@ -192,6 +256,7 @@ export function taxSummary(fd = {}) {
     suggestions: suggestions(fd).map((s) => s.text),
   };
 }
+
 
 // ------------------------------------------------------------------ step page
 /**
