@@ -693,6 +693,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/></svg>
           Email results
         </button>
+        <button class="btn btn-gold" id="email-client-btn" style="display:none;"></button>
         <label class="export-tax-opt"><input type="checkbox" id="export-include-tax"/> Include tax strategy estimates</label>
         <button class="btn btn-gold btn-sm" id="export-tax-btn" style="margin-left:auto;">Tax strategies →</button>
       </div>
@@ -798,7 +799,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 <div class="modal-overlay" id="delete-modal">
   <div class="modal">
     <h3>Delete this client?</h3>
-    <p style="font-size:14px;color:var(--text-muted);line-height:1.5;">This permanently removes all data for this client and cannot be undone.</p>
+    <p style="font-size:14px;color:var(--text-muted);line-height:1.5;">This removes the client from the app. A backup of their data is kept in the database.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="delete-cancel-btn">Cancel</button>
       <button class="btn btn-primary" style="background:var(--red-s);border-color:var(--red-s);" id="delete-confirm-btn">Delete</button>
@@ -821,7 +822,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.3.2'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.4.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1486,12 +1487,22 @@ function wireButtons() {
     const isOpen = panel.style.display === '';
     panel.style.display = isOpen ? 'none' : '';
     if (!isOpen) {
-      emailRecipients = [];
+      emailRecipients = clientEmails();
       renderEmailTags();
       initEmailTags();
       document.getElementById('email-tag-input').focus();
       document.getElementById('email-status').textContent = '';
     }
+  });
+  // One click: send the results to the client's own email(s) from the intake.
+  document.getElementById('email-client-btn').addEventListener('click', async () => {
+    const to = clientEmails();
+    if (!to.length) return;
+    document.getElementById('email-panel').style.display = '';
+    emailRecipients = to;
+    renderEmailTags();
+    initEmailTags();
+    await sendEmail();
   });
   document.getElementById('email-cancel-btn').addEventListener('click', () => {
     document.getElementById('email-panel').style.display = 'none';
@@ -1638,7 +1649,7 @@ function renderCpaFilterBar() {
 async function renderClientList() {
   const container = document.getElementById('client-list-container');
   container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-light);font-size:14px;">Loading…</div>';
-  let clients = await dbGetAll(TBL_CLIENTS);
+  let clients = (await dbGetAll(TBL_CLIENTS)).filter(c => !isDeletedClient(c));
 
   // Apply sort
   if (clientSortMode === 'alpha') {
@@ -1915,12 +1926,6 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'inheritance_detail',label:'Approximate amount and timeline',type:'text',placeholder:''},
           {show:'Yes',id:'inheritance_tax_aware',label:'Are you aware of potential tax implications?',type:'radio',options:['Yes','No']},
         ]},
-      {id:'concentrated_position',label:'Do you have a concentrated position in a single stock or asset?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'concentrated_detail',label:'What is the asset?',type:'text',placeholder:'e.g. company stock'},
-          {show:'Yes',id:'concentrated_value',label:'Approximate value',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'concentrated_tax_basis',label:'Approximate cost basis',type:'currency',placeholder:'0'},
-        ]},
     ]
   },
   {
@@ -1948,21 +1953,10 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'unrealized_gains_detail',label:'Approximate amount',type:'currency',placeholder:'0'},
           {show:'Yes',id:'unrealized_gains_plan',label:'Do you have a plan to manage these gains tax-efficiently?',type:'radio',options:['Yes','No — looking for guidance','Not yet thinking about it']},
         ]},
-      {id:'stock_options',label:'Do you have RSUs or equity compensation?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'stock_options_detail',label:'Please describe (type, vesting timeline, approximate value)',type:'textarea',placeholder:'e.g. ISOs vesting over 4 years, approx. $200K value'},
-          {show:'Yes',id:'stock_options_strategy',label:'Do you have a strategy for when and how to exercise or sell?',type:'radio',options:['Yes','No'],
-            follow:[{show:'Yes',id:'stock_options_strategy_detail',label:'Please describe',type:'textarea',placeholder:''}]},
-        ]},
       {id:'tax_strategies_tried',label:'Have you ever implemented any advanced tax strategies?',type:'radio',options:['Yes','No','Unsure what is available to me'],
         follow:[
           {show:'Yes',id:'tax_strategies_detail',label:'Which strategies have you used?',type:'textarea',placeholder:'e.g. cost segregation, charitable trust, deferred compensation, backdoor Roth...'},
           {show:'No',id:'tax_strategies_interest',label:'Would you be interested in learning about tax strategies applicable to your financial profile?',type:'radio',options:['Yes','No','Possibly']},
-        ]},
-      {id:'charitable_giving',label:'Do you make significant charitable contributions?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'charitable_amount',label:'Approximate annual giving',type:'currency',placeholder:'0'},
-          {show:'Yes',id:'charitable_strategy',label:'How do you currently give?',type:'multicheck',options:['Cash / check / card','Appreciated stock','Donor-advised fund','Charitable trust']},
         ]},
     ]
   },
@@ -1980,18 +1974,7 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'life_ins_adequate',label:'Do you feel your current coverage is adequate?',type:'radio',options:['Yes','No — I think I am underinsured','Unsure']},
         ]},
 
-      {id:'has_annuities',label:'Do you own any annuities?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'annuity_type',label:'What type(s)?',type:'multicheck',options:['Fixed','Variable','Indexed','Immediate','Deferred','Other']},
-          {show:'Yes',id:'annuity_start_age',label:'At what age do you begin receiving benefits?',type:'text',placeholder:''},
-          {show:'Yes',id:'annuity_annual_benefit',label:'Current or projected monthly benefit',type:'currency',placeholder:'0'},
-        ]},
       {id:'disability_income_protected',label:'How much of your income is protected in the event of injury or sickness?',type:'disabilitynotes',placeholder:'e.g. 60%, employer-sponsored plan, private policy...'},
-      {id:'has_ltc_thought',label:'Have you thought about funding long term care?',type:'radio',options:['Yes','No'],
-        follow:[
-          {show:'Yes',id:'ltc_plan',label:'What is your plan to fund your long term care expenses?',type:'textarea',placeholder:''},
-          {show:'No',id:'ltc_insurance_considered',label:'Have you considered long term care insurance?',type:'radio',options:['Yes','No','Not sure']},
-        ]},
     ]
   },
   {
@@ -2072,9 +2055,7 @@ const FORM_SECTIONS = [
       {id:'biggest_concerns',label:'What are your biggest financial concerns?',type:'textarea',placeholder:''},
       {id:'building_toward',label:'What are you ultimately building toward?',type:'textarea',placeholder:''},
       {id:'one_year_to_live',label:'If you only had 1 year to live, what would you be doing?',type:'textarea',placeholder:''},
-      {id:'time_money_aligned',label:'Are the way you spend your time and money aligned with these goals?',type:'textarea',placeholder:''},
       {id:'what_else_needed',label:'What else needs to happen to make these goals possible?',type:'textarea',placeholder:''},
-      {id:'additional_info',label:'Is there anything else that is important for us to know about you?',type:'textarea',placeholder:''},
     ]
   },
 ]
@@ -4402,7 +4383,7 @@ KEY FACTS (use what is relevant; do not force every area):
 - Income: ${money(fd.total_income_display)} | Taxes paid last year: ${taxPaid ? money(taxPaid) : 'N/A'} | Filing status: ${fd.filing_status || 'N/A'} | State: ${fd.state || 'N/A'}
 - Net worth: ${money(fd.net_worth)}
 - Retirement: target age ${fd.retirement_target_age || 'N/A'} | on track: ${yn(fd.retirement_on_track)} | maximizing contributions: ${yn(fd.max_contributions)} | income needed: ${money(fd.retirement_income_need)}
-- Protection: life insurance ${yn(fd.has_life_ins)}${fd.life_ins_coverage ? ' ('+money(fd.life_ins_coverage)+')' : ''} | adequate: ${yn(fd.life_ins_adequate)} | long-term care plan: ${yn(fd.has_ltc_thought)}
+- Protection: life insurance ${yn(fd.has_life_ins)}${fd.life_ins_coverage ? ' ('+money(fd.life_ins_coverage)+')' : ''} | adequate: ${yn(fd.life_ins_adequate)}
 - Estate: will ${yn(fd.has_will)}${fd.will_last_updated ? ' (reviewed '+fd.will_last_updated+')' : ''} | trust ${yn(fd.has_trust)} | beneficiaries reviewed: ${yn(fd.beneficiaries_current)}
 - Business owner: ${fd.has_business === 'Yes' ? 'Yes' + (fd.business_entity ? ' ('+fd.business_entity+')' : '') + (fd.biz_exit_plan ? ' | exit plan: '+fd.biz_exit_plan : '') : 'No'}
 - Goals: ${fd.financial_goals || 'N/A'}
@@ -4642,7 +4623,20 @@ function renderPlanColumn(key) {
 }
 
 
+// Email address(es) the client gave in the intake (client + spouse).
+function clientEmails() {
+  const fd = {...(pClientFormData || {}), ...(currentFormData || {})};
+  return [...new Set([fd.email, fd.spouse_email].map(e => String(e || '').trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))];
+}
+function updateEmailClientBtn() {
+  const btn = document.getElementById('email-client-btn');
+  if (!btn) return;
+  const to = clientEmails();
+  btn.style.display = to.length ? '' : 'none';
+  btn.textContent = to.length ? 'Send to ' + to.join(', ') : '';
+}
 function buildPDFPreview() {
+  updateEmailClientBtn();
   const taxBox = document.getElementById('export-include-tax');
   if (taxBox) taxBox.checked = includeTaxInExport;
   const client = currentClientName||'—';
@@ -4768,7 +4762,8 @@ let emailRecipients = [];
 
 function initEmailTags() {
   const input = document.getElementById('email-tag-input');
-  if (!input) return;
+  if (!input || input.dataset.wired) return;
+  input.dataset.wired = '1';
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
@@ -5128,7 +5123,7 @@ async function exportAllToXLSX() {
       });
     }
 
-    const clients = await dbGetAll(TBL_CLIENTS);
+    const clients = (await dbGetAll(TBL_CLIENTS)).filter(c => !isDeletedClient(c));
     if (!clients.length) { toast('No clients to export.'); btn.textContent = 'Export all to XLSX'; btn.disabled = false; return; }
 
     const intakesRaw = useCloud
@@ -5252,8 +5247,23 @@ function printPDF() {
 //  DELETE
 // ══════════════════════════════════
 function closeDeleteModal(){pendingDeleteId=null;document.getElementById('delete-modal').classList.remove('open');}
+// Soft delete: the client disappears from the app but its record stays in the database as a backup.
+// The marker lives in form_data.__deleted (no schema change); clear it in the database to restore.
+const isDeletedClient = c => !!(c && ((c.form_data && c.form_data.__deleted) || c.form_status === 'deleted'));
 async function confirmDelete(){
-  if(pendingDeleteId){await dbDeleteRow(TBL_CLIENTS,pendingDeleteId);toast('Client deleted.');}
+  const id = pendingDeleteId;
+  if (id) {
+    const rec = await dbGet(TBL_CLIENTS, id);
+    const marker = {at: Date.now(), by: staffName || ''};
+    await dbUpdate(TBL_CLIENTS, id, {form_data: {...((rec && rec.form_data) || {}), __deleted: marker}});
+    if (String(currentClientId) === String(id)) {
+      // Make sure a pending autosave can't write the client back without the marker.
+      clearTimeout(autosaveTimer);
+      currentFormData = {...(currentFormData || {}), __deleted: marker};
+      currentClientId = null; currentClientName = '';
+    }
+    toast('Client deleted.');
+  }
   closeDeleteModal(); renderClientList();
 }
 
