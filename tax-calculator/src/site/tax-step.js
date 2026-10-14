@@ -338,7 +338,7 @@ function resultsHTML(a, saved, tips = []) {
     return `<button type="button" class="tx-row" data-tx-detail="${r.id}">
       <div class="tx-row-main"><div class="tx-row-title">${esc(r.label)}${best && best.id === r.id ? '<span class="tx-best">Best</span>' : ''}</div>
         <div class="tx-row-desc">${esc(STRATEGY_BLURB[r.id])}</div>
-        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span></div>
+        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span>${r.r.rows.investmentAccount > 0.5 ? `<span>Investment account ${money(r.r.rows.investmentAccount)} → ${money(futureValue(r.r.rows.investmentAccount, 0.07, 20))} in 20 years at 7%</span>` : ''}</div>
         ${note ? `<div class="tx-row-note">${esc(simplifyWarning(note))}</div>` : ''}</div>
       <div class="tx-row-value"><div class="tx-sav-label">${neg ? 'Added cost' : 'Savings'}</div>
         <div class="tx-sav ${neg ? 'neg' : ''}">${money(Math.abs(r.savings))}</div>
@@ -473,6 +473,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
       <tbody>${rowsHTML}</tbody></table></div>
       <div class="tx-savings-line"><span>Estimated savings</span><b class="${res.savings < 0 ? 'down' : 'up'}">${money(res.savings)}</b></div>
     </section>
+    ${growthHTML(res)}
     <section class="tx-card"><h3>How it's calculated</h3>
       ${sizingHTML ? `<h4>Sizing</h4>${sizingHTML}` : ''}
       ${costs ? `<h4>Contribution</h4><table class="tx-how">${costs}</table>` : ''}
@@ -483,11 +484,40 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     <p class="tx-foot">PFO Tax Strategy Calculator method, 2026 federal rates (Rev. Proc. 2025-32). Estimates for discussion, not tax advice.</p>`;
 
   root.onclick = (e) => {
+    const g = e.target.closest('[data-tx-rate]');
+    if (g) { growthRate = +g.dataset.txRate; handlers.select(scenario, block); return; }
     const p = e.target.closest('[data-tx-pick]');
     if (p) { handlers.select(p.dataset.txPick, block); return; }
     const b = e.target.closest('[data-tx-pick-block]');
     if (b) handlers.select(scenario, b.dataset.txPickBlock);
   };
+}
+
+// ------------------------------------------------------------------ growth over time (LEAP)
+// LEAP keeps part of the contribution in an investment account. Show what it, and this year's tax
+// savings, grow to if invested at 6–8% for 10/15/20 years (one-time amounts compounded annually),
+// plus the value if the same savings repeat every year.
+let growthRate = 0.07;
+const GROWTH_RATES = [0.06, 0.07, 0.08];
+const GROWTH_YEARS = [10, 15, 20];
+export const futureValue = (amount, rate, years) => amount * Math.pow(1 + rate, years);
+export const futureValueOfAnnual = (amount, rate, years) => (rate ? amount * (Math.pow(1 + rate, years) - 1) / rate : amount * years);
+
+function growthHTML(res) {
+  const account = res.rows.investmentAccount || 0;
+  if (account <= 0.5) return '';
+  const savings = Math.max(0, res.savings);
+  const r = growthRate;
+  const row = (label, today, fn, cls = '') => `<tr class="${cls}"><th scope="row">${esc(label)}</th><td>${today === null ? '' : money(today)}</td>${GROWTH_YEARS.map((y) => `<td>${money(fn(y))}</td>`).join('')}</tr>`;
+  return `<section class="tx-card"><div class="tx-card-head"><h3>Growth over time</h3>
+      <div class="tx-pills tx-pills-sm">${GROWTH_RATES.map((g) => `<button type="button" data-tx-rate="${g}" aria-selected="${Math.abs(g - r) < 1e-9}">${pctOf(g)}</button>`).join('')}</div></div>
+    <p class="tx-card-sub">The LEAP investment account and this year's tax savings, invested at ${pctOf(r)} a year.</p>
+    <div class="tx-table-wrap"><table class="tx-compare tx-growth"><thead><tr><th></th><th>Today</th>${GROWTH_YEARS.map((y) => `<th>${y} years</th>`).join('')}</tr></thead><tbody>
+      ${row('Investment account', account, (y) => futureValue(account, r, y))}
+      ${savings ? row('Tax savings, invested', savings, (y) => futureValue(savings, r, y)) : ''}
+      ${row('Total', account + savings, (y) => futureValue(account + savings, r, y), 'sub')}
+      ${savings ? row('If the tax savings repeat every year', null, (y) => futureValueOfAnnual(savings, r, y)) : ''}
+    </tbody></table></div></section>`;
 }
 
 function fmtLine(l) {

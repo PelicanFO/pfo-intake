@@ -114,3 +114,8 @@ button.tx-row:hover { border-color: var(--gold); box-shadow: 0 2px 10px rgba(15,
 .tx-how tr.warn th, .tx-how tr.warn td { color: #7a5500; }
 .tx-full { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .7rem; }
 .tx-full summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--navy-light); }
+
+.tx-pills-sm { margin: 0; }
+.tx-pills-sm button { padding: 3px 11px; font-size: 12px; }
+.tx-growth td, .tx-growth th { white-space: nowrap; }
+@media (max-width: 560px) { .tx-growth thead th:nth-child(4), .tx-growth tbody td:nth-child(4) { display: table-cell; } .tx-growth thead th:nth-child(2), .tx-growth tbody td:nth-child(2) { display: none; } }

@@ -1,6 +1,6 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
-import { analyze, suggestions, taxSummary, taxDeferredBalance } from '../src/site/tax-step.js';
+import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
@@ -38,4 +38,11 @@ suite('Site: DB plan and Roth conversion suggestions', (t) => {
   const h = suggestions({ ...LA, age: '55', w2_income: '900000', nw_view: 'simple', nw_tax_deferred: '600000' }).find((x) => x.kind === 'roth');
   t.ok(h && /paired with/.test(h.text), `high earner gets a paired Roth suggestion (${h && h.text})`);
   t.equal(kinds({ ...LA, w2_income: '400000', nw_view: 'simple', nw_tax_deferred: '10000' }), '', 'tiny balance: no Roth suggestion');
+});
+
+suite('Site: LEAP growth projection', (t) => {
+  t.close(futureValue(10000, 0.07, 10), 19671.51, 0.01, '$10,000 at 7% for 10 years');
+  t.close(futureValueOfAnnual(10000, 0.06, 20), 367855.91, 0.01, '$10,000 a year at 6% for 20 years');
+  const a = analyze({ ...LA, business_income: '300000' });
+  t.ok(a.comparison.blocks.base.scenarios.leap.rows.investmentAccount > 0, 'LEAP has an investment account to project');
 });
