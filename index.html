@@ -822,7 +822,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.4.1'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.5.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1261,9 +1261,17 @@ let includeTaxInExport = false; // tax strategies are for meeting 2, so Review &
 function buildTaxSummaryHTML(email) {
   if (!includeTaxInExport) return '';
   const t = currentTaxSummary();
-  if (!t || !t.strategies.length) return '';
   const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
   const e = email ? escPlain : esc;
+  if (!t || !t.strategies.length) {
+    // Ticked but nothing to show: say why rather than silently leaving the section out.
+    const why = !taxModule ? 'The tax calculator could not load, so no estimates are included.'
+      : !t ? 'No income was entered in the intake, so tax strategy estimates could not be calculated.'
+      : 'No tax strategies apply to the information entered.';
+    return email ? '' : '<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #ede9e0;">'
+      +'<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:.5rem;">Tax Strategy Estimates</div>'
+      +'<div style="font-size:12px;color:#888;font-family:'+font+';">'+why+'</div></div>';
+  }
   const cell = 'padding:5px 8px;border-bottom:1px solid #f0ede6;font-size:12px;font-family:'+font+';';
   const rows = t.strategies.map(r => '<tr><td style="'+cell+'color:#1a1a18;">'+e(r.label)+'</td>'
     +'<td style="'+cell+'text-align:right;color:#555;">'+fmtUSD(r.liabilityAfter)+'</td>'
@@ -1367,6 +1375,7 @@ async function goToExport() {
   if (backPBtn) backPBtn.style.display = 'none';
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   showView('export');
+  autoEmailClient();
 }
 
 // Save prioritizer items and go straight to export (skipping plan page)
@@ -1391,6 +1400,7 @@ async function savePrioritizerAndGoToExport() {
   if (backPBtn) backPBtn.style.display = '';
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   showView('export');
+  autoEmailClient();
 }
 
 function printPlan() {
@@ -1522,7 +1532,11 @@ function wireButtons() {
     if (b && !b.disabled && !b.classList.contains('active')) goToStage(b.dataset.stage);
   });
   document.getElementById('export-tax-btn').addEventListener('click', () => goToStage('tax'));
-  document.getElementById('export-include-tax').addEventListener('change', e => { includeTaxInExport = e.target.checked; buildPDFPreview(); });
+  document.getElementById('export-include-tax').addEventListener('change', async e => {
+    includeTaxInExport = e.target.checked;
+    if (includeTaxInExport) { try { await loadTaxModule(); } catch(err) { /* note shown in preview */ } }
+    buildPDFPreview();
+  });
   document.getElementById('tax-detail-btn').addEventListener('click', () => openTaxDetail(taxDetailState.scenario, taxDetailState.block));
   document.getElementById('taxdetail-back-btn').addEventListener('click', () => openTaxStep());
 
@@ -4009,6 +4023,7 @@ async function openExportById(clientId, clientName) {
   if (backPlanBtn) backPlanBtn.style.display = hasPlan ? '' : 'none';
   if (backPBtn) backPBtn.style.display = hasPlan ? 'none' : '';
   showView('export');
+  autoEmailClient();
 }
 
 // ══════════════════════════════════
@@ -4843,7 +4858,7 @@ async function sendEmail() {
     // Try the input field too
     const raw = document.getElementById('email-tag-input').value.trim();
     if (raw && raw.includes('@')) addEmailTag(raw);
-    else { status.textContent = 'Please add at least one recipient.'; status.style.color='var(--red-s)'; return; }
+    else { status.textContent = 'Please add at least one recipient.'; status.style.color='var(--red-s)'; return false; }
   }
 
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -4966,7 +4981,7 @@ async function sendEmail() {
     window.open('mailto:'+encodeURIComponent(toStr)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(plain));
     status.textContent = 'Opened in your email client.';
     status.style.color = 'var(--green)';
-    return;
+    return false;
   }
 
   // EmailJS — send HTML email to each recipient
@@ -4996,12 +5011,46 @@ async function sendEmail() {
     status.textContent = '✓ Sent to '+emailRecipients.length+' recipient'+(emailRecipients.length>1?'s':'')+'.';
     status.style.color = 'var(--green)';
     document.getElementById('email-send-btn').disabled = false;
+    return true;
   } catch(e) {
     console.error('Email send failed:', e);
     const why = (e && (e.text || e.message)) || (e && e.status ? 'error ' + e.status : 'unknown error');
-    status.textContent = 'Send failed: ' + why;
+    // EmailJS sends through a connected Outlook account; "invalid grant" means that sign-in expired.
+    status.textContent = /invalid.?grant|reconnect/i.test(why)
+      ? 'Send failed: the Outlook account EmailJS sends from needs to be reconnected (EmailJS dashboard → Email Services → Outlook → Reconnect).'
+      : 'Send failed: ' + why;
     status.style.color = 'var(--red-s)';
     document.getElementById('email-send-btn').disabled = false;
+    return false;
+  }
+}
+
+// The first time a client's Review & Share page is opened, email the results to the client's own
+// address(es) from the intake. Sent once per client: the record gets form_data.__results_emailed,
+// and later sends are manual (the "Send to …" button).
+let autoEmailInFlight = null;
+async function autoEmailClient() {
+  const id = currentClientId;
+  const to = clientEmails();
+  if (!id || !to.length || autoEmailInFlight === String(id)) return;
+  if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) return; // no silent mailto pop-ups
+  const rec = await dbGet(TBL_CLIENTS, id);
+  if (!rec || (rec.form_data && rec.form_data.__results_emailed)) return;
+  if (String(currentClientId) !== String(id) || currentView !== 'export') return;
+  autoEmailInFlight = String(id);
+  try {
+    document.getElementById('email-panel').style.display = '';
+    emailRecipients = to;
+    renderEmailTags();
+    initEmailTags();
+    if (!(await sendEmail())) { toast('Could not email the results to the client — see the message under Send.'); return; }
+    const marker = {at: Date.now(), to, by: staffName || ''};
+    const fresh = await dbGet(TBL_CLIENTS, id);
+    await dbUpdate(TBL_CLIENTS, id, {form_data: {...((fresh && fresh.form_data) || {}), __results_emailed: marker}});
+    if (String(currentClientId) === String(id)) currentFormData = {...(currentFormData || {}), __results_emailed: marker};
+    toast('Results emailed to ' + to.join(', ') + '.');
+  } finally {
+    autoEmailInFlight = null;
   }
 }
 
