@@ -693,8 +693,8 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/></svg>
           Email results
         </button>
-        <button class="btn btn-gold" id="email-client-btn" style="display:none;"></button>
-        <label class="export-tax-opt"><input type="checkbox" id="export-include-tax"/> Include tax strategy estimates</label>
+        <button class="btn btn-gold" id="email-advisor-btn" style="display:none;"></button>
+        <label class="export-tax-opt"><input type="checkbox" id="export-include-tax"/> Include tax strategy estimates in PDF</label>
         <button class="btn btn-gold btn-sm" id="export-tax-btn" style="margin-left:auto;">Tax strategies →</button>
       </div>
       <!-- Email panel (hidden by default) -->
@@ -704,7 +704,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           <label class="field-label">Recipients</label>
           <div id="email-tags" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--cream);min-height:44px;cursor:text;" onclick="document.getElementById('email-tag-input').focus()"></div>
           <input type="email" id="email-tag-input" placeholder="Enter email and press Enter or comma…" style="margin-top:6px;"/>
-          <p class="field-hint">Press Enter or comma after each address to add it.</p>
+          <p class="field-hint">Press Enter or comma after each address to add it. Tax strategy estimates are included only for the Planning Team Lead and @pelicanfo.com addresses.</p>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="btn btn-primary" id="email-send-btn">Send</button>
@@ -822,7 +822,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.5.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.6.0'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1258,8 +1258,8 @@ function currentTaxSummary() {
 const fmtUSD = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const fmtPct = x => (Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%';
 let includeTaxInExport = false; // tax strategies are for meeting 2, so Review & Share leaves them out unless ticked
-function buildTaxSummaryHTML(email) {
-  if (!includeTaxInExport) return '';
+function buildTaxSummaryHTML(email, include = includeTaxInExport) {
+  if (!include) return '';
   const t = currentTaxSummary();
   const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
   const e = email ? escPlain : esc;
@@ -1375,7 +1375,6 @@ async function goToExport() {
   if (backPBtn) backPBtn.style.display = 'none';
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   showView('export');
-  autoEmailClient();
 }
 
 // Save prioritizer items and go straight to export (skipping plan page)
@@ -1400,7 +1399,6 @@ async function savePrioritizerAndGoToExport() {
   if (backPBtn) backPBtn.style.display = '';
   document.getElementById('export-client-subtitle').textContent = currentClientName + '  ·  ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   showView('export');
-  autoEmailClient();
 }
 
 function printPlan() {
@@ -1497,19 +1495,19 @@ function wireButtons() {
     const isOpen = panel.style.display === '';
     panel.style.display = isOpen ? 'none' : '';
     if (!isOpen) {
-      emailRecipients = clientEmails();
+      emailRecipients = advisorEmail() ? [advisorEmail()] : [];
       renderEmailTags();
       initEmailTags();
       document.getElementById('email-tag-input').focus();
       document.getElementById('email-status').textContent = '';
     }
   });
-  // One click: send the results to the client's own email(s) from the intake.
-  document.getElementById('email-client-btn').addEventListener('click', async () => {
-    const to = clientEmails();
-    if (!to.length) return;
+  // One click: send the results (with tax estimates) to the Planning Team Lead from the intake.
+  document.getElementById('email-advisor-btn').addEventListener('click', async () => {
+    const to = advisorEmail();
+    if (!to) return;
     document.getElementById('email-panel').style.display = '';
-    emailRecipients = to;
+    emailRecipients = [to];
     renderEmailTags();
     initEmailTags();
     await sendEmail();
@@ -1851,6 +1849,8 @@ const FORM_SECTIONS = [
       {id:'lname',label:'Last name',type:'text',placeholder:'Last name',required:true,half:true},
       {id:'email',label:'Email',type:'email',placeholder:'example@example.com'},
       {id:'phone',label:'Phone number',type:'tel',placeholder:'(000) 000-0000',hint:'Format: (000) 000-0000'},
+      {id:'advisor_name',label:'Planning Team Lead name',type:'text',placeholder:'Full name',half:true},
+      {id:'advisor_email',label:'Planning Team Lead email',type:'email',placeholder:'name@pelicanfo.com',half:true},
       {id:'age',label:'Age',type:'number',placeholder:'',half:true},
       {id:'state',label:'State of primary residence',type:'select',options:['','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','District of Columbia'],half:true},
       {id:'filing_status',label:'Tax filing status',type:'radio',options:['Single','Married filing jointly','Married filing separately','Head of household']},
@@ -4023,7 +4023,6 @@ async function openExportById(clientId, clientName) {
   if (backPlanBtn) backPlanBtn.style.display = hasPlan ? '' : 'none';
   if (backPBtn) backPBtn.style.display = hasPlan ? 'none' : '';
   showView('export');
-  autoEmailClient();
 }
 
 // ══════════════════════════════════
@@ -4645,20 +4644,31 @@ function renderPlanColumn(key) {
 }
 
 
-// Email address(es) the client gave in the intake (client + spouse).
-function clientEmails() {
+// Planning Team Lead (advisor) from the intake.
+const isEmailAddr = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+function advisorEmail() {
   const fd = {...(pClientFormData || {}), ...(currentFormData || {})};
-  return [...new Set([fd.email, fd.spouse_email].map(e => String(e || '').trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))];
+  const e = String(fd.advisor_email || '').trim().toLowerCase();
+  return isEmailAddr(e) ? e : '';
 }
-function updateEmailClientBtn() {
-  const btn = document.getElementById('email-client-btn');
+function advisorName() {
+  const fd = {...(pClientFormData || {}), ...(currentFormData || {})};
+  return String(fd.advisor_name || '').trim();
+}
+// Tax strategy estimates are internal: they go only to the advisor and @pelicanfo.com addresses.
+function isInternalRecipient(email) {
+  const e = String(email || '').trim().toLowerCase();
+  return (!!e && e === advisorEmail()) || e.endsWith('@pelicanfo.com');
+}
+function updateEmailAdvisorBtn() {
+  const btn = document.getElementById('email-advisor-btn');
   if (!btn) return;
-  const to = clientEmails();
-  btn.style.display = to.length ? '' : 'none';
-  btn.textContent = to.length ? 'Send to ' + to.join(', ') : '';
+  const to = advisorEmail();
+  btn.style.display = to ? '' : 'none';
+  btn.textContent = to ? 'Send to ' + (advisorName() || to) + ' (Planning Team Lead)' : '';
 }
 function buildPDFPreview() {
-  updateEmailClientBtn();
+  updateEmailAdvisorBtn();
   const taxBox = document.getElementById('export-include-tax');
   if (taxBox) taxBox.checked = includeTaxInExport;
   const client = currentClientName||'—';
@@ -4940,7 +4950,7 @@ async function sendEmail() {
   const EMAIL_LIMIT = 45000; // bytes, leaving headroom under EmailJS's 50 KB variable limit
   const profileNote = '<div style="margin-top:24px;padding-top:16px;border-top:2px solid #f0ede6;font-size:12px;color:#888;font-family:Arial,sans-serif;">The full client profile is in the PDF from Review &amp; Share.</div>';
 
-  const buildBody = profileHtml => '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
+  const buildBody = (profileHtml, withTax) => '<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f7f4ef;font-family:Arial,sans-serif;">'
     +'<div style="max-width:620px;margin:0 auto;padding:32px 16px;">'
     +'<div style="background:#0f2535;border-radius:12px 12px 0 0;padding:24px 28px;display:flex;align-items:center;gap:16px;">'
     +'<div><div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">Pelican Family Office</div>'
@@ -4957,13 +4967,17 @@ async function sendEmail() {
     +'<tbody>'+rowsHtml+'</tbody></table>'
     +(statBoxes?'<table style="margin-bottom:20px;border-spacing:0;"><tr>'+statBoxes+'</tr></table>':'')
     +buildEmailPlanHTML()
-    +buildTaxSummaryHTML(true)
+    +buildTaxSummaryHTML(true, withTax)
     +profileHtml
     +'<div style="font-size:11px;color:#ccc;border-top:1px solid #ede9e0;padding-top:10px;margin-top:20px;">Pelican Family Office — Confidential &nbsp;·&nbsp; '+today+'</div>'
     +'<div style="margin-top:12px;padding-top:10px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>'
     +'</div></div></body></html>';
-  let htmlBody = buildBody(formSectionsHtml);
-  if (new Blob([htmlBody]).size > EMAIL_LIMIT) htmlBody = buildBody(profileNote);
+  // Advisor / @pelicanfo.com recipients get the tax strategy estimates; clients and anyone else don't.
+  const bodyFor = withTax => {
+    const full = buildBody(formSectionsHtml, withTax);
+    return new Blob([full]).size > EMAIL_LIMIT ? buildBody(profileNote, withTax) : full;
+  };
+  const bodies = {internal: bodyFor(true), external: bodyFor(false)};
 
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
     // Mailto fallback — plain text only (mailto can\'t send HTML)
@@ -5002,7 +5016,7 @@ async function sendEmail() {
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email: recipient,
         subject:  subject,
-        html_body: htmlBody,
+        html_body: isInternalRecipient(recipient) ? bodies.internal : bodies.external,
         client:   currentClientName,
         date:     today,
         staff:    staffName||'',
@@ -5025,35 +5039,6 @@ async function sendEmail() {
   }
 }
 
-// The first time a client's Review & Share page is opened, email the results to the client's own
-// address(es) from the intake. Sent once per client: the record gets form_data.__results_emailed,
-// and later sends are manual (the "Send to …" button).
-let autoEmailInFlight = null;
-async function autoEmailClient() {
-  const id = currentClientId;
-  const to = clientEmails();
-  if (!id || !to.length || autoEmailInFlight === String(id)) return;
-  if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) return; // no silent mailto pop-ups
-  const rec = await dbGet(TBL_CLIENTS, id);
-  if (!rec || (rec.form_data && rec.form_data.__results_emailed)) return;
-  if (String(currentClientId) !== String(id) || currentView !== 'export') return;
-  autoEmailInFlight = String(id);
-  try {
-    document.getElementById('email-panel').style.display = '';
-    emailRecipients = to;
-    renderEmailTags();
-    initEmailTags();
-    if (!(await sendEmail())) { toast('Could not email the results to the client — see the message under Send.'); return; }
-    const marker = {at: Date.now(), to, by: staffName || ''};
-    const fresh = await dbGet(TBL_CLIENTS, id);
-    await dbUpdate(TBL_CLIENTS, id, {form_data: {...((fresh && fresh.form_data) || {}), __results_emailed: marker}});
-    if (String(currentClientId) === String(id)) currentFormData = {...(currentFormData || {}), __results_emailed: marker};
-    toast('Results emailed to ' + to.join(', ') + '.');
-  } finally {
-    autoEmailInFlight = null;
-  }
-}
-
 function escPlain(str) { return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 
@@ -5064,6 +5049,7 @@ function escPlain(str) { return String(str||'').replace(/&/g,'&amp;').replace(/<
 const CSV_FORM_FIELDS = [
   {id:'fname',label:'First Name'},{id:'lname',label:'Last Name'},
   {id:'email',label:'Email'},{id:'phone',label:'Phone'},
+  {id:'advisor_name',label:'Planning Team Lead'},{id:'advisor_email',label:'Planning Team Lead Email'},
   {id:'age',label:'Age'},{id:'state',label:'State'},
   {id:'filing_status',label:'Filing Status'},{id:'marital',label:'Marital Status'},
   {id:'spouse_name',label:'Spouse Name'},{id:'spouse_age',label:'Spouse Age'},
