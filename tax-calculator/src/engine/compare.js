@@ -29,8 +29,10 @@ export function runComparison(model, { scenarios = SCENARIOS } = {}) {
   const conversionTax = blocks.roth.scenarios.none.rows.totalTax - blocks.base.scenarios.none.rows.totalTax;
   const preliminary = rothProjection(model, rules, { conversionTax, strategySavings: 0, strategyLabel: '' });
 
-  const baselines = { base: baseNone, db: baseNone, roth: baseNone + preliminary.pvRmdTax };
-  const denominators = { base: income, db: income, roth: income + conversion };
+  // DB + Roth is measured like Roth: against no planning, no conversion, and tax on later IRA withdrawals.
+  const baselines = { base: baseNone, db: baseNone, roth: baseNone + preliminary.pvRmdTax, dbRoth: baseNone + preliminary.pvRmdTax };
+  const denominators = { base: income, db: income, roth: income + conversion, dbRoth: income + conversion };
+  const withConversion = (id) => id === 'roth' || id === 'dbRoth';
   for (const b of BLOCKS) {
     const blk = blocks[b.id];
     blk.baseline = baselines[b.id];
@@ -39,7 +41,7 @@ export function runComparison(model, { scenarios = SCENARIOS } = {}) {
       res.savings = blk.baseline - res.rows.totalOutlay;
       res.effectiveRate = denominators[b.id] ? res.rows.totalOutlay / denominators[b.id] : 0;
       if (b.id === 'roth') res.netAdditionalSavings = res.savings - blocks.base.scenarios[s.id].savings;
-      appendSavings(res, b, blk.baseline, denominators[b.id], b.id === 'roth' ? preliminary.pvRmdTax : 0, blocks.base.scenarios[s.id]);
+      appendSavings(res, b, blk.baseline, denominators[b.id], withConversion(b.id) ? preliminary.pvRmdTax : 0, blocks.base.scenarios[s.id]);
     }
   }
 
@@ -60,17 +62,18 @@ export function runComparison(model, { scenarios = SCENARIOS } = {}) {
 
 function appendSavings(res, block, baseline, denom, pvRmdTax, baseResult) {
   const L = new Ledger();
-  L.section('Savings', block.id === 'roth'
+  const conv = block.id === 'roth' || block.id === 'dbRoth';
+  L.section('Savings', conv
     ? 'Compared with not converting: no-planning tax this year plus the present value of tax on future IRA withdrawals'
     : 'Compared with No Planning (no DB contribution, no conversion)');
-  if (block.id === 'roth') {
+  if (conv) {
     L.line('No-planning cash outlay without a conversion', baseline - pvRmdTax);
     L.line('Plus present value of future IRA withdrawal tax', pvRmdTax, { excel: 'RMD Simulation!B22' });
   }
   L.line('Baseline cash outlay', baseline, { kind: 'calc' });
   L.line('This scenario\'s cash outlay', res.rows.totalOutlay);
   L.line('Savings', res.savings, { kind: 'total', calc: `${money(baseline)} − ${money(res.rows.totalOutlay)}` });
-  L.line('Cash outlay as % of income', res.effectiveRate, { kind: 'info', calc: `${money(res.rows.totalOutlay)} ÷ ${money(denom)} income${block.id === 'roth' ? ' incl. conversion' : ''}` });
+  L.line('Cash outlay as % of income', res.effectiveRate, { kind: 'info', calc: `${money(res.rows.totalOutlay)} ÷ ${money(denom)} income${conv ? ' incl. conversion' : ''}` });
   if (block.id === 'roth') L.line('Extra savings vs. the same strategy without a conversion', res.netAdditionalSavings, { kind: 'info', calc: `${money(res.savings)} − ${money(baseResult.savings)}` });
   res.ledger.append(L);
 }

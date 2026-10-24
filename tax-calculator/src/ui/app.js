@@ -250,7 +250,7 @@ function renderBlock(block) {
     ${renderSizing(block)}
     <div class="card table-wrap"><table class="grid"><thead><tr><th scope="col">${ui.mode === 'excel' ? 'Workbook row' : ''}</th>${head}</tr></thead><tbody>${bodyRows}</tbody></table></div>
     ${ui.selected.block === block ? renderAudit() : ''}
-    <p class="footnote">Savings compare total cash outlay (tax + strategy contributions + fees) with No Planning${block === 'roth' ? ' plus the present value of tax on future IRA withdrawals' : ''}. Carryforwards (unused credits, losses, gifts over the AGI limit) have future value but are not counted, so this year's savings are conservative.</p>`;
+    <p class="footnote">Savings compare total cash outlay (tax + strategy contributions + fees) with No Planning${block === 'roth' || block === 'dbRoth' ? ' plus the present value of tax on future IRA withdrawals' : ''}. Carryforwards (unused credits, losses, gifts over the AGI limit) have future value but are not counted, so this year's savings are conservative.</p>`;
 }
 
 // Sizing controls: the workbook's "Manual Inputs" area for this block.

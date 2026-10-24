@@ -33,14 +33,18 @@ const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth c
 // Strategy groups on the tax page. The DB plan is the foundational strategy: it stands alone and can
 // be combined with an advanced strategy. A Roth conversion is only offered combined with an advanced
 // strategy (on its own it rarely helps). Combined strategies pair two advanced strategies.
-export const FOUNDATIONAL = ['db'];
+export const FOUNDATIONAL = ['db', 'dbRoth'];
 export const FOUNDATION = {
   db: { label: 'Defined Benefit Plan', short: 'DB plan', blurb: 'Tax-deductible contribution to a defined benefit (cash balance) plan, funded from business income. The money stays the client\'s.' },
   roth: { label: 'Roth Conversion', short: 'Roth conversion', blurb: 'Moves pre-tax retirement money to a Roth: tax is paid now instead of on withdrawals later, and future growth is tax-free.' },
+  dbRoth: { label: 'DB Plan + Roth Conversion', short: 'DB plan + Roth conversion', blurb: 'Both in the same year: the DB contribution lowers this year\'s income, so the Roth conversion is taxed at lower rates.' },
 };
+const hasDb = (b) => b === 'db' || b === 'dbRoth';
+const hasRoth = (b) => b === 'roth' || b === 'dbRoth';
 export const ADVANCED = ['film', 'charitable', 'solar', 'leap'];
 export const COMBINED = ['leapCharitable', 'solarCharitable'];
-const amountOf = (model, kind) => (kind === 'db' ? model.db.contribution : model.roth.conversion);
+const amountOf = (model, kind) => (kind === 'db' ? model.db.contribution : kind === 'roth' ? model.roth.conversion : model.db.contribution + model.roth.conversion);
+const amountText = (model, kind) => (kind === 'dbRoth' ? `${money(model.db.contribution)} + ${money(model.roth.conversion)}` : money(amountOf(model, kind)));
 
 /** A foundational strategy on its own: { kind, amount, savings, liability, baseline, pct }. */
 export function foundationResult(cmp, model, kind) {
@@ -109,7 +113,8 @@ export function analyze(fd) {
 }
 
 function blocksFor(model) {
-  return ['base', ...(model.db.contribution > 0 ? ['db'] : []), ...(model.roth.conversion > 0 ? ['roth'] : [])];
+  const db = model.db.contribution > 0, roth = model.roth.conversion > 0;
+  return ['base', ...(db ? ['db'] : []), ...(roth ? ['roth'] : []), ...(db && roth ? ['dbRoth'] : [])];
 }
 
 // "Total tax liability" = tax + strategy contribution (what the client pays out). The planning fee is
@@ -195,6 +200,44 @@ let suggestCache = { key: null, value: null };
  *     largest amount where each extra dollar converted still adds 5¢. Suggests the paired amount when it
  *     saves more, and notes the standalone figure.
  */
+/**
+ * The suggested DB contribution { amount, savings, text } (as if none were entered), or null.
+ * Sized as described above suggestions().
+ */
+export function dbSuggestion(fd = {}) {
+  const saved = { ...(fd.__tax || {}), dbContribution: 0 };
+  const base = analyze({ ...fd, __tax: saved });
+  const p = base.model.profile;
+  if (base.income <= 0 || p.businessIncome < 50000) return null;
+  const baseTax = base.comparison.blocks.base.scenarios.none.rows.totalTax;
+  const cap = floorTo(Math.min(dbMaxForAge(fd.age), p.businessIncome * SIZING.dbShareOfBusiness), 5000);
+  const amounts = [];
+  const dbStep = cap > 300000 ? 50000 : 25000;
+  for (let c = SIZING.dbMin; c < cap; c += dbStep) amounts.push(c);
+  if (cap >= SIZING.dbMin) amounts.push(cap);
+  const pick = largestEfficient(amounts, (c) =>
+    baseTax - analyze({ ...fd, __tax: { ...saved, dbContribution: c } }).comparison.blocks.db.scenarios.none.rows.totalTax, SIZING.dbMarginalFloor);
+  if (!pick || pick.s <= 2500) return null;
+  const has = fd.business_defined_benefit === 'Yes';
+  return { amount: pick.c, savings: pick.s, text: has
+    ? `Given the business's defined benefit plan, consider adding this year's contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}.`
+    : `Given ${money(p.businessIncome)} of business income, consider adding a defined benefit plan contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}, and the money stays the client's.` };
+}
+
+let autoDbCache = { key: null, value: null };
+/**
+ * The DB plan is applied automatically: when no contribution has been entered (field never set),
+ * the suggested amount is used. An entered amount, including 0 to turn it off, always wins.
+ */
+export function withAutoDb(fd = {}) {
+  const saved = fd.__tax || {};
+  if (saved.dbContribution !== undefined && saved.dbContribution !== null && saved.dbContribution !== '') return fd;
+  const key = JSON.stringify(fd);
+  if (autoDbCache.key !== key) autoDbCache = { key, value: dbSuggestion(fd) };
+  const s = autoDbCache.value;
+  return s ? { ...fd, __tax: { ...saved, dbContribution: s.amount, dbAuto: true } } : fd;
+}
+
 export function suggestions(fd = {}) {
   const key = JSON.stringify(fd);
   if (suggestCache.key === key) return suggestCache.value;
@@ -209,22 +252,10 @@ function computeSuggestions(fd) {
   if (base.income <= 0) return [];
   const out = [];
   const p = base.model.profile;
-  const baseTax = base.comparison.blocks.base.scenarios.none.rows.totalTax;
 
-  if (!num(saved.dbContribution) && p.businessIncome >= 50000) {
-    const cap = floorTo(Math.min(dbMaxForAge(fd.age), p.businessIncome * SIZING.dbShareOfBusiness), 5000);
-    const amounts = [];
-    const dbStep = cap > 300000 ? 50000 : 25000;
-    for (let c = SIZING.dbMin; c < cap; c += dbStep) amounts.push(c);
-    if (cap >= SIZING.dbMin) amounts.push(cap);
-    const pick = largestEfficient(amounts, (c) =>
-      baseTax - analyze({ ...fd, __tax: { ...saved, dbContribution: c } }).comparison.blocks.db.scenarios.none.rows.totalTax, SIZING.dbMarginalFloor);
-    if (pick && pick.s > 2500) {
-      const has = fd.business_defined_benefit === 'Yes';
-      out.push({ kind: 'db', amount: pick.c, savings: pick.s, text: has
-        ? `Given the business's defined benefit plan, consider adding this year's contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}.`
-        : `Given ${money(p.businessIncome)} of business income, consider adding a defined benefit plan contribution. About ${money(pick.c)} would lower tax by roughly ${money(pick.s)}, and the money stays the client's.` });
-    }
+  if (!num(saved.dbContribution)) {
+    const db = dbSuggestion(fd);
+    if (db) out.push({ kind: 'db', ...db });
   }
 
   const balance = taxDeferredBalance(fd);
@@ -234,13 +265,18 @@ function computeSuggestions(fd) {
     const step = top > 2000000 ? 50000 : top > 500000 ? 25000 : 5000;
     const amounts = [...new Set([0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
       .map((f) => (f === 1 ? floorTo(top, 5000) : round(top * f, step))))].filter((c) => c >= SIZING.rothMin);
-    const baseBest = bestSavings(base.comparison.blocks.base);
+    // With a DB plan in place, size the conversion on top of it (DB + Roth vs. DB alone).
+    const withDb = num(saved.dbContribution) > 0;
+    const rb = withDb ? 'dbRoth' : 'roth';
+    const ref = base.comparison.blocks[withDb ? 'db' : 'base'];
+    const refBest = bestSavings(ref);
+    const refAlone = ref.baseline - ref.scenarios.none.rows.totalTax;
     const runs = new Map();
     const at = (c) => {
       if (!runs.has(c)) {
         const a = analyze({ ...fd, __tax: { ...saved, rothConversion: c } });
-        const blk = a.comparison.blocks.roth;
-        runs.set(c, { c, alone: blk.baseline - blk.scenarios.none.rows.totalTax, paired: bestSavings(blk) - baseBest, label: bestLabel(blk), rate: a.model.roth.projectedTaxRate });
+        const blk = a.comparison.blocks[rb];
+        runs.set(c, { c, alone: blk.baseline - blk.scenarios.none.rows.totalTax - refAlone, paired: bestSavings(blk) - refBest, label: bestLabel(blk), rate: a.model.roth.projectedTaxRate });
       }
       return runs.get(c);
     };
@@ -250,7 +286,7 @@ function computeSuggestions(fd) {
     const later = (c) => (balance - c >= SIZING.rothMin ? ` That leaves ${money(balance - c)} to convert in later years.` : '');
     if (paired && paired.paired > 5000 && paired.paired > alone.alone + 1000) {
       const solo = alone.alone > 2000 ? ` On its own, ${money(alone.c)} is the most efficient conversion (saves about ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on withdrawals later).` : '';
-      out.push({ kind: 'roth', amount: paired.c, savings: paired.paired, text: `Given ${money(balance)} in pre-tax retirement accounts, consider a Roth conversion paired with ${paired.label}. Converting about ${money(paired.c)} this year would add roughly ${money(paired.paired)} in savings versus not converting.${solo}${later(paired.c)}` });
+      out.push({ kind: 'roth', amount: paired.c, savings: paired.paired, text: `Given ${money(balance)} in pre-tax retirement accounts, consider a Roth conversion paired with ${paired.label}${withDb ? ' on top of the DB plan' : ''}. Converting about ${money(paired.c)} this year would add roughly ${money(paired.paired)} in savings versus not converting${withDb ? ' (beyond the DB plan with ' + paired.label + ')' : ''}.${solo}${later(paired.c)}` });
     } else if (alone.alone > 2000) {
       out.push({ kind: 'roth', amount: alone.c, savings: alone.alone, text: `Given ${money(balance)} in pre-tax retirement accounts, consider adding a Roth conversion. Converting about ${money(alone.c)} this year would save roughly ${money(alone.alone)} versus paying ${pct(alone.rate, 0)} on those withdrawals later.${later(alone.c)}` });
     }
@@ -263,18 +299,19 @@ function computeSuggestions(fd) {
  * each row has a `group`. scenarios: the best advanced strategy combined with each foundational one.
  */
 export function taxSummary(fd = {}) {
+  fd = withAutoDb(fd);
   const a = analyze(fd);
   if (a.income <= 0) return null;
   const cmp = a.comparison;
   const base = strategyRows(cmp, 'base').filter((r) => r.applies);
   const found = blocksFor(a.model).filter((b) => FOUNDATIONAL.includes(b)).map((b) => {
     const f = foundationResult(cmp, a.model, b);
-    return { group: 'Foundational', label: `${FOUNDATION[b].label} (${money(f.amount)})`, savings: f.savings, pct: f.pct, liabilityAfter: f.liability };
+    return { group: 'Foundational', label: `${FOUNDATION[b].label} (${amountText(a.model, b)})`, savings: f.savings, pct: f.pct, liabilityAfter: f.liability };
   });
   const row = (group) => (r) => ({ group, label: r.label, savings: r.savings, pct: r.pct, liabilityAfter: r.liability });
   const scenarios = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
     const r = strategyRows(cmp, b).find((x) => x.applies);
-    return r ? { label: `${FOUNDATION[b].short} (${money(amountOf(a.model, b))}) combined with ${r.label}`, strategy: r.label, savings: r.savings, pct: r.pct } : null;
+    return r ? { label: `${FOUNDATION[b].short} (${amountText(a.model, b)}) combined with ${r.label}`, strategy: r.label, savings: r.savings, pct: r.pct } : null;
   }).filter(Boolean);
   const top = base.find((r) => r.savings > 0.5);
   return {
@@ -302,13 +339,15 @@ export function renderTaxStep(root, fd, handlers) {
   const resultsEl = root.querySelector('#tx-results');
   const optionsEl = root.querySelector('#tx-options');
 
+  const effective = () => withAutoDb({ ...fd, __tax: saved });
   const draw = () => {
-    const f = { ...fd, __tax: saved };
+    const f = effective();
     const tips = suggestions(f);
     resultsEl.innerHTML = resultsHTML(analyze(f), saved, tips, f);
   };
-  const built = intakeToModel({ ...fd, __tax: saved });
-  optionsEl.innerHTML = optionsHTML(built, saved, fd);
+  const drawOptions = () => { const f = effective(); optionsEl.innerHTML = optionsHTML(intakeToModel(f), f.__tax || {}, fd); };
+  const built = intakeToModel(effective());
+  drawOptions();
   draw();
   // Remember whether the Combined Strategies dropdown is open across redraws.
   resultsEl.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('.tx-combined')) combinedOpen = e.target.open; }, true);
@@ -342,12 +381,13 @@ export function renderTaxStep(root, fd, handlers) {
       const [kind, amount] = ap.dataset.txApply.split(':');
       const key = kind === 'db' ? 'dbContribution' : 'rothConversion';
       saved[key] = +amount;
-      saved.block = kind;
+      saved.block = kind === 'roth' && num(effective().__tax.dbContribution) > 0 ? 'dbRoth' : kind;
       const input = optionsEl.querySelector(`[data-tax="${key}"]`);
       if (input) input.value = commas(+amount);
       draw(); handlers.save({ ...saved });
       return;
     }
+    if (e.target.closest('[data-tx-autodb]')) { delete saved.dbContribution; drawOptions(); draw(); handlers.save({ ...saved }); return; }
     const d = e.target.closest('[data-tx-detail]');
     if (d) { handlers.openDetail(d.dataset.txDetail, d.dataset.txDetailBlock || saved.block || 'base'); return; }
     const ed = e.target.closest('[data-tx-edit]');
@@ -356,7 +396,7 @@ export function renderTaxStep(root, fd, handlers) {
     if (reset) {
       delete saved.params;
       delete saved.planningFee;
-      optionsEl.innerHTML = optionsHTML(intakeToModel({ ...fd, __tax: saved }), saved, fd);
+      drawOptions();
       draw(); handlers.save({ ...saved });
     }
   };
@@ -406,8 +446,8 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
   const pairBase = pairing ? foundationResult(cmp, model, block) : null;
 
   // ---- hero: the best advanced / combined strategy (with the chosen foundational strategy, if any)
-  const heroLabel = block === 'roth' ? 'Estimated savings vs. not converting' : 'Estimated tax savings this year';
-  const liabLabel = block === 'roth' ? 'Tax liability without converting' : 'Current tax liability';
+  const heroLabel = hasRoth(block) ? 'Estimated savings vs. not converting' : 'Estimated tax savings this year';
+  const liabLabel = hasRoth(block) ? 'Tax liability without converting' : 'Current tax liability';
   const hero = best
     ? `<section class="tx-hero">
         <div><div class="tx-hero-label">${heroLabel}</div>
@@ -432,7 +472,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
 
   // ---- foundational strategies: each on its own, with a switch to combine it with the advanced ones
   const tipFor = (kind) => tips.find((t) => t.kind === kind);
-  const foundRows = FOUNDATIONAL.map((kind) => foundationResult(cmp, model, kind));
+  const foundRows = FOUNDATIONAL.filter((kind) => kind === 'db' || blocks.includes(kind)).map((kind) => foundationResult(cmp, model, kind));
   const foundMax = Math.max(1, ...foundRows.filter((f) => f.amount > 0).map((f) => Math.abs(f.savings)));
   const foundCard = (f) => {
     const F = FOUNDATION[f.kind];
@@ -451,9 +491,12 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
     }
     const paired = block === f.kind;
     const facts = f.kind === 'db'
-      ? `<span>Contribution ${money(f.amount)}</span><span>Total tax liability ${money(f.baseline)} → ${money(f.liability)}</span>`
-      : `<span>Conversion ${money(f.amount)}</span><span>Tax liability without converting ${money(f.baseline)} → ${money(f.liability)}</span>`;
-    const note = f.kind === 'roth' && f.savings < 0 ? '<div class="tx-row-note">On its own, the tax now outweighs the tax avoided later. Combined with an advanced strategy it can come out ahead.</div>' : '';
+      ? `<span>Contribution ${money(f.amount)}${saved.dbContribution === undefined ? ' (suggested)' : ''}</span><span>Total tax liability ${money(f.baseline)} → ${money(f.liability)}</span>`
+      : `<span>DB contribution ${money(model.db.contribution)} + Roth conversion ${money(model.roth.conversion)}</span><span>Tax liability without converting ${money(f.baseline)} → ${money(f.liability)}</span>`;
+    const dbOnly = f.kind === 'dbRoth' ? foundRows.find((x) => x.kind === 'db') : null;
+    const note = f.kind === 'dbRoth' && dbOnly
+      ? `<div class="tx-row-facts"><span>${f.savings - dbOnly.savings >= 0 ? '+' : '−'}${money(Math.abs(f.savings - dbOnly.savings))} vs. the DB plan alone</span></div>${f.savings < dbOnly.savings ? '<div class="tx-row-note">Without an advanced strategy, the conversion tax outweighs what it saves later. Combine it with one below.</div>' : ''}`
+      : '';
     return `<div class="tx-row tx-found${paired ? ' is-paired' : ''}"><div class="tx-row-main">
         <div class="tx-row-title">${esc(F.label)}</div>
         <div class="tx-row-desc">${esc(F.blurb)}</div>
@@ -488,17 +531,18 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
   };
   const available = blocks.filter((b) => b !== 'base');
   const pairSwitch = available.length
-    ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : `${esc(FOUNDATION[b].short)} · ${money(amountOf(model, b))}`}</button>`).join('')}</div></div>`
-    : '<p class="tx-pairhint">Add a DB plan above, or a Roth conversion under Scenario options, to combine it with these.</p>';
+    ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : b === 'dbRoth' ? 'DB plan + Roth conversion' : `${esc(FOUNDATION[b].short)} · ${money(amountOf(model, b))}`}</button>`).join('')}</div></div>`
+    : '<p class="tx-pairhint">Add a DB plan contribution or Roth conversion under Scenario options to combine it with these.</p>';
   const rothTip = !(model.roth.conversion > 0) && tipFor('roth');
   const rothAdd = rothTip ? `<div class="tx-roth-tip"><p><b>Roth conversion.</b> ${esc(rothTip.text)}</p>
-      <button type="button" class="btn btn-sm btn-gold" data-tx-apply="roth:${Math.round(rothTip.amount)}">Combine a ${money(rothTip.amount)} Roth conversion</button></div>` : '';
-  const overDb = block === 'db' && model.db.contribution > Math.max(0, model.profile.businessIncome);
-  const context = block === 'db'
-    ? `Savings include the ${money(model.db.contribution)} DB plan contribution (it stays the client's money, so it isn't part of the tax liability).${overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : ''}`
-    : block === 'roth'
-      ? `Savings include the ${money(model.roth.conversion)} Roth conversion. Tax liability without converting includes ${money(cmp.roth.pvRmdTax)} (today's dollars) of tax on future IRA withdrawals.`
-      : '';
+      <button type="button" class="btn btn-sm btn-gold" data-tx-apply="roth:${Math.round(rothTip.amount)}">Combine a ${money(rothTip.amount)} Roth conversion${model.db.contribution > 0 ? ' with the DB plan' : ''}</button></div>` : '';
+  const overDb = hasDb(block) && model.db.contribution > Math.max(0, model.profile.businessIncome);
+  const dbText = `the ${money(model.db.contribution)} DB plan contribution (it stays the client's money, so it isn't part of the tax liability)`;
+  const rothText = `Tax liability without converting includes ${money(cmp.roth.pvRmdTax)} (today's dollars) of tax on future IRA withdrawals.`;
+  const context = (block === 'db' ? `Savings include ${dbText}.`
+    : block === 'roth' ? `Savings include the ${money(model.roth.conversion)} Roth conversion. ${rothText}`
+    : block === 'dbRoth' ? `Savings include ${dbText} and the ${money(model.roth.conversion)} Roth conversion. ${rothText}`
+    : '') + (overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : '');
   const advRows = shown.filter((r) => ADVANCED.includes(r.id));
   const comboRows = shown.filter((r) => COMBINED.includes(r.id));
   const comboBest = comboRows.find((r) => r.applies && r.savings > 0.5);
@@ -540,7 +584,9 @@ function optionsHTML(built, saved, fd) {
     const v = saved.stateRate !== undefined && saved.stateRate !== null ? +(saved.stateRate * 100).toFixed(3) : (built.stateRate ? +(built.stateRate * 100).toFixed(2) : '');
     html += field('stateRate', `${built.stateName} income tax rate`, v, built.stateRateSource === 'intake' ? 'Estimated from the prior-year state tax in the intake.' : 'Approximate flat rate on income.', 'pct');
   }
-  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), m.profile.businessIncome > 0 ? 'Foundational strategy; can be combined with an advanced strategy.' : 'Funded from business income; none in the intake.');
+  const dbHint = saved.dbAuto ? 'Set automatically from business income and age. Change it, or enter 0 for none.'
+    : m.profile.businessIncome > 0 ? `Foundational strategy. <button type="button" class="tx-link" data-tx-autodb>Use the suggested amount</button>` : 'Funded from business income; none in the intake.';
+  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), dbHint);
   html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Foundational strategy; can be combined with an advanced strategy.');
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
   html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
@@ -562,6 +608,7 @@ function optionsHTML(built, saved, fd) {
  * @param handlers { select(scenarioId, block) }
  */
 export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = {}, handlers) {
+  fd = withAutoDb(fd);
   const a = analyze(fd);
   const { model, comparison: cmp } = a;
   const blocks = blocksFor(model);
@@ -578,7 +625,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const sit = res.situation, nsit = none.situation;
   const sum = (xs) => xs.reduce((s, x) => s + x.amount, 0);
   const R = res.return, N = none.return;
-  const pv = block === 'roth' ? cmp.roth.pvRmdTax : 0;
+  const pv = hasRoth(block) ? cmp.roth.pvRmdTax : 0;
 
   const line = (label, before, after, opts = {}) => {
     const diff = after - before;
@@ -587,13 +634,13 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
       <td>${opts.blankBefore ? '' : money(before)}</td><td>${money(after)}</td>
       <td class="${showDiff && opts.goodWhenDown ? (diff < 0 ? 'up' : 'down') : ''}">${showDiff ? `${diff > 0 ? '+' : '−'}${money(Math.abs(diff)).replace('−', '')}` : ''}</td></tr>`;
   };
-  const extraIncome = block === 'roth' ? model.roth.conversion : 0;
-  const dbAdj = block === 'db' ? model.db.contribution : 0;
+  const extraIncome = hasRoth(block) ? model.roth.conversion : 0;
+  const dbAdj = hasDb(block) ? model.db.contribution : 0;
   const losses = sum(sit.businessLosses) + sum(sit.capitalLosses);
   const gifts = sum(sit.charitable);
   const credits = R.creditAllowed;
   const rowsHTML = [
-    line('Total income', a.income, a.income + extraIncome, { hint: block === 'roth' ? 'includes the Roth conversion' : '' }),
+    line('Total income', a.income, a.income + extraIncome, { hint: hasRoth(block) ? 'includes the Roth conversion' : '' }),
     dbAdj ? line('DB plan contribution', 0, -dbAdj, { goodWhenDown: false }) : '',
     losses ? line('Strategy deductions & losses', 0, -losses, { hint: 'see how it is sized below' }) : '',
     line('Adjusted gross income', N.agi, R.agi, { cls: 'sub' }),
@@ -635,7 +682,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     <section class="tx-hero tx-hero-detail">
       <div><div class="tx-hero-label">${esc(strat.label)}</div>
         <div class="tx-hero-value ${res.savings < 0 ? 'neg' : ''}">${res.savings < 0 ? '−' : ''}${money(Math.abs(res.savings)).replace('−', '')}</div>
-        <div class="tx-hero-sub">${block === 'roth' ? 'estimated savings vs. not converting' : 'estimated tax savings this year'} · ${pctOf(Math.abs(res.savings) / Math.max(1, none.rows.totalOutlay + pv))} of total tax liability</div></div>
+        <div class="tx-hero-sub">${hasRoth(block) ? 'estimated savings vs. not converting' : 'estimated tax savings this year'} · ${pctOf(Math.abs(res.savings) / Math.max(1, none.rows.totalOutlay + pv))} of total tax liability</div></div>
       <div class="tx-hero-side"><div><span>Total tax liability</span><b>${money(none.rows.totalOutlay + pv)} → ${money(liabilityOf(res))}</b></div></div>
     </section>
     ${warnings.length ? `<ul class="tx-warnlist">${warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
