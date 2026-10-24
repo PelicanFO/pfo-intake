@@ -28,7 +28,24 @@ const STRATEGY_BLURB = {
   leap: 'Leveraged entity ownership: a negative K-1 that offsets business income and gains.',
   leapCharitable: 'LEAP first, then a charitable gift against the remaining income.',
 };
-const BLOCK_LABEL = { base: 'Strategies alone', db: 'With DB plan', roth: 'With Roth conversion' };
+const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth conversion' };
+
+// Strategy groups on the tax page. Foundational strategies (DB plan, Roth conversion) stand alone and
+// can be combined with one advanced strategy; combined strategies pair two advanced strategies.
+export const FOUNDATION = {
+  db: { label: 'Defined Benefit Plan', short: 'DB plan', blurb: 'Tax-deductible contribution to a defined benefit (cash balance) plan, funded from business income. The money stays the client\'s.' },
+  roth: { label: 'Roth Conversion', short: 'Roth conversion', blurb: 'Moves pre-tax retirement money to a Roth: tax is paid now instead of on withdrawals later, and future growth is tax-free.' },
+};
+export const ADVANCED = ['film', 'charitable', 'solar', 'leap'];
+export const COMBINED = ['leapCharitable', 'solarCharitable'];
+const amountOf = (model, kind) => (kind === 'db' ? model.db.contribution : model.roth.conversion);
+
+/** A foundational strategy on its own: { kind, amount, savings, liability, baseline, pct }. */
+export function foundationResult(cmp, model, kind) {
+  const blk = cmp.blocks[kind];
+  const r = blk.scenarios.none;
+  return { kind, amount: amountOf(model, kind), savings: r.savings, liability: liabilityOf(r), baseline: blk.baseline, pct: blk.baseline > 0 ? r.savings / blk.baseline : 0 };
+}
 
 // ------------------------------------------------------------------ intake → model
 export function intakeToModel(fd = {}) {
@@ -238,25 +255,38 @@ function computeSuggestions(fd) {
   }
   return out;
 }
-/** Compact summary for Review & Share (PDF / email) and the priorities prompt. Null without income. */
+/**
+ * Compact summary for the internal email and the priorities prompt. Null without income.
+ * strategies: foundational (on their own, when an amount is entered), then advanced, then combined;
+ * each row has a `group`. scenarios: the best advanced strategy combined with each foundational one.
+ */
 export function taxSummary(fd = {}) {
   const a = analyze(fd);
   if (a.income <= 0) return null;
   const cmp = a.comparison;
-  const rows = strategyRows(cmp, 'base').filter((r) => r.applies);
+  const base = strategyRows(cmp, 'base').filter((r) => r.applies);
+  const found = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
+    const f = foundationResult(cmp, a.model, b);
+    return { group: 'Foundational', label: `${FOUNDATION[b].label} (${money(f.amount)})`, savings: f.savings, pct: f.pct, liabilityAfter: f.liability };
+  });
+  const row = (group) => (r) => ({ group, label: r.label, savings: r.savings, pct: r.pct, liabilityAfter: r.liability });
   const scenarios = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
     const r = strategyRows(cmp, b).find((x) => x.applies);
-    return r ? { label: BLOCK_LABEL[b] + (b === 'db' ? ` (${money(a.model.db.contribution)})` : ` (${money(a.model.roth.conversion)})`), strategy: r.label, savings: r.savings, pct: r.pct } : null;
+    return r ? { label: `${FOUNDATION[b].short} (${money(amountOf(a.model, b))}) combined with ${r.label}`, strategy: r.label, savings: r.savings, pct: r.pct } : null;
   }).filter(Boolean);
+  const top = base.find((r) => r.savings > 0.5);
   return {
     liability: cmp.blocks.base.baseline,
-    strategies: rows.map((r) => ({ label: r.label, savings: r.savings, pct: r.pct, liabilityAfter: r.liability })),
-    best: rows.find((r) => r.savings > 0.5) ? { label: rows[0].label, savings: rows[0].savings, pct: rows[0].pct } : null,
+    strategies: [
+      ...found,
+      ...base.filter((r) => ADVANCED.includes(r.id)).map(row('Advanced')),
+      ...base.filter((r) => COMBINED.includes(r.id)).map(row('Combined')),
+    ],
+    best: top ? { label: top.label, savings: top.savings, pct: top.pct } : null,
     scenarios,
     suggestions: suggestions(fd).map((s) => s.text),
   };
 }
-
 
 // ------------------------------------------------------------------ step page
 /**
@@ -273,11 +303,13 @@ export function renderTaxStep(root, fd, handlers) {
   const draw = () => {
     const f = { ...fd, __tax: saved };
     const tips = suggestions(f);
-    resultsEl.innerHTML = resultsHTML(analyze(f), saved, tips);
+    resultsEl.innerHTML = resultsHTML(analyze(f), saved, tips, f);
   };
   const built = intakeToModel({ ...fd, __tax: saved });
   optionsEl.innerHTML = optionsHTML(built, saved, fd);
   draw();
+  // Remember whether the Combined Strategies dropdown is open across redraws.
+  resultsEl.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('.tx-combined')) combinedOpen = e.target.open; }, true);
 
   let t;
   optionsEl.addEventListener('input', (e) => {
@@ -315,7 +347,7 @@ export function renderTaxStep(root, fd, handlers) {
       return;
     }
     const d = e.target.closest('[data-tx-detail]');
-    if (d) { handlers.openDetail(d.dataset.txDetail, saved.block || 'base'); return; }
+    if (d) { handlers.openDetail(d.dataset.txDetail, d.dataset.txDetailBlock || saved.block || 'base'); return; }
     const ed = e.target.closest('[data-tx-edit]');
     if (ed) { handlers.editIntake(ed.dataset.txEdit); return; }
     const reset = e.target.closest('[data-tx-reset]');
@@ -343,7 +375,9 @@ function profileChips(a) {
 
 const pctOf = (x) => `${(Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '')}%`;
 
-function resultsHTML(a, saved, tips = []) {
+let combinedOpen = false;
+
+function resultsHTML(a, saved, tips = [], fd = {}) {
   const { model, comparison: cmp } = a;
   const blocks = blocksFor(model);
   const block = blocks.includes(saved.block) ? saved.block : 'base';
@@ -362,70 +396,123 @@ function resultsHTML(a, saved, tips = []) {
   }
 
   const blk = cmp.blocks[block];
+  const pairing = block === 'base' ? null : FOUNDATION[block];
+  const withPair = (label) => (pairing ? `${label} + ${pairing.short}` : label);
   const rows = strategyRows(cmp, block);
-  const best = rows.find((r) => r.applies && r.savings > 0.5);
-  const maxSav = Math.max(1, ...rows.map((r) => Math.abs(r.savings)));
+  const shown = rows.filter((r) => ADVANCED.includes(r.id) || COMBINED.includes(r.id));
+  const best = shown.find((r) => r.applies && r.savings > 0.5);
+  const pairBase = pairing ? foundationResult(cmp, model, block) : null;
 
-  const tabs = blocks.length > 1 ? `<div class="tx-seg" role="tablist">${blocks.map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${esc(BLOCK_LABEL[b])}${b === 'db' ? ` · ${money(model.db.contribution)}` : b === 'roth' ? ` · ${money(model.roth.conversion)}` : ''}</button>`).join('')}</div>` : '';
-
-  const overDb = block === 'db' && model.db.contribution > Math.max(0, model.profile.businessIncome);
-  const context = block === 'db'
-    ? `With a ${money(model.db.contribution)} defined benefit plan contribution (it stays the client's money, so it isn't part of the tax liability).${overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : ''}`
-    : block === 'roth'
-      ? `With a ${money(model.roth.conversion)} Roth conversion. Tax liability without converting includes ${money(cmp.roth.pvRmdTax)} (today's dollars) of tax on future IRA withdrawals.`
-      : '';
-
+  // ---- hero: the best advanced / combined strategy (with the chosen foundational strategy, if any)
   const heroLabel = block === 'roth' ? 'Estimated savings vs. not converting' : 'Estimated tax savings this year';
   const liabLabel = block === 'roth' ? 'Tax liability without converting' : 'Current tax liability';
   const hero = best
     ? `<section class="tx-hero">
         <div><div class="tx-hero-label">${heroLabel}</div>
           <div class="tx-hero-value">${money(best.savings)}</div>
-          <div class="tx-hero-sub">with <b>${esc(best.label)}</b> · ${pctOf(best.pct)} of total tax liability</div></div>
+          <div class="tx-hero-sub">with <b>${esc(withPair(best.label))}</b> · ${pctOf(best.pct)} of total tax liability</div></div>
         <div class="tx-hero-side">
           <div><span>${liabLabel}</span><b>${money(blk.baseline)}</b></div>
-          <div><span>Tax liability with ${esc(best.label)}</span><b>${money(best.liability)}</b></div>
+          <div><span>Tax liability with ${esc(withPair(best.label))}</span><b>${money(best.liability)}</b></div>
         </div></section>`
     : `<section class="tx-hero tx-hero-none"><div><div class="tx-hero-label">${heroLabel}</div>
         <div class="tx-hero-value">—</div><div class="tx-hero-sub">None of the modeled strategies lower this client's tax liability at this income.</div></div>
         <div class="tx-hero-side"><div><span>${liabLabel}</span><b>${money(blk.baseline)}</b></div></div></section>`;
 
-  const tipHTML = tips.map((s) => `<section class="tx-suggest"><p>${esc(s.text)}</p>
-      <button type="button" class="btn btn-sm" data-tx-apply="${s.kind}:${Math.round(s.amount)}">Add ${s.kind === 'db' ? 'DB contribution' : 'Roth conversion'} of ${money(s.amount)}</button></section>`).join('');
+  const valueHTML = (savings, pctV, maxSav) => {
+    const neg = savings < 0;
+    const w = Math.max(2, Math.abs(savings) / maxSav * 100);
+    return `<div class="tx-row-value"><div class="tx-sav-label">${neg ? 'Added cost' : 'Savings'}</div>
+        <div class="tx-sav ${neg ? 'neg' : ''}">${money(Math.abs(savings))}</div>
+        <div class="tx-bar" role="img" aria-label="${neg ? 'Added cost' : 'Savings'} ${pctOf(Math.abs(pctV))} of tax liability"><i class="${neg ? 'neg' : ''}" style="width:${w}%"></i></div>
+        <div class="tx-row-pct">${pctOf(Math.abs(pctV))} of tax liability</div>`;
+  };
 
-  const cards = rows.map((r) => {
+  // ---- foundational strategies: each on its own, with a switch to combine it with the advanced ones
+  const tipFor = (kind) => tips.find((t) => t.kind === kind);
+  const foundRows = ['db', 'roth'].map((kind) => foundationResult(cmp, model, kind));
+  const foundMax = Math.max(1, ...foundRows.filter((f) => f.amount > 0).map((f) => Math.abs(f.savings)));
+  const foundCard = (f) => {
+    const F = FOUNDATION[f.kind];
+    if (!(f.amount > 0)) {
+      const tip = tipFor(f.kind);
+      if (tip) {
+        return `<div class="tx-row tx-found tx-found-empty"><div class="tx-row-main"><div class="tx-row-title">${esc(F.label)}</div>
+          <div class="tx-row-desc">${esc(F.blurb)}</div><p class="tx-found-tip">${esc(tip.text)}</p></div>
+          <div class="tx-row-value"><button type="button" class="btn btn-sm btn-gold" data-tx-apply="${tip.kind}:${Math.round(tip.amount)}">Add ${money(tip.amount)}</button></div></div>`;
+      }
+      const why = f.kind === 'db'
+        ? (model.profile.businessIncome > 0 ? 'Enter a contribution under Scenario options to model one.' : 'Funded from business income; none in the intake.')
+        : (taxDeferredBalance(fd) > 0 ? 'Enter a conversion amount under Scenario options to model one.' : 'No pre-tax retirement balance in the intake. Enter an amount under Scenario options to model one.');
+      return `<div class="tx-row tx-row-na tx-found"><div class="tx-row-main"><div class="tx-row-title">${esc(F.label)}</div>
+        <div class="tx-row-desc">${esc(F.blurb)}</div></div><div class="tx-row-na-label">${esc(why)}</div></div>`;
+    }
+    const paired = block === f.kind;
+    const facts = f.kind === 'db'
+      ? `<span>Contribution ${money(f.amount)}</span><span>Total tax liability ${money(f.baseline)} → ${money(f.liability)}</span>`
+      : `<span>Conversion ${money(f.amount)}</span><span>Tax liability without converting ${money(f.baseline)} → ${money(f.liability)}</span>`;
+    const note = f.kind === 'roth' && f.savings < 0 ? '<div class="tx-row-note">On its own, the tax now outweighs the tax avoided later. Combined with an advanced strategy it can come out ahead.</div>' : '';
+    return `<div class="tx-row tx-found${paired ? ' is-paired' : ''}"><div class="tx-row-main">
+        <div class="tx-row-title">${esc(F.label)}</div>
+        <div class="tx-row-desc">${esc(F.blurb)}</div>
+        <div class="tx-row-facts">${facts}</div>${note}
+        <div class="tx-found-actions">
+          <button type="button" class="tx-pair" data-tx-block="${paired ? 'base' : f.kind}" aria-pressed="${paired}">${paired ? '✓ Combined with the advanced strategies below' : 'Combine with an advanced strategy'}</button>
+          <button type="button" class="tx-link" data-tx-detail="none" data-tx-detail-block="${f.kind}">Details →</button>
+        </div></div>
+      ${valueHTML(f.savings, f.pct, foundMax)}</div></div>`;
+  };
+  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Stand on their own, or combine one with an advanced strategy</span></div>
+      <div class="tx-list">${foundRows.map(foundCard).join('')}</div></section>`;
+
+  // ---- advanced and combined strategies (with the chosen foundational strategy, if any)
+  const maxSav = Math.max(1, ...shown.map((r) => Math.abs(r.savings)));
+  const card = (r) => {
     if (!r.applies) {
       const why = naReason(r);
       return `<div class="tx-row tx-row-na"><div class="tx-row-main"><div class="tx-row-title">${esc(r.label)}</div>
         <div class="tx-row-desc">${esc(STRATEGY_BLURB[r.id])}</div></div><div class="tx-row-na-label">Not applicable${why ? `<br>${esc(why)}` : ''}</div></div>`;
     }
-    const w = Math.max(2, Math.abs(r.savings) / maxSav * 100);
     const note = r.r.warnings.find((x) => /negative|carries|more than|does not apply/.test(x));
-    const neg = r.savings < 0;
+    const extra = pairBase ? r.savings - pairBase.savings : 0;
     return `<button type="button" class="tx-row" data-tx-detail="${r.id}">
-      <div class="tx-row-main"><div class="tx-row-title">${esc(r.label)}${best && best.id === r.id ? '<span class="tx-best">Best</span>' : ''}</div>
+      <div class="tx-row-main"><div class="tx-row-title">${esc(withPair(r.label))}${best && best.id === r.id ? '<span class="tx-best">Best</span>' : ''}</div>
         <div class="tx-row-desc">${esc(STRATEGY_BLURB[r.id])}</div>
-        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span></div>
+        <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span>${pairBase ? `<span>${extra >= 0 ? '+' : '−'}${money(Math.abs(extra))} vs. the ${esc(pairing.short)} alone</span>` : ''}</div>
         ${r.r.rows.investmentAccount > 0.5 ? `<div class="tx-row-growth">Investment account ${money(r.r.rows.investmentAccount)} → <b>${money(futureValue(r.r.rows.investmentAccount, growthRate, 20))}</b> in 20 years at ${pctOf(growthRate)}</div>` : ''}
         ${note ? `<div class="tx-row-note">${esc(simplifyWarning(note))}</div>` : ''}</div>
-      <div class="tx-row-value"><div class="tx-sav-label">${neg ? 'Added cost' : 'Savings'}</div>
-        <div class="tx-sav ${neg ? 'neg' : ''}">${money(Math.abs(r.savings))}</div>
-        <div class="tx-bar" role="img" aria-label="${neg ? 'Added cost' : 'Savings'} ${pctOf(Math.abs(r.pct))} of tax liability"><i class="${neg ? 'neg' : ''}" style="width:${w}%"></i></div>
-        <div class="tx-row-pct">${pctOf(Math.abs(r.pct))} of tax liability</div>
+      ${valueHTML(r.savings, r.pct, maxSav)}
         <div class="tx-row-cta">Details →</div></div></button>`;
-  }).join('');
+  };
+  const available = blocks.filter((b) => b !== 'base');
+  const pairSwitch = available.length
+    ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : `${esc(FOUNDATION[b].short)} · ${money(amountOf(model, b))}`}</button>`).join('')}</div></div>`
+    : '<p class="tx-pairhint">Add a DB plan or Roth conversion above to combine it with these.</p>';
+  const overDb = block === 'db' && model.db.contribution > Math.max(0, model.profile.businessIncome);
+  const context = block === 'db'
+    ? `Savings include the ${money(model.db.contribution)} DB plan contribution (it stays the client's money, so it isn't part of the tax liability).${overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : ''}`
+    : block === 'roth'
+      ? `Savings include the ${money(model.roth.conversion)} Roth conversion. Tax liability without converting includes ${money(cmp.roth.pvRmdTax)} (today's dollars) of tax on future IRA withdrawals.`
+      : '';
+  const advRows = shown.filter((r) => ADVANCED.includes(r.id));
+  const comboRows = shown.filter((r) => COMBINED.includes(r.id));
+  const comboBest = comboRows.find((r) => r.applies && r.savings > 0.5);
+  const advanced = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Advanced Strategies</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
+      ${pairSwitch}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}
+      <div class="tx-list">${advRows.map(card).join('')}</div>
+      <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Combined Strategies</span>
+        <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}${comboBest ? ` · up to ${money(comboBest.savings)}` : ''}</span></summary>
+        <div class="tx-list">${comboRows.map(card).join('')}</div></details>
+    </section>`;
 
   // Long-term value is illustrated with LEAP on its own (not the LEAP + charitable combination).
   const leapRow = rows.find((r) => r.id === 'leap' && r.applies && r.r.rows.investmentAccount > 0.5);
   const longTerm = leapRow ? growthHTML(leapRow.r, {
     title: 'Long-term value',
-    sub: `With ${leapRow.label}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
+    sub: `With ${withPair(leapRow.label)}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
     cls: 'tx-longterm',
   }) : '';
-  return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}${longTerm}${tipHTML}
-    <section class="tx-card"><div class="tx-card-head"><h3>Strategy comparison</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
-      <div class="tx-list">${cards}</div>
-    </section>`;
+  return `${profile}${hero}${longTerm}${foundational}${advanced}`;
 }
 
 function naReason(r) {
@@ -455,8 +542,8 @@ function optionsHTML(built, saved, fd) {
     const v = saved.stateRate !== undefined && saved.stateRate !== null ? +(saved.stateRate * 100).toFixed(3) : (built.stateRate ? +(built.stateRate * 100).toFixed(2) : '');
     html += field('stateRate', `${built.stateName} income tax rate`, v, built.stateRateSource === 'intake' ? 'Estimated from the prior-year state tax in the intake.' : 'Approximate flat rate on income.', 'pct');
   }
-  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), m.profile.businessIncome > 0 ? 'Adds a "With DB plan" comparison.' : 'Funded from business income; none in the intake.');
-  html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Adds a "With Roth conversion" comparison.');
+  html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), m.profile.businessIncome > 0 ? 'Foundational strategy; can be combined with an advanced strategy.' : 'Funded from business income; none in the intake.');
+  html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Foundational strategy; can be combined with an advanced strategy.');
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
   html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
   html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;
@@ -482,7 +569,9 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const blocks = blocksFor(model);
   if (!blocks.includes(block)) block = 'base';
   const strategies = SCENARIOS.filter((s) => s.id !== 'none');
-  if (!strategies.some((s) => s.id === scenario)) {
+  // scenario 'none' with block db/roth is a foundational strategy on its own.
+  const foundationOnly = scenario === 'none' && block !== 'base';
+  if (!foundationOnly && !strategies.some((s) => s.id === scenario)) {
     const best = strategyRows(cmp, block).find((r) => r.applies);
     scenario = best ? best.id : strategies[0].id;
   }
@@ -529,15 +618,24 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const costs = res.costs.filter((c) => c.kind !== 'retirement' && Math.abs(c.amount) >= 0.5)
     .map((c) => `<tr><th>${esc(c.label)}</th><td>${esc(c.calc || '')}</td><td>${money(c.amount)}</td></tr>`).join('');
 
-  const tabs = `<div class="tx-pills">${strategies.map((s) => `<button type="button" data-tx-pick="${s.id}" aria-selected="${s.id === scenario}">${esc(s.label)}</button>`).join('')}</div>`;
-  const blockTabs = blocks.length > 1 ? `<div class="tx-seg">${blocks.map((b) => `<button type="button" data-tx-pick-block="${b}" aria-selected="${b === block}">${esc(BLOCK_LABEL[b])}</button>`).join('')}</div>` : '';
-  const strat = SCENARIOS.find((s) => s.id === scenario);
+  const pill = (id, b, label) => `<button type="button" data-tx-pick="${id}"${b ? ` data-tx-pick-block="${b}"` : ''} aria-selected="${id === scenario && (!b || b === block)}">${esc(label)}</button>`;
+  const labelOf = (id) => SCENARIOS.find((s) => s.id === id).label;
+  const pillGroups = [
+    ['Foundational', blocks.filter((b) => b !== 'base').map((b) => pill('none', b, FOUNDATION[b].short))],
+    ['Advanced', ADVANCED.map((id) => pill(id, null, labelOf(id)))],
+    ['Combined', COMBINED.map((id) => pill(id, null, labelOf(id)))],
+  ].filter(([, ps]) => ps.length);
+  const tabs = `<div class="tx-pillgroups">${pillGroups.map(([g, ps]) => `<div class="tx-pillgroup"><span>${g}</span><div class="tx-pills">${ps.join('')}</div></div>`).join('')}</div>`;
+  const blockTabs = !foundationOnly && blocks.length > 1 ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm">${blocks.map((b) => `<button type="button" data-tx-pick-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : esc(FOUNDATION[b].short)}</button>`).join('')}</div></div>` : '';
+  const baseStrat = SCENARIOS.find((s) => s.id === scenario);
+  const stratLabel = foundationOnly ? FOUNDATION[block].label : block !== 'base' ? `${baseStrat.label} + ${FOUNDATION[block].short}` : baseStrat.label;
+  const strat = { ...baseStrat, label: stratLabel };
   const notes = strat.steps.flatMap((st) => STRATEGIES[st.strategy].notes.slice(0, 1));
   const warnings = res.warnings.map(simplifyWarning);
 
   root.innerHTML = `${tabs}${blockTabs}
     <section class="tx-hero tx-hero-detail">
-      <div><div class="tx-hero-label">${esc(strat.label)} · ${esc(BLOCK_LABEL[block])}</div>
+      <div><div class="tx-hero-label">${esc(strat.label)}</div>
         <div class="tx-hero-value ${res.savings < 0 ? 'neg' : ''}">${res.savings < 0 ? '−' : ''}${money(Math.abs(res.savings)).replace('−', '')}</div>
         <div class="tx-hero-sub">${block === 'roth' ? 'estimated savings vs. not converting' : 'estimated tax savings this year'} · ${pctOf(Math.abs(res.savings) / Math.max(1, none.rows.totalOutlay + pv))} of total tax liability</div></div>
       <div class="tx-hero-side"><div><span>Total tax liability</span><b>${money(none.rows.totalOutlay + pv)} → ${money(liabilityOf(res))}</b></div></div>
@@ -562,7 +660,12 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     const g = e.target.closest('[data-tx-rate]');
     if (g) { growthRate = +g.dataset.txRate; handlers.select(scenario, block); return; }
     const p = e.target.closest('[data-tx-pick]');
-    if (p) { handlers.select(p.dataset.txPick, block); return; }
+    if (p) {
+      // Foundational pills carry their block; advanced/combined pills keep the current pairing.
+      const nb = p.dataset.txPickBlock || (foundationOnly ? 'base' : block);
+      handlers.select(p.dataset.txPick, nb);
+      return;
+    }
     const b = e.target.closest('[data-tx-pick-block]');
     if (b) handlers.select(scenario, b.dataset.txPickBlock);
   };
