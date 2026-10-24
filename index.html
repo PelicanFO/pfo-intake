@@ -201,8 +201,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 /* RESPONSE DISPLAY */
 
 /* CLIENT STATUS TAGS */
-.export-tax-opt{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-muted);cursor:pointer;margin-left:6px;}
-.export-tax-opt input{accent-color:var(--navy);width:auto;}
 .client-rename-btn{background:none;border:none;padding:2px 6px;margin-left:4px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:var(--text-light);cursor:pointer;border-radius:5px;vertical-align:middle;}
 .client-rename-btn:hover{color:var(--navy);background:var(--cream-dark);}
 .client-rename-input{font-family:'Cormorant Garamond',serif !important;font-size:18px !important;font-weight:600;color:var(--navy);padding:3px 8px !important;width:260px !important;max-width:100%;vertical-align:middle;}
@@ -694,7 +692,6 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
           Email results
         </button>
         <button class="btn btn-gold" id="email-advisor-btn" style="display:none;"></button>
-        <label class="export-tax-opt"><input type="checkbox" id="export-include-tax"/> Include tax strategy estimates in PDF</label>
         <button class="btn btn-gold btn-sm" id="export-tax-btn" style="margin-left:auto;">Tax strategies →</button>
       </div>
       <!-- Email panel (hidden by default) -->
@@ -822,7 +819,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.6.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.6.1'; // bump on every deployed change; shown on the login screen
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1257,21 +1254,14 @@ function currentTaxSummary() {
 }
 const fmtUSD = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');
 const fmtPct = x => (Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%';
-let includeTaxInExport = false; // tax strategies are for meeting 2, so Review & Share leaves them out unless ticked
-function buildTaxSummaryHTML(email, include = includeTaxInExport) {
+// Tax strategy estimates are internal (meeting 2): they go only in emails to the Planning Team Lead
+// and @pelicanfo.com addresses, never in the PDF or client emails.
+function buildTaxSummaryHTML(email, include) {
   if (!include) return '';
   const t = currentTaxSummary();
+  if (!t || !t.strategies.length) return '';
   const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
   const e = email ? escPlain : esc;
-  if (!t || !t.strategies.length) {
-    // Ticked but nothing to show: say why rather than silently leaving the section out.
-    const why = !taxModule ? 'The tax calculator could not load, so no estimates are included.'
-      : !t ? 'No income was entered in the intake, so tax strategy estimates could not be calculated.'
-      : 'No tax strategies apply to the information entered.';
-    return email ? '' : '<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #ede9e0;">'
-      +'<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:600;color:#0f2535;margin-bottom:.5rem;">Tax Strategy Estimates</div>'
-      +'<div style="font-size:12px;color:#888;font-family:'+font+';">'+why+'</div></div>';
-  }
   const cell = 'padding:5px 8px;border-bottom:1px solid #f0ede6;font-size:12px;font-family:'+font+';';
   const rows = t.strategies.map(r => '<tr><td style="'+cell+'color:#1a1a18;">'+e(r.label)+'</td>'
     +'<td style="'+cell+'text-align:right;color:#555;">'+fmtUSD(r.liabilityAfter)+'</td>'
@@ -1326,13 +1316,42 @@ function formatMoneyInput(el) {
   while (pos < after.length && seen < significant) { if (/[0-9.\-]/.test(after.charAt(pos))) seen++; pos++; }
   if (document.activeElement === el) { try { el.setSelectionRange(pos, pos); } catch(e) {} }
 }
+// Phone fields format as (000) 000-0000 while typing. A leading 1 is the US country code
+// (area codes never start with 1), so it is dropped.
+function formatPhoneText(raw) {
+  const d = String(raw ?? '').replace(/\D/g, '').replace(/^1/, '').slice(0, 10);
+  if (!d) return '';
+  if (d.length < 4) return '(' + d;
+  if (d.length < 7) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+  return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+}
+function formatPhoneInput(el) {
+  const before = el.value;
+  const after = formatPhoneText(before);
+  if (after === before) return;
+  const caret = el.selectionStart ?? before.length;
+  let digits = before.slice(0, caret).replace(/\D/g, '').length;
+  if (before.replace(/\D/g, '').charAt(0) === '1') digits = Math.max(0, digits - 1);
+  el.value = after;
+  let pos = 0, seen = 0;
+  while (pos < after.length && seen < digits) { if (/\d/.test(after.charAt(pos))) seen++; pos++; }
+  if (document.activeElement === el) { try { el.setSelectionRange(pos, pos); } catch(e) {} }
+}
 // Capture phase: format before the field's own handler saves the value.
 document.addEventListener('input', e => {
   if (e.target && e.target.matches && e.target.matches(MONEY_INPUT_SEL)) formatMoneyInput(e.target);
+  else if (e.target && e.target.matches && e.target.matches('input[type="tel"]')) formatPhoneInput(e.target);
 }, true);
 // Backspace/Delete next to a comma removes the neighbouring digit instead of the (re-added) comma.
 document.addEventListener('keydown', e => {
   const el = e.target;
+  // Phone: Backspace/Delete skip over the ( ) - and space so a digit is removed.
+  if (el && el.matches && el.matches('input[type="tel"]') && el.selectionStart === el.selectionEnd) {
+    let i = el.selectionStart;
+    if (e.key === 'Backspace') { while (i > 0 && /\D/.test(el.value.charAt(i - 1))) i--; if (i > 0) el.setSelectionRange(i, i); }
+    if (e.key === 'Delete') { while (i < el.value.length && /\D/.test(el.value.charAt(i))) i++; el.setSelectionRange(i, i); }
+    return;
+  }
   if (!(el && el.matches && el.matches(MONEY_INPUT_SEL)) || el.selectionStart !== el.selectionEnd) return;
   const i = el.selectionStart;
   if (e.key === 'Backspace' && i > 0 && el.value.charAt(i - 1) === ',') el.setSelectionRange(i - 1, i - 1);
@@ -1349,6 +1368,9 @@ function displayAnswer(f, v) {
 function formatAllMoneyInputs(root) {
   (root || document).querySelectorAll(MONEY_INPUT_SEL).forEach(el => {
     if (el.value) { const f = formatMoneyText(el.value); if (f !== el.value) el.value = f; }
+  });
+  (root || document).querySelectorAll('input[type="tel"]').forEach(el => {
+    if (el.value && el.value.replace(/\D/g, '').length >= 10) { const f = formatPhoneText(el.value); if (f !== el.value) el.value = f; }
   });
 }
 
@@ -1530,11 +1552,6 @@ function wireButtons() {
     if (b && !b.disabled && !b.classList.contains('active')) goToStage(b.dataset.stage);
   });
   document.getElementById('export-tax-btn').addEventListener('click', () => goToStage('tax'));
-  document.getElementById('export-include-tax').addEventListener('change', async e => {
-    includeTaxInExport = e.target.checked;
-    if (includeTaxInExport) { try { await loadTaxModule(); } catch(err) { /* note shown in preview */ } }
-    buildPDFPreview();
-  });
   document.getElementById('tax-detail-btn').addEventListener('click', () => openTaxDetail(taxDetailState.scenario, taxDetailState.block));
   document.getElementById('taxdetail-back-btn').addEventListener('click', () => openTaxStep());
 
@@ -1848,9 +1865,9 @@ const FORM_SECTIONS = [
       {id:'fname',label:'First name',type:'text',placeholder:'First name',required:true,half:true},
       {id:'lname',label:'Last name',type:'text',placeholder:'Last name',required:true,half:true},
       {id:'email',label:'Email',type:'email',placeholder:'example@example.com'},
-      {id:'phone',label:'Phone number',type:'tel',placeholder:'(000) 000-0000',hint:'Format: (000) 000-0000'},
-      {id:'advisor_name',label:'Planning Team Lead name',type:'text',placeholder:'Full name',half:true},
-      {id:'advisor_email',label:'Planning Team Lead email',type:'email',placeholder:'name@pelicanfo.com',half:true},
+      {id:'phone',label:'Phone number',type:'tel',placeholder:'(000) 000-0000'},
+      {id:'advisor_name',label:'Planning Team Lead name',type:'text',placeholder:'',half:true},
+      {id:'advisor_email',label:'Planning Team Lead email',type:'email',placeholder:'',half:true},
       {id:'age',label:'Age',type:'number',placeholder:'',half:true},
       {id:'state',label:'State of primary residence',type:'select',options:['','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','District of Columbia'],half:true},
       {id:'filing_status',label:'Tax filing status',type:'radio',options:['Single','Married filing jointly','Married filing separately','Head of household']},
@@ -2071,7 +2088,7 @@ const FORM_SECTIONS = [
     id:'conclusion', title:'Final thoughts',
     icon:'<svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>',
     fields:[
-      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:'Share anything — retirement, business exit, legacy, family, lifestyle...'},
+      {id:'financial_goals',label:'What are your most important financial goals right now?',type:'textarea',placeholder:''},
       {id:'biggest_concerns',label:'What are your biggest financial concerns?',type:'textarea',placeholder:''},
       {id:'building_toward',label:'What are you ultimately building toward?',type:'textarea',placeholder:''},
       {id:'one_year_to_live',label:'If you only had 1 year to live, what would you be doing?',type:'textarea',placeholder:''},
@@ -2092,7 +2109,6 @@ async function openIntakeById(clientId, clientName, opts) {
     pItems = []; pCurrentId = null; pClientFormData = {}; pClientId = null;
     aiItems = [];
     taxDetailState = {scenario:null, block:'base', clientId:null};
-    includeTaxInExport = false;
   }
   currentClientId = clientId; currentClientName = clientName;
   if (!(opts && opts.keepSection && sameClient)) cfSection = 0;
@@ -4669,8 +4685,6 @@ function updateEmailAdvisorBtn() {
 }
 function buildPDFPreview() {
   updateEmailAdvisorBtn();
-  const taxBox = document.getElementById('export-include-tax');
-  if (taxBox) taxBox.checked = includeTaxInExport;
   const client = currentClientName||'—';
   const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   // Update subtitle
@@ -4713,7 +4727,6 @@ function buildPDFPreview() {
     </table>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2rem;">${sc(critical,'Critical','#b6f2cc','#0d5229')}${sc(optional,'Optional','#d8d8d8','#3a3a3a')}${sc(bypass,'Bypass','#ffb3b6','#800006')}${sc(unset,'Unset','#f0ede6','#999')}</div>
     ${buildPDFPlanHTML()}
-    ${buildTaxSummaryHTML(false)}
     ${buildPDFResponsesHTML(pClientFormData)}
     <div style="border-top:1px solid #ede9e0;padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:#ccc;font-family:'DM Sans',sans-serif;margin-top:1rem;"><span>Pelican Family Office — Confidential</span><span>Generated ${today}</span></div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid #ede9e0;font-size:9px;line-height:1.5;color:#bbb;font-family:'DM Sans',sans-serif;">This presentation is provided for informational and educational purposes only and does not constitute tax, legal, accounting, investment, or financial advice. The information presented is general in nature and may not apply to your specific circumstances. Any strategies, examples, illustrations, or projections discussed are hypothetical and are not guarantees of future results.<br/>Before implementing any tax, investment, or financial strategy, individuals should consult with qualified tax, legal, accounting, and financial advisors regarding their specific situation.</div>
