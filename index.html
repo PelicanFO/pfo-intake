@@ -818,7 +818,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.7.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.7.1'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -2869,7 +2869,7 @@ function nwsDefaultRows() {
   const fixed = (g, label) => ({id:uid(), g, label, fixed:true});
   const open  = g => ({id:uid(), g, label:''});
   return [
-    fixed('re','Primary home'), open('re'),
+    fixed('re','Primary home'),
     fixed('liquid','Cash equivalents (checking / savings)'),
     fixed('liquid','Non-qualified investments (brokerage)'),
     fixed('liquid','Roth retirement accounts'),
@@ -2878,7 +2878,7 @@ function nwsDefaultRows() {
     fixed('liquid','Cryptocurrency'),
     fixed('liquid','Commodities (gold, silver, etc.)'),
     open('biz'), open('other'),
-    fixed('debt','Car loans'), open('debt'),
+    open('debt'),
   ];
 }
 let nwsRows = [];
@@ -2909,7 +2909,9 @@ function wireNwSheet() {
   const wrap = document.getElementById('nws-wrap');
   if (!wrap) return;
   const saved = currentFormData['nw_sheet'];
-  nwsRows = Array.isArray(saved) && saved.length ? saved.map(r => ({...r})) : nwsDefaultRows();
+  // Retired default rows (empty "Rental property / land" line, "Car loans") are dropped unless filled in.
+  const retired = r => !nwsRowHasData(r) && ((r.fixed && r.label === 'Car loans') || (!r.fixed && r.g === 're'));
+  nwsRows = Array.isArray(saved) && saved.length ? saved.filter(r => !retired(r)).map(r => ({...r})) : nwsDefaultRows();
   renderNwSheet();
   // Delegated handlers — survive re-renders of the table body
   wrap.addEventListener('input', e => {

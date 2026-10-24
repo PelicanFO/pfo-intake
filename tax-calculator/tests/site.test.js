@@ -74,6 +74,6 @@ suite('Site: foundational, advanced and combined strategy groups', (t) => {
   t.ok(film > db.savings, 'Film combined with the DB plan saves more than the DB plan alone');
   const s = taxSummary(fd);
   t.equal(s.strategies.map((r) => r.group).filter((g, i, xs) => xs.indexOf(g) === i).join(','), 'Foundational,Advanced,Combined', 'summary is grouped foundational → advanced → combined');
-  t.ok(/^Defined Benefit Plan/.test(s.strategies[0].label) && /^Roth Conversion/.test(s.strategies[1].label), 'foundational rows first');
+  t.ok(/^Defined Benefit Plan/.test(s.strategies[0].label) && s.strategies[1].group === 'Advanced', 'DB plan is the only foundational row (Roth is offered combined only)');
   t.ok(s.scenarios.length === 2 && /combined with/.test(s.scenarios[0].label), 'pairings listed');
 });
