@@ -1,6 +1,6 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
-import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge } from '../src/site/tax-step.js';
+import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
@@ -60,4 +60,20 @@ suite('Site: LEAP growth projection', (t) => {
   t.close(futureValueOfAnnual(10000, 0.06, 20), 367855.91, 0.01, '$10,000 a year at 6% for 20 years');
   const a = analyze({ ...LA, business_income: '300000' });
   t.ok(a.comparison.blocks.base.scenarios.leap.rows.investmentAccount > 0, 'LEAP has an investment account to project');
+});
+
+suite('Site: foundational, advanced and combined strategy groups', (t) => {
+  t.equal(ADVANCED.join(','), 'film,charitable,solar,leap', 'advanced strategies');
+  t.equal(COMBINED.join(','), 'leapCharitable,solarCharitable', 'combined strategies');
+  const fd = { ...LA, age: '58', business_income: '1000000', nw_view: 'simple', nw_tax_deferred: '2000000', __tax: { dbContribution: 300000, rothConversion: 500000 } };
+  const a = analyze(fd);
+  const db = foundationResult(a.comparison, a.model, 'db');
+  t.ok(db.amount === 300000 && db.savings > 50000, `DB plan stands alone (${Math.round(db.savings)})`);
+  t.close(db.savings, a.comparison.blocks.base.baseline - a.comparison.blocks.db.scenarios.none.rows.totalOutlay, 0.01, 'DB alone = tax saved by the contribution');
+  const film = a.comparison.blocks.db.scenarios.film.savings;
+  t.ok(film > db.savings, 'Film combined with the DB plan saves more than the DB plan alone');
+  const s = taxSummary(fd);
+  t.equal(s.strategies.map((r) => r.group).filter((g, i, xs) => xs.indexOf(g) === i).join(','), 'Foundational,Advanced,Combined', 'summary is grouped foundational → advanced → combined');
+  t.ok(/^Defined Benefit Plan/.test(s.strategies[0].label) && /^Roth Conversion/.test(s.strategies[1].label), 'foundational rows first');
+  t.ok(s.scenarios.length === 2 && /combined with/.test(s.scenarios[0].label), 'pairings listed');
 });

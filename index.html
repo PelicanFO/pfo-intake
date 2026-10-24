@@ -6,7 +6,6 @@
 <title>Pelican Family Office — Focus Prioritizer</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css"/>
 <style>
 :root {
   --navy:#0f2535;--navy-mid:#1a3a5c;--navy-light:#2a5280;
@@ -819,7 +818,9 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.6.1'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.7.0'; // bump on every deployed change; shown on the login screen
+// Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
+document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
 const SUPABASE_ANON_KEY = 'sb_publishable_xnzv7gdE-X-q9b47R0Nhag_s-wJ016Q';
 const PROXY_URL         = 'https://pelican-ai-proxy.truehart-matthew.workers.dev/';
@@ -1263,12 +1264,14 @@ function buildTaxSummaryHTML(email, include) {
   const font = email ? 'Arial,sans-serif' : "'DM Sans',sans-serif";
   const e = email ? escPlain : esc;
   const cell = 'padding:5px 8px;border-bottom:1px solid #f0ede6;font-size:12px;font-family:'+font+';';
-  const rows = t.strategies.map(r => '<tr><td style="'+cell+'color:#1a1a18;">'+e(r.label)+'</td>'
+  let group = null;
+  const groupRow = g => '<tr><td colspan="4" style="padding:10px 8px 3px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa;font-family:'+font+';">'+e(g)+' strategies</td></tr>';
+  const rows = t.strategies.map(r => (r.group && r.group !== group ? groupRow(group = r.group) : '')+'<tr><td style="'+cell+'color:#1a1a18;">'+e(r.label)+'</td>'
     +'<td style="'+cell+'text-align:right;color:#555;">'+fmtUSD(r.liabilityAfter)+'</td>'
     +'<td style="'+cell+'text-align:right;font-weight:600;color:'+(r.savings < 0 ? '#b80008' : '#1a7a3c')+';">'+fmtUSD(r.savings)+'</td>'
     +'<td style="'+cell+'text-align:right;color:#555;">'+fmtPct(r.savings / Math.max(1, t.liability))+'</td></tr>').join('');
   const head = h => '<th style="padding:5px 8px;font-size:10px;color:#aaa;font-weight:normal;text-align:'+(h==='Strategy'?'left':'right')+';font-family:'+font+';">'+h+'</th>';
-  const extra = t.scenarios.map(x => '<div style="font-size:12px;color:#555;font-family:'+font+';margin-top:4px;">'+e(x.label)+': '+e(x.strategy)+' saves '+fmtUSD(x.savings)+' ('+fmtPct(x.pct)+' of tax liability)</div>').join('');
+  const extra = t.scenarios.map(x => '<div style="font-size:12px;color:#555;font-family:'+font+';margin-top:4px;">'+e(x.label)+' saves '+fmtUSD(x.savings)+' ('+fmtPct(x.pct)+' of tax liability)</div>').join('');
   const tips = t.suggestions.map(x => '<div style="font-size:12px;color:#7a5500;font-family:'+font+';margin-top:4px;">'+e(x)+'</div>').join('');
   const title = email
     ? '<div style="font-size:16px;font-weight:bold;color:#0f2535;margin-bottom:8px;font-family:Arial,sans-serif;">Tax Strategy Estimates</div>'
