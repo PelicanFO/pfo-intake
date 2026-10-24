@@ -26,6 +26,8 @@ export const BLOCKS = [
   { id: 'base', label: 'Strategies', short: 'No DB', description: 'Each strategy on its own, compared with doing nothing.' },
   { id: 'db', label: 'With DB plan', short: 'DB', description: 'Same strategies after a defined benefit plan contribution. The contribution stays the client\'s money, so it is not a cost.' },
   { id: 'roth', label: 'With Roth conversion', short: 'Roth', description: 'Same strategies in a year with a Roth conversion, compared with not converting and paying tax on IRA withdrawals later.' },
+  // Not in the workbook: both at once. The DB contribution lowers this year's income, so the conversion is taxed lower.
+  { id: 'dbRoth', label: 'With DB plan + Roth conversion', short: 'DB + Roth', description: 'Same strategies with a defined benefit plan contribution and a Roth conversion in the same year, compared with neither (and paying tax on IRA withdrawals later).' },
 ];
 
 export function scenarioById(id, custom = []) {
@@ -53,12 +55,12 @@ export function situationFor(model, blockId) {
   s.otherItemized = +p.otherItemized || 0;
   s.businessType = p.businessType || 'passthrough';
   s.qbiType = p.qbiType || 'sstb';
-  if (blockId === 'db') {
+  if (blockId === 'db' || blockId === 'dbRoth') {
     const c = +model.db.contribution || 0;
     s.income.business -= c;
     s.businessIncomeAdjustments.push({ label: 'Less defined benefit plan contribution', amount: c, calc: 'reduces business income (spreadsheet: DB comparison!C2)' });
   }
-  if (blockId === 'roth') {
+  if (blockId === 'roth' || blockId === 'dbRoth') {
     const c = +model.roth.conversion || 0;
     s.income.otherOrdinary += c;
     s.otherOrdinaryItems.push({ label: 'Roth conversion', amount: c });
@@ -130,8 +132,8 @@ export function runScenario(model, blockId, scenario) {
   const log = new Ledger(`${scenario.label} — ${BLOCKS.find((b) => b.id === blockId)?.label || blockId}`);
   const ctx = new ScenarioContext(sit, rules, log);
   log.section('Strategy sizing', scenario.steps.length ? scenario.steps.map((s) => STRATEGIES[s.strategy].name).join(' → ') : 'No strategies');
-  if (blockId === 'db') log.line('Defined benefit plan contribution', +model.db.contribution || 0, { kind: 'input', excel: 'DB comparison!C2' });
-  if (blockId === 'roth') log.line('Roth conversion', +model.roth.conversion || 0, { kind: 'input', excel: 'Roth comparison!C2' });
+  if (blockId === 'db' || blockId === 'dbRoth') log.line('Defined benefit plan contribution', +model.db.contribution || 0, { kind: 'input', excel: 'DB comparison!C2' });
+  if (blockId === 'roth' || blockId === 'dbRoth') log.line('Roth conversion', +model.roth.conversion || 0, { kind: 'input', excel: 'Roth comparison!C2' });
   for (const step of scenario.steps) {
     const strat = STRATEGIES[step.strategy];
     const params = { ...Object.fromEntries(strat.params.map((p) => [p.key, p.default])), ...(model.params?.[strat.id] || {}) };

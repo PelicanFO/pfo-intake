@@ -15,8 +15,8 @@ export function scenarioOutcome(model, blockId, scenario, rules) {
   const none = scenarioById('none');
   const baseNone = runScenario(m, 'base', none);
   let baseline = baseNone.rows.totalOutlay;
-  if (blockId === 'roth') {
-    const rothNone = scenario.id === 'none' ? res : runScenario(m, 'roth', none);
+  if (blockId === 'roth' || blockId === 'dbRoth') {
+    const rothNone = scenario.id === 'none' && blockId === 'roth' ? res : runScenario(m, 'roth', none);
     const conversionTax = rothNone.rows.totalTax - baseNone.rows.totalTax;
     baseline += rothProjection(m, rules, { conversionTax, strategySavings: 0, strategyLabel: '' }).pvRmdTax;
   }

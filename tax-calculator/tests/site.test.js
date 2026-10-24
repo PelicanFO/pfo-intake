@@ -1,6 +1,6 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
-import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED } from '../src/site/tax-step.js';
+import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
@@ -74,6 +74,30 @@ suite('Site: foundational, advanced and combined strategy groups', (t) => {
   t.ok(film > db.savings, 'Film combined with the DB plan saves more than the DB plan alone');
   const s = taxSummary(fd);
   t.equal(s.strategies.map((r) => r.group).filter((g, i, xs) => xs.indexOf(g) === i).join(','), 'Foundational,Advanced,Combined', 'summary is grouped foundational → advanced → combined');
-  t.ok(/^Defined Benefit Plan/.test(s.strategies[0].label) && s.strategies[1].group === 'Advanced', 'DB plan is the only foundational row (Roth is offered combined only)');
-  t.ok(s.scenarios.length === 2 && /combined with/.test(s.scenarios[0].label), 'pairings listed');
+  t.equal(s.strategies.filter((r) => r.group === 'Foundational').map((r) => r.label.replace(/ \(.*/, '')).join(','), 'Defined Benefit Plan,DB Plan + Roth Conversion', 'foundational rows: DB plan, DB + Roth (no Roth on its own)');
+  t.ok(s.scenarios.length === 3 && s.scenarios.every((x) => /combined with/.test(x.label)), 'pairings listed (DB, Roth, DB + Roth)');
+});
+
+suite('Site: DB plan + Roth conversion in the same year', (t) => {
+  const fd = { ...LA, age: '58', business_income: '1000000', nw_view: 'simple', nw_tax_deferred: '2000000', __tax: { dbContribution: 300000, rothConversion: 500000 } };
+  const cmp = analyze(fd).comparison;
+  const both = cmp.blocks.dbRoth.scenarios.none, db = cmp.blocks.db.scenarios.none, roth = cmp.blocks.roth.scenarios.none;
+  t.close(both.return.agi, roth.return.agi - 300000, 0.01, 'DB contribution comes off the income that includes the conversion');
+  t.ok(both.rows.totalTax < roth.rows.totalTax && both.rows.totalTax > db.rows.totalTax, 'tax falls between DB alone and Roth alone');
+  t.close(cmp.blocks.dbRoth.baseline, cmp.blocks.roth.baseline, 0.01, 'measured against not converting, like the Roth comparison');
+  t.ok(cmp.blocks.dbRoth.scenarios.none.savings > cmp.blocks.roth.scenarios.none.savings, 'adding the DB plan to a conversion saves more');
+  // The conversion is taxed lower with the DB plan in place.
+  const convTax = (blk, ref) => cmp.blocks[blk].scenarios.none.rows.totalTax - cmp.blocks[ref].scenarios.none.rows.totalTax;
+  t.ok(convTax('dbRoth', 'db') < convTax('roth', 'base') + 0.01, `conversion tax with DB (${Math.round(convTax('dbRoth', 'db'))}) ≤ without (${Math.round(convTax('roth', 'base'))})`);
+});
+
+suite('Site: DB plan is applied automatically', (t) => {
+  const fd = { ...LA, age: '58', business_income: '1000000' };
+  const s = dbSuggestion(fd);
+  const auto = withAutoDb(fd);
+  t.ok(s && auto.__tax.dbContribution === s.amount && auto.__tax.dbAuto, `no amount entered: suggested ${s && s.amount} is used`);
+  t.ok(/^Defined Benefit Plan/.test(taxSummary(fd).strategies[0].label), 'summary includes the DB plan without anything entered');
+  t.equal(withAutoDb({ ...fd, __tax: { dbContribution: 0 } }).__tax.dbContribution, 0, 'an entered 0 turns it off');
+  t.equal(withAutoDb({ ...fd, __tax: { dbContribution: 120000 } }).__tax.dbContribution, 120000, 'an entered amount wins');
+  t.equal(withAutoDb({ ...LA, w2_income: '400000' }).__tax, undefined, 'no business income: nothing applied');
 });
