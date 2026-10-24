@@ -415,10 +415,11 @@ function resultsHTML(a, saved, tips = []) {
         <div class="tx-row-cta">Details →</div></div></button>`;
   }).join('');
 
-  const leapBest = rows.find((r) => r.applies && r.r.rows.investmentAccount > 0.5);
-  const longTerm = leapBest ? growthHTML(leapBest.r, {
+  // Long-term value is illustrated with LEAP on its own (not the LEAP + charitable combination).
+  const leapRow = rows.find((r) => r.id === 'leap' && r.applies && r.r.rows.investmentAccount > 0.5);
+  const longTerm = leapRow ? growthHTML(leapRow.r, {
     title: 'Long-term value',
-    sub: `With ${leapBest.label}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
+    sub: `With ${leapRow.label}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
     cls: 'tx-longterm',
   }) : '';
   return `${profile}${tabs}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}${hero}${longTerm}${tipHTML}
