@@ -30,8 +30,10 @@ const STRATEGY_BLURB = {
 };
 const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth conversion' };
 
-// Strategy groups on the tax page. Foundational strategies (DB plan, Roth conversion) stand alone and
-// can be combined with one advanced strategy; combined strategies pair two advanced strategies.
+// Strategy groups on the tax page. The DB plan is the foundational strategy: it stands alone and can
+// be combined with an advanced strategy. A Roth conversion is only offered combined with an advanced
+// strategy (on its own it rarely helps). Combined strategies pair two advanced strategies.
+export const FOUNDATIONAL = ['db'];
 export const FOUNDATION = {
   db: { label: 'Defined Benefit Plan', short: 'DB plan', blurb: 'Tax-deductible contribution to a defined benefit (cash balance) plan, funded from business income. The money stays the client\'s.' },
   roth: { label: 'Roth Conversion', short: 'Roth conversion', blurb: 'Moves pre-tax retirement money to a Roth: tax is paid now instead of on withdrawals later, and future growth is tax-free.' },
@@ -265,7 +267,7 @@ export function taxSummary(fd = {}) {
   if (a.income <= 0) return null;
   const cmp = a.comparison;
   const base = strategyRows(cmp, 'base').filter((r) => r.applies);
-  const found = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
+  const found = blocksFor(a.model).filter((b) => FOUNDATIONAL.includes(b)).map((b) => {
     const f = foundationResult(cmp, a.model, b);
     return { group: 'Foundational', label: `${FOUNDATION[b].label} (${money(f.amount)})`, savings: f.savings, pct: f.pct, liabilityAfter: f.liability };
   });
@@ -430,7 +432,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
 
   // ---- foundational strategies: each on its own, with a switch to combine it with the advanced ones
   const tipFor = (kind) => tips.find((t) => t.kind === kind);
-  const foundRows = ['db', 'roth'].map((kind) => foundationResult(cmp, model, kind));
+  const foundRows = FOUNDATIONAL.map((kind) => foundationResult(cmp, model, kind));
   const foundMax = Math.max(1, ...foundRows.filter((f) => f.amount > 0).map((f) => Math.abs(f.savings)));
   const foundCard = (f) => {
     const F = FOUNDATION[f.kind];
@@ -462,7 +464,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
         </div></div>
       ${valueHTML(f.savings, f.pct, foundMax)}</div></div>`;
   };
-  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Stand on their own, or combine one with an advanced strategy</span></div>
+  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Stands on its own, or combine it with an advanced strategy</span></div>
       <div class="tx-list">${foundRows.map(foundCard).join('')}</div></section>`;
 
   // ---- advanced and combined strategies (with the chosen foundational strategy, if any)
@@ -487,7 +489,10 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
   const available = blocks.filter((b) => b !== 'base');
   const pairSwitch = available.length
     ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : `${esc(FOUNDATION[b].short)} · ${money(amountOf(model, b))}`}</button>`).join('')}</div></div>`
-    : '<p class="tx-pairhint">Add a DB plan or Roth conversion above to combine it with these.</p>';
+    : '<p class="tx-pairhint">Add a DB plan above, or a Roth conversion under Scenario options, to combine it with these.</p>';
+  const rothTip = !(model.roth.conversion > 0) && tipFor('roth');
+  const rothAdd = rothTip ? `<div class="tx-roth-tip"><p><b>Roth conversion.</b> ${esc(rothTip.text)}</p>
+      <button type="button" class="btn btn-sm btn-gold" data-tx-apply="roth:${Math.round(rothTip.amount)}">Combine a ${money(rothTip.amount)} Roth conversion</button></div>` : '';
   const overDb = block === 'db' && model.db.contribution > Math.max(0, model.profile.businessIncome);
   const context = block === 'db'
     ? `Savings include the ${money(model.db.contribution)} DB plan contribution (it stays the client's money, so it isn't part of the tax liability).${overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : ''}`
@@ -498,21 +503,14 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
   const comboRows = shown.filter((r) => COMBINED.includes(r.id));
   const comboBest = comboRows.find((r) => r.applies && r.savings > 0.5);
   const advanced = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Advanced Strategies</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
-      ${pairSwitch}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}
+      ${pairSwitch}${rothAdd}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}
       <div class="tx-list">${advRows.map(card).join('')}</div>
       <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Combined Strategies</span>
         <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}${comboBest ? ` · up to ${money(comboBest.savings)}` : ''}</span></summary>
         <div class="tx-list">${comboRows.map(card).join('')}</div></details>
     </section>`;
 
-  // Long-term value is illustrated with LEAP on its own (not the LEAP + charitable combination).
-  const leapRow = rows.find((r) => r.id === 'leap' && r.applies && r.r.rows.investmentAccount > 0.5);
-  const longTerm = leapRow ? growthHTML(leapRow.r, {
-    title: 'Long-term value',
-    sub: `With ${withPair(leapRow.label)}: the investment account it builds plus this year's tax savings, invested at ${pctOf(growthRate)} a year.`,
-    cls: 'tx-longterm',
-  }) : '';
-  return `${profile}${hero}${longTerm}${foundational}${advanced}`;
+  return `${profile}${hero}${foundational}${advanced}`;
 }
 
 function naReason(r) {
@@ -570,7 +568,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   if (!blocks.includes(block)) block = 'base';
   const strategies = SCENARIOS.filter((s) => s.id !== 'none');
   // scenario 'none' with block db/roth is a foundational strategy on its own.
-  const foundationOnly = scenario === 'none' && block !== 'base';
+  const foundationOnly = scenario === 'none' && FOUNDATIONAL.includes(block);
   if (!foundationOnly && !strategies.some((s) => s.id === scenario)) {
     const best = strategyRows(cmp, block).find((r) => r.applies);
     scenario = best ? best.id : strategies[0].id;
@@ -621,7 +619,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const pill = (id, b, label) => `<button type="button" data-tx-pick="${id}"${b ? ` data-tx-pick-block="${b}"` : ''} aria-selected="${id === scenario && (!b || b === block)}">${esc(label)}</button>`;
   const labelOf = (id) => SCENARIOS.find((s) => s.id === id).label;
   const pillGroups = [
-    ['Foundational', blocks.filter((b) => b !== 'base').map((b) => pill('none', b, FOUNDATION[b].short))],
+    ['Foundational', blocks.filter((b) => FOUNDATIONAL.includes(b)).map((b) => pill('none', b, FOUNDATION[b].short))],
     ['Advanced', ADVANCED.map((id) => pill(id, null, labelOf(id)))],
     ['Combined', COMBINED.map((id) => pill(id, null, labelOf(id)))],
   ].filter(([, ps]) => ps.length);

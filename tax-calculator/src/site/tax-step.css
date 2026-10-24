@@ -28,7 +28,7 @@
 .tx-hero-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.6); }
 .tx-hero-value { font-family: 'Cormorant Garamond', serif; font-size: 44px; font-weight: 600; line-height: 1.05; color: var(--gold-light); font-variant-numeric: tabular-nums; }
 .tx-hero-value.neg { color: #ffb3b6; }
-.tx-hero-sub { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 2px; }
+.tx-hero-sub { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.75); margin-top: 10px; }
 .tx-hero-sub b { color: #fff; font-weight: 500; }
 .tx-hero-side { display: grid; gap: 6px; min-width: 220px; }
 .tx-hero-side div { display: flex; justify-content: space-between; gap: 14px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 5px; }
@@ -154,3 +154,7 @@ button.tx-row:hover { border-color: var(--gold); box-shadow: 0 2px 10px rgba(15,
 .tx-pillgroup > span { width: 92px; font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
 .tx-pillgroup .tx-pills { margin: 0; }
 @media (max-width: 560px) { .tx-found { grid-template-columns: 1fr; } .tx-pillgroup > span { width: 100%; } }
+
+.tx-roth-tip { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; background: #fffaf0; border: 1px solid rgba(176,141,87,.35); border-left: 3px solid var(--gold); border-radius: 10px; padding: .7rem .9rem; margin: 0 0 .8rem; }
+.tx-card .tx-roth-tip p { font-size: 13px; color: var(--text); margin: 0; flex: 1 1 300px; line-height: 1.5; }
+.tx-roth-tip b { font-weight: 500; color: var(--navy); }
