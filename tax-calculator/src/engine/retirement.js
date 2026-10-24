@@ -10,7 +10,7 @@ import { UNIFORM_LIFETIME, rmdStartAge } from '../tables/federal.js';
 
 export function rothProjection(model, rules, { conversionTax, strategySavings, strategyLabel }) {
   const r = model.roth;
-  const age = Math.round(+model.profile.age || 0);
+  const age = Math.round(+model.profile.age || 65); // no age entered: assume 65
   const conversion = +r.conversion || 0;
   const g = +r.discountRate || 0;
   const birthYear = model.year - age;

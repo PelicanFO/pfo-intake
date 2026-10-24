@@ -2,8 +2,10 @@
 // Builds a calculator model from the client's intake answers, runs every strategy, and renders
 // a comparison and a Detailed Results page. All tax math lives in ../engine.
 //
-// The site uses the spreadsheet method (the PFO Tax Strategy Calculator's own math) with one
-// fix: strategy amounts that would come out negative are set to $0 instead of raising taxes.
+// The site uses the spreadsheet method (the PFO Tax Strategy Calculator's own math) with these
+// changes: the standard deduction (federal, or itemized if larger, plus the 65+ and senior
+// deductions, and the state's standard deduction) is applied, and strategy amounts that would come
+// out negative are set to $0 instead of raising taxes.
 
 import { runComparison } from '../engine/compare.js';
 import { SCENARIOS } from '../engine/scenarios.js';
@@ -12,8 +14,9 @@ import { ALL_OFF } from '../engine/rules.js';
 import { STRATEGIES, defaultParams } from '../strategies/index.js';
 import { stateCodeFor } from '../tables/states/index.js';
 import { money, pct } from '../engine/ledger.js';
+import { augustaRule, familyPayroll, FOUNDATIONAL_PARAMS } from './foundational.js';
 
-export const SITE_RULES = { ...ALL_OFF, clampNegative: true };
+export const SITE_RULES = { ...ALL_OFF, clampNegative: true, standardDeduction: true, stateStandardDeduction: true };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -30,13 +33,16 @@ const STRATEGY_BLURB = {
 };
 const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth conversion' };
 
-// Strategy groups on the tax page. The DB plan is the foundational strategy: it stands alone and can
-// be combined with an advanced strategy. A Roth conversion is only offered combined with an advanced
-// strategy (on its own it rarely helps). Combined strategies pair two advanced strategies.
-export const FOUNDATIONAL = ['db', 'dbRoth'];
+// Strategy groups on the tax page. Foundational strategies stand alone: the DB plan (which can also be
+// combined with an advanced strategy), the Augusta Rule and Family Payroll (./foundational.js).
+// A Roth conversion, alone or with the DB plan, is only offered combined with an advanced strategy
+// (on its own it rarely helps). Combined strategies pair two advanced strategies.
+export const FOUNDATIONAL = ['db'];
 export const FOUNDATION = {
   db: { label: 'Defined Benefit Plan', short: 'DB plan', blurb: 'Tax-deductible contribution to a defined benefit (cash balance) plan, funded from business income. The money stays the client\'s.' },
   roth: { label: 'Roth Conversion', short: 'Roth conversion', blurb: 'Moves pre-tax retirement money to a Roth: tax is paid now instead of on withdrawals later, and future growth is tax-free.' },
+  augusta: { label: 'Augusta Rule', short: 'Augusta Rule', blurb: 'The business rents the client\'s home for business meetings, up to 14 days a year. The business deducts the rent, and the client receives it tax-free (IRC §280A(g)).' },
+  payroll: { label: 'Family Payroll', short: 'Family payroll', blurb: 'The business pays the client\'s children reasonable wages for real work, up to the standard deduction, so the children owe no federal income tax and the business deducts the wages.' },
   dbRoth: { label: 'DB Plan + Roth Conversion', short: 'DB plan + Roth conversion', blurb: 'Both in the same year: the DB contribution lowers this year\'s income, so the Roth conversion is taxed at lower rates.' },
 };
 const hasDb = (b) => b === 'db' || b === 'dbRoth';
@@ -95,7 +101,8 @@ export function intakeToModel(fd = {}) {
   m.db.contribution = num(saved.dbContribution);
   m.roth.conversion = num(saved.rothConversion);
   m.roth.retirementAge = num(fd.retirement_target_age) || 65;
-  if (!p.age) p.age = 65; // only used by the Roth projection when no age is given
+  // No age entered: left blank so the 65+ deductions aren't applied (the Roth projection assumes 65).
+  if (!p.age) notes.push({ text: 'Age not entered — 65+ deductions not applied; the Roth projection assumes age 65.', section: 'personal' });
   const params = defaultParams();
   for (const [sid, vals] of Object.entries(saved.params || {})) if (params[sid]) Object.assign(params[sid], vals);
   m.params = params;
@@ -308,6 +315,11 @@ export function taxSummary(fd = {}) {
     const f = foundationResult(cmp, a.model, b);
     return { group: 'Foundational', label: `${FOUNDATION[b].label} (${amountText(a.model, b)})`, savings: f.savings, pct: f.pct, liabilityAfter: f.liability };
   });
+  for (const x of [augustaRule(fd, a.model, fd.__tax || {}), familyPayroll(fd, a.model, fd.__tax || {})]) {
+    if (!x.applies) continue;
+    const label = x.id === 'augusta' ? `Augusta Rule (${x.days} days × ${money(x.rate)})` : `Family Payroll (${x.count} × ${money(x.wage)})`;
+    found.push({ group: 'Foundational', label, savings: x.savings, pct: x.savings / Math.max(1, x.before), liabilityAfter: x.before - x.savings });
+  }
   const row = (group) => (r) => ({ group, label: r.label, savings: r.savings, pct: r.pct, liabilityAfter: r.liability });
   const scenarios = blocksFor(a.model).filter((b) => b !== 'base').map((b) => {
     const r = strategyRows(cmp, b).find((x) => x.applies);
@@ -365,6 +377,8 @@ export function renderTaxStep(root, fd, handlers) {
       else saved.params[sid][pk] = kind === 'pct' ? num(el.value) / 100 : num(el.value);
     } else if (key === 'stateRate') {
       saved.stateRate = el.value === '' ? null : num(el.value) / 100;
+    } else if (['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage'].includes(key) && el.value.trim() === '') {
+      delete saved[key]; // blank = estimated from the intake
     } else {
       saved[key] = num(el.value);
     }
@@ -472,8 +486,10 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
 
   // ---- foundational strategies: each on its own, with a switch to combine it with the advanced ones
   const tipFor = (kind) => tips.find((t) => t.kind === kind);
-  const foundRows = FOUNDATIONAL.filter((kind) => kind === 'db' || blocks.includes(kind)).map((kind) => foundationResult(cmp, model, kind));
-  const foundMax = Math.max(1, ...foundRows.filter((f) => f.amount > 0).map((f) => Math.abs(f.savings)));
+  const foundRows = FOUNDATIONAL.map((kind) => foundationResult(cmp, model, kind));
+  const aug = augustaRule(fd, model, fd.__tax || {});
+  const pay = familyPayroll(fd, model, fd.__tax || {});
+  const foundMax = Math.max(1, ...foundRows.filter((f) => f.amount > 0).map((f) => Math.abs(f.savings)), ...[aug, pay].filter((x) => x.applies).map((x) => Math.abs(x.savings)));
   const foundCard = (f) => {
     const F = FOUNDATION[f.kind];
     if (!(f.amount > 0)) {
@@ -493,10 +509,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
     const facts = f.kind === 'db'
       ? `<span>Contribution ${money(f.amount)}${saved.dbContribution === undefined ? ' (suggested)' : ''}</span><span>Total tax liability ${money(f.baseline)} → ${money(f.liability)}</span>`
       : `<span>DB contribution ${money(model.db.contribution)} + Roth conversion ${money(model.roth.conversion)}</span><span>Tax liability without converting ${money(f.baseline)} → ${money(f.liability)}</span>`;
-    const dbOnly = f.kind === 'dbRoth' ? foundRows.find((x) => x.kind === 'db') : null;
-    const note = f.kind === 'dbRoth' && dbOnly
-      ? `<div class="tx-row-facts"><span>${f.savings - dbOnly.savings >= 0 ? '+' : '−'}${money(Math.abs(f.savings - dbOnly.savings))} vs. the DB plan alone</span></div>${f.savings < dbOnly.savings ? '<div class="tx-row-note">Without an advanced strategy, the conversion tax outweighs what it saves later. Combine it with one below.</div>' : ''}`
-      : '';
+    const note = '';
     return `<div class="tx-row tx-found${paired ? ' is-paired' : ''}"><div class="tx-row-main">
         <div class="tx-row-title">${esc(F.label)}</div>
         <div class="tx-row-desc">${esc(F.blurb)}</div>
@@ -507,8 +520,32 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
         </div></div>
       ${valueHTML(f.savings, f.pct, foundMax)}</div></div>`;
   };
-  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Stands on its own, or combine it with an advanced strategy</span></div>
-      <div class="tx-list">${foundRows.map(foundCard).join('')}</div></section>`;
+  // Augusta Rule / Family Payroll: on their own, with the calculation in a dropdown.
+  const howHTML = (x) => `<details class="tx-how-drop"><summary>How it's calculated</summary><table class="tx-how">${x.lines.map(([a, b, c]) => `<tr><th>${esc(a)}</th><td>${esc(b)}</td><td>${c < 0 ? '−' : ''}${money(Math.abs(c))}</td></tr>`).join('')}
+      <tr class="total"><th>Estimated savings</th><td></td><td>${money(x.savings)}</td></tr></table></details>`;
+  const extraCard = (x) => {
+    const F = FOUNDATION[x.id];
+    if (!x.applies) {
+      return `<div class="tx-row tx-row-na tx-found"><div class="tx-row-main"><div class="tx-row-title">${esc(F.label)}</div>
+        <div class="tx-row-desc">${esc(F.blurb)}</div></div><div class="tx-row-na-label">${esc(x.why)}</div></div>`;
+    }
+    const ent = x.entity.known ? '' : ' Entity type not entered — treated as an S corp.';
+    const facts = x.id === 'augusta'
+      ? `<span>${x.days} days × ${money(x.rate)}${x.rateEstimated ? ` (est. from ${money(x.homeValue)} home)` : ''} = ${money(x.rent)} rent</span><span>Total tax liability ${money(x.before)} → ${money(x.before - x.savings)}</span>`
+      : `<span>${x.count} child${x.count === 1 ? '' : 'ren'} × ${money(x.wage)} wages</span><span>Payroll tax ${money(x.employerTax + x.employeeTax)}</span><span>Total tax liability ${money(x.before)} → ${money(x.before - x.savings)}</span>`;
+    const req = x.id === 'augusta'
+      ? `Needs real business meetings at the home on each rental day, a written rental agreement and minutes, and rent at a fair local rate (comparable venue or short-term rental quotes). Must be rented fewer than 15 days in total for the year.${ent}`
+      : `Needs real, age-appropriate work, a reasonable wage for it, timesheets, and wages paid through payroll with a W-2. Children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} from the intake; assumes they have no other income. They can put the wages in a Roth IRA.${ent}`;
+    return `<div class="tx-row tx-found"><div class="tx-row-main">
+        <div class="tx-row-title">${esc(F.label)}</div>
+        <div class="tx-row-desc">${esc(F.blurb)}</div>
+        <div class="tx-row-facts">${facts}</div>
+        <div class="tx-row-req">${esc(req)}</div>
+        ${howHTML(x)}</div>
+      ${valueHTML(x.savings, x.savings / Math.max(1, x.before), foundMax)}</div></div>`;
+  };
+  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Each on its own; the DB plan can also be combined with an advanced strategy</span></div>
+      <div class="tx-list">${foundRows.map(foundCard).join('')}${extraCard(aug)}${extraCard(pay)}</div></section>`;
 
   // ---- advanced and combined strategies (with the chosen foundational strategy, if any)
   const maxSav = Math.max(1, ...shown.map((r) => Math.abs(r.savings)));
@@ -531,7 +568,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
   };
   const available = blocks.filter((b) => b !== 'base');
   const pairSwitch = available.length
-    ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : b === 'dbRoth' ? 'DB plan + Roth conversion' : `${esc(FOUNDATION[b].short)} · ${money(amountOf(model, b))}`}</button>`).join('')}</div></div>`
+    ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm" role="tablist">${['base', ...available].map((b) => `<button type="button" role="tab" data-tx-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : b === 'dbRoth' ? 'DB plan + Roth conversion' : esc(FOUNDATION[b].short)}</button>`).join('')}</div></div>`
     : '<p class="tx-pairhint">Add a DB plan contribution or Roth conversion under Scenario options to combine it with these.</p>';
   const rothTip = !(model.roth.conversion > 0) && tipFor('roth');
   const rothAdd = rothTip ? `<div class="tx-roth-tip"><p><b>Roth conversion.</b> ${esc(rothTip.text)}</p>
@@ -551,7 +588,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
       <div class="tx-list">${advRows.map(card).join('')}</div>
       <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Combined Strategies</span>
         <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}${comboBest ? ` · up to ${money(comboBest.savings)}` : ''}</span></summary>
-        <div class="tx-list">${comboRows.map(card).join('')}</div></details>
+        ${pairSwitch}<div class="tx-list">${comboRows.map(card).join('')}</div></details>
     </section>`;
 
   return `${profile}${hero}${foundational}${advanced}`;
@@ -588,6 +625,19 @@ function optionsHTML(built, saved, fd) {
     : m.profile.businessIncome > 0 ? `Foundational strategy. <button type="button" class="tx-link" data-tx-autodb>Use the suggested amount</button>` : 'Funded from business income; none in the intake.';
   html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), dbHint);
   html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Foundational strategy; can be combined with an advanced strategy.');
+  const aug = augustaRule(fd, m, saved);
+  const pay = familyPayroll(fd, m, saved);
+  const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field"><span>${esc(label)}</span>
+    <span class="tx-input ${kind}"><input type="text" inputmode="decimal" data-tax="${key}" ${kind === 'tx-money' ? 'data-money' : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"></span>
+    ${hint ? `<small>${hint}</small>` : ''}</label>`;
+  const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
+  html += `<div class="tx-opt-group">Augusta Rule</div>`;
+  html += plain('augustaDays', 'Rental days', set('augustaDays') ? saved.augustaDays : '', String(FOUNDATIONAL_PARAMS.augustaMaxDays), 'Up to 14 a year.');
+  html += plain('augustaRate', 'Daily rental rate', set('augustaRate') ? commas(saved.augustaRate) : '', aug.estRate ? commas(aug.estRate) : '0',
+    aug.homeValue ? `Blank = estimated at 0.1% of the ${money(aug.homeValue)} home value (max $3,000).` : 'No home value in the intake; enter a rate.', 'tx-money');
+  html += `<div class="tx-opt-group">Family Payroll</div>`;
+  html += plain('payrollKids', 'Children employed', set('payrollKids') ? saved.payrollKids : '', String(pay.eligibleCount || 0), `Blank = children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} in the intake.`);
+  html += plain('payrollWage', 'Wages per child', set('payrollWage') ? commas(saved.payrollWage) : '', commas(pay.stdSingle), `Blank = the 2026 standard deduction (${money(pay.stdSingle)}).`, 'tx-money');
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
   html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
   html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;

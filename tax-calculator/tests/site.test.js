@@ -1,17 +1,24 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
+import { augustaRule, familyPayroll } from '../src/site/foundational.js';
 import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
-suite('Site: intake answers drive the workbook-method results', (t) => {
+suite('Site: intake answers drive the results (spreadsheet method + standard deduction)', (t) => {
+  // Workbook (no deductions): liability $93,195.42 (Strategy comparison!F10). The site adds the
+  // standard deduction: federal $32,200 + 2 × $1,650 age 65+ = $35,500 at 24% = $8,520 (senior
+  // deduction fully phased out at $400k), plus Louisiana's $25,750 at 3% = $772.50.
   const a = analyze({ ...LA, age: '65', w2_income: '400,000' });
-  t.close(a.comparison.blocks.base.scenarios.film.savings, 15582.07, 0.01, 'Film savings match the workbook (Strategy comparison!G11)');
-  t.close(a.comparison.blocks.base.baseline, 93195.42, 0.01, 'current tax liability matches the workbook (F10)');
+  t.close(a.comparison.blocks.base.baseline, 93195.42 - 8520 - 772.5, 0.01, 'liability = workbook − standard deductions');
+  const film = a.comparison.blocks.base.scenarios.film.savings;
+  t.ok(film > 10000 && film < 15582.07, `Film still saves, a little less than the workbook's $15,582 now that the first $35,500 isn't taxed (${Math.round(film)})`);
   const s = taxSummary({ ...LA, age: '65', w2_income: '400000' });
   t.equal(s.best.label, 'Film', 'summary picks Film as best');
-  t.close(s.best.pct, 15582.07 / 93195.42, 1e-6, 'savings as a share of tax liability');
+  t.close(s.best.pct, film / a.comparison.blocks.base.baseline, 1e-6, 'savings as a share of tax liability');
   t.equal(taxSummary({ ...LA }), null, 'no summary without income');
+  const young = analyze({ ...LA, w2_income: '400,000' }).comparison.blocks.base.baseline;
+  t.close(young - a.comparison.blocks.base.baseline, 3300 * 0.24, 0.01, 'no age entered: no 65+ deduction');
 });
 
 suite('Site: pre-tax retirement balance ignores Roth accounts', (t) => {
@@ -74,7 +81,7 @@ suite('Site: foundational, advanced and combined strategy groups', (t) => {
   t.ok(film > db.savings, 'Film combined with the DB plan saves more than the DB plan alone');
   const s = taxSummary(fd);
   t.equal(s.strategies.map((r) => r.group).filter((g, i, xs) => xs.indexOf(g) === i).join(','), 'Foundational,Advanced,Combined', 'summary is grouped foundational → advanced → combined');
-  t.equal(s.strategies.filter((r) => r.group === 'Foundational').map((r) => r.label.replace(/ \(.*/, '')).join(','), 'Defined Benefit Plan,DB Plan + Roth Conversion', 'foundational rows: DB plan, DB + Roth (no Roth on its own)');
+  t.equal(s.strategies.filter((r) => r.group === 'Foundational').map((r) => r.label.replace(/ \(.*/, '')).join(','), 'Defined Benefit Plan', 'foundational rows: DB plan only (no Roth or DB + Roth on their own)');
   t.ok(s.scenarios.length === 3 && s.scenarios.every((x) => /combined with/.test(x.label)), 'pairings listed (DB, Roth, DB + Roth)');
 });
 
@@ -100,4 +107,43 @@ suite('Site: DB plan is applied automatically', (t) => {
   t.equal(withAutoDb({ ...fd, __tax: { dbContribution: 0 } }).__tax.dbContribution, 0, 'an entered 0 turns it off');
   t.equal(withAutoDb({ ...fd, __tax: { dbContribution: 120000 } }).__tax.dbContribution, 120000, 'an entered amount wins');
   t.equal(withAutoDb({ ...LA, w2_income: '400000' }).__tax, undefined, 'no business income: nothing applied');
+});
+
+suite('Site: Augusta Rule and Family Payroll (hand-checked)', (t) => {
+  // MFJ, Louisiana, age 50, $500,000 pass-through income: taxable $467,800 → 32% federal bracket + 3% LA.
+  const fd = (entity, extra = {}) => ({ ...LA, age: '50', business_income: '500000', has_business: 'Yes', business_entity: entity,
+    nw_view: 'simple', nw_real_estate: '1,200,000', children: 'Yes', children_count: '2', children_ages: '10, 14', ...extra });
+  const run = (f) => { const a = analyze(f); return { aug: augustaRule(f, a.model, f.__tax || {}), pay: familyPayroll(f, a.model, f.__tax || {}) }; };
+
+  const s = run(fd('S-Corp'));
+  t.equal(s.aug.rate, 1200, 'daily rate estimated at 0.1% of a $1.2M home');
+  t.close(s.aug.rent, 16800, 0.01, '14 days × $1,200');
+  t.close(s.aug.savings, 16800 * 0.35, 0.01, 'Augusta: rent deducted at 32% + 3%, tax-free to the owner');
+  // Wages $32,200 + employer FICA $2,463.30 + FUTA $84 deducted at 35%; less FICA both sides, FUTA,
+  // and each child's Louisiana tax: ($16,100 − $12,875) × 3% = $96.75.
+  t.close(s.pay.deduction, 32200 + 2463.3 + 84, 0.01, 'S corp: wages + employer payroll tax deducted');
+  t.close(s.pay.childTax, 2 * 96.75, 0.01, 'children owe no federal tax; Louisiana tax above its $12,875 deduction');
+  t.close(s.pay.savings, 34747.3 * 0.35 - 2 * 2463.3 - 84 - 193.5, 0.01, `S corp family payroll savings (${Math.round(s.pay.savings)})`);
+
+  const sole = run(fd('Sole proprietorship'));
+  t.ok(!sole.aug.applies && /paying rent to the owner/.test(sole.aug.why), 'Augusta doesn\'t apply to a sole proprietorship');
+  t.close(sole.pay.employerTax + sole.pay.employeeTax, 0, 0.01, 'sole proprietor: no FICA/FUTA for children under 18');
+  t.close(sole.pay.savings, 32200 * 0.35 - 193.5, 0.01, 'sole proprietor family payroll savings');
+
+  const older = run(fd('Sole proprietorship', { children_ages: '19, 14' }));
+  t.close(older.pay.employeeTax, 16100 * 0.0765, 0.01, 'a child 18+ pays FICA even in a sole proprietorship');
+
+  const c = run(fd('C-Corp'));
+  t.close(c.aug.savings, 16800 * 0.21, 0.01, 'C corp: rent deducted at the 21% corporate rate');
+
+  const custom = run(fd('S-Corp', { __tax: { augustaDays: 20, augustaRate: 2000, payrollKids: 1, payrollWage: 10000 } }));
+  t.equal(custom.aug.days, 14, 'rental days capped at 14 (fewer than 15, §280A(g))');
+  t.close(custom.aug.rent, 28000, 0.01, 'entered daily rate used');
+  t.equal(custom.pay.count, 1, 'entered number of children used');
+  t.close(custom.pay.wages, 10000, 0.01, 'entered wage used');
+
+  const young = run(fd('S-Corp', { children_ages: '3, 5' }));
+  t.ok(!young.pay.applies && /aged 7–24/.test(young.pay.why), 'children under 7 aren\'t counted');
+  const noBiz = run({ ...LA, w2_income: '300000', nw_view: 'simple', nw_real_estate: '900000', children: 'Yes', children_ages: '12' });
+  t.ok(!noBiz.aug.applies && !noBiz.pay.applies, 'no business: neither applies');
 });
