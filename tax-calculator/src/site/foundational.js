@@ -92,7 +92,7 @@ export function augustaRule(fd, model, saved = {}) {
   const profit = businessProfit(fd, model, entity);
   if (entity.kind === 'sole') return { ...base, applies: false, why: `A ${entity.label.toLowerCase()} would be paying rent to the owner, so there is no deduction. Needs an S corp, partnership or C corp.` };
   if (!(profit > 0)) return { ...base, applies: false, why: 'Needs business profit to pay the rent from; none in the intake.' };
-  if (!(rate > 0)) return { ...base, applies: false, why: 'No primary home value in the intake. Enter a daily rental rate under Scenario options.' };
+  if (!(rate > 0)) return { ...base, applies: false, why: 'No primary home value in the intake. Enter a daily rental rate under Strategy assumptions.' };
   if (!(days > 0)) return { ...base, applies: false, why: 'Rental days set to 0.' };
   const rent = Math.min(days * rate, profit);
   const before = taxOf(model);
@@ -131,7 +131,7 @@ export function familyPayroll(fd, model, saved = {}) {
   const profit = businessProfit(fd, model, entity);
   if (!(profit > 0)) return { ...base, applies: false, why: 'Needs a business to pay the wages; no business income in the intake.' };
   if (!count) {
-    const why = ages && ages.length ? `No children aged ${P.childMinAge}–${P.childMaxAge} in the intake.` : 'No children in the intake. Enter the number to employ under Scenario options.';
+    const why = ages && ages.length ? `No children aged ${P.childMinAge}–${P.childMaxAge} in the intake.` : 'No children in the intake. Enter the number to employ under Strategy assumptions.';
     return { ...base, applies: false, why: has(saved.payrollKids) ? 'Children employed set to 0.' : why };
   }
   if (!(wage > 0)) return { ...base, applies: false, why: 'Wage per child set to 0.' };

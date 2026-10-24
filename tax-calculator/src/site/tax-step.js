@@ -36,7 +36,7 @@ const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth c
 // Strategy groups on the tax page. Foundational strategies stand alone: the DB plan (which can also be
 // combined with an advanced strategy), the Augusta Rule and Family Payroll (./foundational.js).
 // A Roth conversion, alone or with the DB plan, is only offered combined with an advanced strategy
-// (on its own it rarely helps). Combined strategies pair two advanced strategies.
+// (on its own it rarely helps). Dual advanced strategies pair two advanced strategies.
 export const FOUNDATIONAL = ['db'];
 export const FOUNDATION = {
   db: { label: 'Defined Benefit Plan', short: 'DB plan', blurb: 'Tax-deductible contribution to a defined benefit (cash balance) plan, funded from business income. The money stays the client\'s.' },
@@ -331,7 +331,7 @@ export function taxSummary(fd = {}) {
     strategies: [
       ...found,
       ...base.filter((r) => ADVANCED.includes(r.id)).map(row('Advanced')),
-      ...base.filter((r) => COMBINED.includes(r.id)).map(row('Combined')),
+      ...base.filter((r) => COMBINED.includes(r.id)).map(row('Dual Advanced')),
     ],
     best: top ? { label: top.label, savings: top.savings, pct: top.pct } : null,
     scenarios,
@@ -361,7 +361,7 @@ export function renderTaxStep(root, fd, handlers) {
   const built = intakeToModel(effective());
   drawOptions();
   draw();
-  // Remember whether the Combined Strategies dropdown is open across redraws.
+  // Remember whether the Dual Advanced Strategies dropdown is open across redraws.
   resultsEl.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('.tx-combined')) combinedOpen = e.target.open; }, true);
 
   let t;
@@ -410,6 +410,7 @@ export function renderTaxStep(root, fd, handlers) {
     if (reset) {
       delete saved.params;
       delete saved.planningFee;
+      for (const k of ['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage']) delete saved[k];
       drawOptions();
       draw(); handlers.save({ ...saved });
     }
@@ -515,7 +516,6 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
         <div class="tx-row-desc">${esc(F.blurb)}</div>
         <div class="tx-row-facts">${facts}</div>${note}
         <div class="tx-found-actions">
-          <button type="button" class="tx-pair" data-tx-block="${paired ? 'base' : f.kind}" aria-pressed="${paired}">${paired ? '✓ Combined with the advanced strategies below' : 'Combine with an advanced strategy'}</button>
           <button type="button" class="tx-link" data-tx-detail="none" data-tx-detail-block="${f.kind}">Details →</button>
         </div></div>
       ${valueHTML(f.savings, f.pct, foundMax)}</div></div>`;
@@ -544,7 +544,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
         ${howHTML(x)}</div>
       ${valueHTML(x.savings, x.savings / Math.max(1, x.before), foundMax)}</div></div>`;
   };
-  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Each on its own; the DB plan can also be combined with an advanced strategy</span></div>
+  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Each on its own</span></div>
       <div class="tx-list">${foundRows.map(foundCard).join('')}${extraCard(aug)}${extraCard(pay)}</div></section>`;
 
   // ---- advanced and combined strategies (with the chosen foundational strategy, if any)
@@ -582,12 +582,11 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
     : '') + (overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : '');
   const advRows = shown.filter((r) => ADVANCED.includes(r.id));
   const comboRows = shown.filter((r) => COMBINED.includes(r.id));
-  const comboBest = comboRows.find((r) => r.applies && r.savings > 0.5);
   const advanced = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Advanced Strategies</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
       ${pairSwitch}${rothAdd}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}
       <div class="tx-list">${advRows.map(card).join('')}</div>
-      <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Combined Strategies</span>
-        <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}${comboBest ? ` · up to ${money(comboBest.savings)}` : ''}</span></summary>
+      <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Dual Advanced Strategies</span>
+        <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}</span></summary>
         ${pairSwitch}<div class="tx-list">${comboRows.map(card).join('')}</div></details>
     </section>`;
 
@@ -627,20 +626,20 @@ function optionsHTML(built, saved, fd) {
   html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Foundational strategy; can be combined with an advanced strategy.');
   const aug = augustaRule(fd, m, saved);
   const pay = familyPayroll(fd, m, saved);
-  const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field"><span>${esc(label)}</span>
+  const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field tx-field-sm"><span>${esc(label)}</span>
     <span class="tx-input ${kind}"><input type="text" inputmode="decimal" data-tax="${key}" ${kind === 'tx-money' ? 'data-money' : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"></span>
     ${hint ? `<small>${hint}</small>` : ''}</label>`;
   const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
-  html += `<div class="tx-opt-group">Augusta Rule</div>`;
-  html += plain('augustaDays', 'Rental days', set('augustaDays') ? saved.augustaDays : '', String(FOUNDATIONAL_PARAMS.augustaMaxDays), 'Up to 14 a year.');
-  html += plain('augustaRate', 'Daily rental rate', set('augustaRate') ? commas(saved.augustaRate) : '', aug.estRate ? commas(aug.estRate) : '0',
-    aug.homeValue ? `Blank = estimated at 0.1% of the ${money(aug.homeValue)} home value (max $3,000).` : 'No home value in the intake; enter a rate.', 'tx-money');
-  html += `<div class="tx-opt-group">Family Payroll</div>`;
-  html += plain('payrollKids', 'Children employed', set('payrollKids') ? saved.payrollKids : '', String(pay.eligibleCount || 0), `Blank = children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} in the intake.`);
-  html += plain('payrollWage', 'Wages per child', set('payrollWage') ? commas(saved.payrollWage) : '', commas(pay.stdSingle), `Blank = the 2026 standard deduction (${money(pay.stdSingle)}).`, 'tx-money');
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
   html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
   html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;
+  html += `<div class="tx-assume-title">Augusta Rule</div>`;
+  html += plain('augustaDays', 'Rental days', set('augustaDays') ? saved.augustaDays : '', String(FOUNDATIONAL_PARAMS.augustaMaxDays), 'Up to 14 a year.');
+  html += plain('augustaRate', 'Daily rental rate', set('augustaRate') ? commas(saved.augustaRate) : '', aug.estRate ? commas(aug.estRate) : '0',
+    aug.homeValue ? `Blank = estimated at 0.1% of the ${money(aug.homeValue)} home value (max $3,000).` : 'No home value in the intake; enter a rate.', 'tx-money');
+  html += `<div class="tx-assume-title">Family Payroll</div>`;
+  html += plain('payrollKids', 'Children employed', set('payrollKids') ? saved.payrollKids : '', String(pay.eligibleCount || 0), `Blank = children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} in the intake.`);
+  html += plain('payrollWage', 'Wages per child', set('payrollWage') ? commas(saved.payrollWage) : '', commas(pay.stdSingle), `Blank = the 2026 standard deduction (${money(pay.stdSingle)}).`, 'tx-money');
   for (const s of Object.values(STRATEGIES)) {
     html += `<div class="tx-assume-title">${esc(s.name)}</div>`;
     for (const p of s.params) {
@@ -718,7 +717,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const pillGroups = [
     ['Foundational', blocks.filter((b) => FOUNDATIONAL.includes(b)).map((b) => pill('none', b, FOUNDATION[b].short))],
     ['Advanced', ADVANCED.map((id) => pill(id, null, labelOf(id)))],
-    ['Combined', COMBINED.map((id) => pill(id, null, labelOf(id)))],
+    ['Dual Advanced', COMBINED.map((id) => pill(id, null, labelOf(id)))],
   ].filter(([, ps]) => ps.length);
   const tabs = `<div class="tx-pillgroups">${pillGroups.map(([g, ps]) => `<div class="tx-pillgroup"><span>${g}</span><div class="tx-pills">${ps.join('')}</div></div>`).join('')}</div>`;
   const blockTabs = !foundationOnly && blocks.length > 1 ? `<div class="tx-pairbar"><span>Combine with</span><div class="tx-seg tx-seg-sm">${blocks.map((b) => `<button type="button" data-tx-pick-block="${b}" aria-selected="${b === block}">${b === 'base' ? 'Nothing' : esc(FOUNDATION[b].short)}</button>`).join('')}</div></div>` : '';
