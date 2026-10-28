@@ -433,6 +433,15 @@ function profileChips(a) {
 const pctOf = (x) => `${(Math.round(x * 1000) / 10).toFixed(1).replace(/\.0$/, '')}%`;
 
 let combinedOpen = false;
+const SELECT_HINT = 'Select a strategy for the detailed calculation';
+
+/** What the Augusta Rule / Family Payroll need in practice (card and detail page). */
+function extraRequirements(x) {
+  const ent = x.entity.known ? '' : ' Entity type not entered — treated as an S corp.';
+  return x.id === 'augusta'
+    ? `Needs real business meetings at the home on each rental day, a written rental agreement and minutes, and rent at a fair local rate (comparable venue or short-term rental quotes). Must be rented fewer than 15 days in total for the year.${ent}`
+    : `Needs real, age-appropriate work, a reasonable wage for it, timesheets, and wages paid through payroll with a W-2. Children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} from the intake; assumes they have no other income. They can put the wages in a Roth IRA.${ent}`;
+}
 
 function resultsHTML(a, saved, tips = [], fd = {}) {
   const { model, comparison: cmp } = a;
@@ -511,40 +520,30 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
       ? `<span>Contribution ${money(f.amount)}${saved.dbContribution === undefined ? ' (suggested)' : ''}</span><span>Total tax liability ${money(f.baseline)} → ${money(f.liability)}</span>`
       : `<span>DB contribution ${money(model.db.contribution)} + Roth conversion ${money(model.roth.conversion)}</span><span>Tax liability without converting ${money(f.baseline)} → ${money(f.liability)}</span>`;
     const note = '';
-    return `<div class="tx-row tx-found${paired ? ' is-paired' : ''}"><div class="tx-row-main">
+    return `<button type="button" class="tx-row tx-found${paired ? ' is-paired' : ''}" data-tx-detail="none" data-tx-detail-block="${f.kind}"><div class="tx-row-main">
         <div class="tx-row-title">${esc(F.label)}</div>
         <div class="tx-row-desc">${esc(F.blurb)}</div>
-        <div class="tx-row-facts">${facts}</div>${note}
-        <div class="tx-found-actions">
-          <button type="button" class="tx-link" data-tx-detail="none" data-tx-detail-block="${f.kind}">Details →</button>
-        </div></div>
-      ${valueHTML(f.savings, f.pct, foundMax)}</div></div>`;
+        <div class="tx-row-facts">${facts}</div>${note}</div>
+      ${valueHTML(f.savings, f.pct, foundMax)}</div></button>`;
   };
-  // Augusta Rule / Family Payroll: on their own, with the calculation in a dropdown.
-  const howHTML = (x) => `<details class="tx-how-drop"><summary>How it's calculated</summary><table class="tx-how">${x.lines.map(([a, b, c]) => `<tr><th>${esc(a)}</th><td>${esc(b)}</td><td>${c < 0 ? '−' : ''}${money(Math.abs(c))}</td></tr>`).join('')}
-      <tr class="total"><th>Estimated savings</th><td></td><td>${money(x.savings)}</td></tr></table></details>`;
+  // Augusta Rule / Family Payroll: on their own; the calculation is on the detail page.
   const extraCard = (x) => {
     const F = FOUNDATION[x.id];
     if (!x.applies) {
       return `<div class="tx-row tx-row-na tx-found"><div class="tx-row-main"><div class="tx-row-title">${esc(F.label)}</div>
         <div class="tx-row-desc">${esc(F.blurb)}</div></div><div class="tx-row-na-label">${esc(x.why)}</div></div>`;
     }
-    const ent = x.entity.known ? '' : ' Entity type not entered — treated as an S corp.';
     const facts = x.id === 'augusta'
       ? `<span>${x.days} days × ${money(x.rate)}${x.rateEstimated ? ` (est. from ${money(x.homeValue)} home)` : ''} = ${money(x.rent)} rent</span><span>Total tax liability ${money(x.before)} → ${money(x.before - x.savings)}</span>`
       : `<span>${x.count} child${x.count === 1 ? '' : 'ren'} × ${money(x.wage)} wages</span><span>Payroll tax ${money(x.employerTax + x.employeeTax)}</span><span>Total tax liability ${money(x.before)} → ${money(x.before - x.savings)}</span>`;
-    const req = x.id === 'augusta'
-      ? `Needs real business meetings at the home on each rental day, a written rental agreement and minutes, and rent at a fair local rate (comparable venue or short-term rental quotes). Must be rented fewer than 15 days in total for the year.${ent}`
-      : `Needs real, age-appropriate work, a reasonable wage for it, timesheets, and wages paid through payroll with a W-2. Children aged ${FOUNDATIONAL_PARAMS.childMinAge}–${FOUNDATIONAL_PARAMS.childMaxAge} from the intake; assumes they have no other income. They can put the wages in a Roth IRA.${ent}`;
-    return `<div class="tx-row tx-found"><div class="tx-row-main">
+    return `<button type="button" class="tx-row tx-found" data-tx-detail="${x.id}" data-tx-detail-block="base"><div class="tx-row-main">
         <div class="tx-row-title">${esc(F.label)}</div>
         <div class="tx-row-desc">${esc(F.blurb)}</div>
         <div class="tx-row-facts">${facts}</div>
-        <div class="tx-row-req">${esc(req)}</div>
-        ${howHTML(x)}</div>
-      ${valueHTML(x.savings, x.savings / Math.max(1, x.before), foundMax)}</div></div>`;
+        <div class="tx-row-req">${esc(extraRequirements(x))}</div></div>
+      ${valueHTML(x.savings, x.savings / Math.max(1, x.before), foundMax)}</div></button>`;
   };
-  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">Each on its own</span></div>
+  const foundational = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Foundational Strategies</h3><span class="tx-card-sub">${SELECT_HINT}</span></div>
       <div class="tx-list">${foundRows.map(foundCard).join('')}${extraCard(aug)}${extraCard(pay)}</div></section>`;
 
   // ---- advanced and combined strategies (with the chosen foundational strategy, if any)
@@ -563,8 +562,7 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
         <div class="tx-row-facts"><span>Total tax liability ${money(blk.baseline)} → ${money(r.liability)}</span>${pairBase ? `<span>${extra >= 0 ? '+' : '−'}${money(Math.abs(extra))} vs. the ${esc(pairing.short)} alone</span>` : ''}</div>
         ${r.r.rows.investmentAccount > 0.5 ? `<div class="tx-row-growth">Investment account ${money(r.r.rows.investmentAccount)} → <b>${money(futureValue(r.r.rows.investmentAccount, growthRate, 20))}</b> in 20 years at ${pctOf(growthRate)}</div>` : ''}
         ${note ? `<div class="tx-row-note">${esc(simplifyWarning(note))}</div>` : ''}</div>
-      ${valueHTML(r.savings, r.pct, maxSav)}
-        <div class="tx-row-cta">Details →</div></div></button>`;
+      ${valueHTML(r.savings, r.pct, maxSav)}</div></button>`;
   };
   const available = blocks.filter((b) => b !== 'base');
   const pairSwitch = available.length
@@ -582,12 +580,12 @@ function resultsHTML(a, saved, tips = [], fd = {}) {
     : '') + (overDb ? ` Note: a DB contribution is funded from business income (${money(model.profile.businessIncome)}).` : '');
   const advRows = shown.filter((r) => ADVANCED.includes(r.id));
   const comboRows = shown.filter((r) => COMBINED.includes(r.id));
-  const advanced = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Advanced Strategies</h3><span class="tx-card-sub">Select a strategy for the detailed calculation</span></div>
+  const advanced = `<section class="tx-card tx-group"><div class="tx-card-head"><h3>Advanced Strategies</h3><span class="tx-card-sub">${SELECT_HINT}</span></div>
       ${pairSwitch}${rothAdd}${context ? `<p class="tx-context">${esc(context)}</p>` : ''}
       <div class="tx-list">${advRows.map(card).join('')}</div>
       <details class="tx-combined"${combinedOpen ? ' open' : ''}><summary><span class="tx-combined-title">Dual Advanced Strategies</span>
-        <span class="tx-card-sub">${comboRows.map((r) => esc(r.label)).join(' · ')}</span></summary>
-        ${pairSwitch}<div class="tx-list">${comboRows.map(card).join('')}</div></details>
+        <span class="tx-card-sub">${SELECT_HINT}</span></summary>
+        <div class="tx-combined-body">${pairSwitch}<div class="tx-list">${comboRows.map(card).join('')}</div></div></details>
     </section>`;
 
   return `${profile}${hero}${foundational}${advanced}`;
@@ -663,6 +661,9 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const blocks = blocksFor(model);
   if (!blocks.includes(block)) block = 'base';
   const strategies = SCENARIOS.filter((s) => s.id !== 'none');
+  const extras = [augustaRule(fd, model, fd.__tax || {}), familyPayroll(fd, model, fd.__tax || {})].filter((x) => x.applies);
+  const extra = extras.find((x) => x.id === scenario);
+  if (extra) return renderExtraDetail(root, a, extra, extras, handlers);
   // scenario 'none' with block db/roth is a foundational strategy on its own.
   const foundationOnly = scenario === 'none' && FOUNDATIONAL.includes(block);
   if (!foundationOnly && !strategies.some((s) => s.id === scenario)) {
@@ -715,7 +716,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   const pill = (id, b, label) => `<button type="button" data-tx-pick="${id}"${b ? ` data-tx-pick-block="${b}"` : ''} aria-selected="${id === scenario && (!b || b === block)}">${esc(label)}</button>`;
   const labelOf = (id) => SCENARIOS.find((s) => s.id === id).label;
   const pillGroups = [
-    ['Foundational', blocks.filter((b) => FOUNDATIONAL.includes(b)).map((b) => pill('none', b, FOUNDATION[b].short))],
+    ['Foundational', [...blocks.filter((b) => FOUNDATIONAL.includes(b)).map((b) => pill('none', b, FOUNDATION[b].short)), ...extras.map((x) => pill(x.id, 'base', FOUNDATION[x.id].label))]],
     ['Advanced', ADVANCED.map((id) => pill(id, null, labelOf(id)))],
     ['Dual Advanced', COMBINED.map((id) => pill(id, null, labelOf(id)))],
   ].filter(([, ps]) => ps.length);
@@ -750,7 +751,11 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     </section>
     <p class="tx-foot">PFO Tax Strategy Calculator method, 2026 federal rates (Rev. Proc. 2025-32). Estimates for discussion, not tax advice.</p>`;
 
-  root.onclick = (e) => {
+  root.onclick = detailClick(scenario, block, foundationOnly, handlers);
+}
+
+function detailClick(scenario, block, foundationOnly, handlers) {
+  return (e) => {
     const g = e.target.closest('[data-tx-rate]');
     if (g) { growthRate = +g.dataset.txRate; handlers.select(scenario, block); return; }
     const p = e.target.closest('[data-tx-pick]');
@@ -765,10 +770,40 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
   };
 }
 
-// ------------------------------------------------------------------ growth over time (LEAP)
-// LEAP keeps part of the contribution in an investment account. Show what it, and this year's tax
-// savings, grow to if invested at 6–8% for 10/15/20 years (one-time amounts compounded annually),
-// plus the value if the same savings repeat every year.
+/** Detail page for the Augusta Rule / Family Payroll (outside the workbook engine). */
+function renderExtraDetail(root, a, x, extras, handlers) {
+  const { model } = a;
+  const F = FOUNDATION[x.id];
+  const pill = (id, b, label) => `<button type="button" data-tx-pick="${id}" data-tx-pick-block="${b}" aria-selected="${id === x.id}">${esc(label)}</button>`;
+  const labelOf = (id) => SCENARIOS.find((s) => s.id === id).label;
+  const pillGroups = [
+    ['Foundational', [...(model.db.contribution > 0 ? [pill('none', 'db', FOUNDATION.db.short)] : []), ...extras.map((e) => pill(e.id, 'base', FOUNDATION[e.id].label))]],
+    ['Advanced', ADVANCED.map((id) => pill(id, 'base', labelOf(id)))],
+    ['Dual Advanced', COMBINED.map((id) => pill(id, 'base', labelOf(id)))],
+  ];
+  const tabs = `<div class="tx-pillgroups">${pillGroups.map(([g, ps]) => `<div class="tx-pillgroup"><span>${g}</span><div class="tx-pills">${ps.join('')}</div></div>`).join('')}</div>`;
+  const after = x.before - x.savings;
+  const how = `<table class="tx-how">${x.lines.map(([l, c, v]) => `<tr><th>${esc(l)}</th><td>${esc(c)}</td><td>${v < 0 ? '−' : ''}${money(Math.abs(v))}</td></tr>`).join('')}
+      <tr class="total"><th>Estimated savings</th><td></td><td>${money(x.savings)}</td></tr></table>`;
+  root.innerHTML = `${tabs}
+    <section class="tx-hero tx-hero-detail">
+      <div><div class="tx-hero-label">${esc(F.label)}</div>
+        <div class="tx-hero-value">${money(x.savings)}</div>
+        <div class="tx-hero-sub">estimated tax savings this year · ${pctOf(x.savings / Math.max(1, x.before))} of total tax liability</div></div>
+      <div class="tx-hero-side"><div><span>Total tax liability</span><b>${money(x.before)} → ${money(after)}</b></div></div>
+    </section>
+    ${growthHTML({ rows: {}, savings: x.savings })}
+    <section class="tx-card"><h3>How it's calculated</h3>${how}
+      <p class="tx-foot">${esc(F.blurb)} ${esc(extraRequirements(x))}</p>
+    </section>
+    <p class="tx-foot">PFO Tax Strategy Calculator method, 2026 federal rates (Rev. Proc. 2025-32). Estimates for discussion, not tax advice.</p>`;
+  root.onclick = detailClick(x.id, 'base', true, handlers);
+}
+
+// ------------------------------------------------------------------ growth over time
+// What this year's tax savings grow to if invested at 6–8% for 10/15/20 years (one-time amounts
+// compounded annually), plus the value if the same savings repeat every year. LEAP also keeps part
+// of the contribution in an investment account, shown with the savings.
 let growthRate = 0.07;
 const GROWTH_RATES = [0.06, 0.07, 0.08];
 const GROWTH_YEARS = [10, 15, 20];
@@ -776,20 +811,20 @@ export const futureValue = (amount, rate, years) => amount * Math.pow(1 + rate, 
 export const futureValueOfAnnual = (amount, rate, years) => (rate ? amount * (Math.pow(1 + rate, years) - 1) / rate : amount * years);
 
 function growthHTML(res, opts = {}) {
-  const account = res.rows.investmentAccount || 0;
-  if (account <= 0.5) return '';
-  const savings = Math.max(0, res.savings);
+  const account = Math.max(0, res.rows.investmentAccount || 0) > 0.5 ? res.rows.investmentAccount : 0;
+  const savings = Math.max(0, res.savings) > 0.5 ? res.savings : 0;
+  if (!account && !savings) return '';
   const r = growthRate;
   const title = opts.title || 'Growth over time';
-  const sub = opts.sub || `The LEAP investment account and this year's tax savings, invested at ${pctOf(r)} a year.`;
+  const sub = opts.sub || (account ? `The LEAP investment account and this year's tax savings, invested at ${pctOf(r)} a year.` : `This year's tax savings, invested at ${pctOf(r)} a year.`);
   const row = (label, today, fn, cls = '') => `<tr class="${cls}"><th scope="row">${esc(label)}</th><td>${today === null ? '' : money(today)}</td>${GROWTH_YEARS.map((y) => `<td>${money(fn(y))}</td>`).join('')}</tr>`;
   return `<section class="tx-card ${opts.cls || ''}"><div class="tx-card-head"><h3>${esc(title)}</h3>
       <div class="tx-pills tx-pills-sm">${GROWTH_RATES.map((g) => `<button type="button" data-tx-rate="${g}" aria-selected="${Math.abs(g - r) < 1e-9}">${pctOf(g)}</button>`).join('')}</div></div>
     <p class="tx-card-sub">${esc(sub)}</p>
     <div class="tx-table-wrap"><table class="tx-compare tx-growth"><thead><tr><th></th><th>Today</th>${GROWTH_YEARS.map((y) => `<th>${y} years</th>`).join('')}</tr></thead><tbody>
-      ${row('Investment account', account, (y) => futureValue(account, r, y))}
-      ${savings ? row('Tax savings, invested', savings, (y) => futureValue(savings, r, y)) : ''}
-      ${row('Total', account + savings, (y) => futureValue(account + savings, r, y), 'sub')}
+      ${account ? row('Investment account', account, (y) => futureValue(account, r, y)) : ''}
+      ${savings ? row('Tax savings, invested', savings, (y) => futureValue(savings, r, y), account ? '' : 'sub') : ''}
+      ${account ? row('Total', account + savings, (y) => futureValue(account + savings, r, y), 'sub') : ''}
       ${savings ? row('If the tax savings repeat every year', null, (y) => futureValueOfAnnual(savings, r, y)) : ''}
     </tbody></table></div></section>`;
 }
