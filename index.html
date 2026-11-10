@@ -818,7 +818,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.10.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.10.1'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -910,7 +910,7 @@ async function dbInsert(tbl, payload) {
   }
 }
 async function dbUpdate(tbl, id, payload) {
-  if (!useCloud) { const k=String(id); const ex=JSON.parse(localStorage.getItem(k)||'{}'); localStorage.setItem(k,JSON.stringify({...ex,...payload,id:k})); return; }
+  if (!useCloud) { const k=String(id); const ex=JSON.parse(localStorage.getItem(k)||'{}'); localStorage.setItem(k,JSON.stringify({...ex,...payload,id:k})); return true; }
   try {
     const safe = {...payload};
     if (tbl===TBL_CLIENTS && !schemaCpaCodeExists) { delete safe.cpa_code; delete safe.client_status; }
@@ -918,9 +918,11 @@ async function dbUpdate(tbl, id, payload) {
     if (tbl===TBL_INTAKES) { delete safe.plan_data; }
     const {error}=await db.from(tbl).update(safe).eq('id',id);
     if(error) throw error;
+    return true;
   } catch(e) {
     console.error('dbUpdate error:', e?.message||e?.details||JSON.stringify(e));
     toast('Update failed: ' + (e?.message||e?.code||'unknown error'));
+    return false;
   }
 }
 async function dbGetAll(tbl) {
@@ -1200,7 +1202,7 @@ async function loadTaxModule() {
 let taxFormClientId = null;   // client whose form data the tax pages last loaded
 async function loadTaxFormData() {
   const rec = await dbGet(TBL_CLIENTS, currentClientId);
-  currentFormData = (rec && rec.form_data) ? rec.form_data : {};
+  currentFormData = trackForm(rec && rec.form_data);
   taxFormClientId = currentClientId;
 }
 async function openTaxStep() {
@@ -1572,7 +1574,8 @@ async function startSession() {
   const name = nameInput.value.trim();
   if (!name) { nameInput.focus(); return; }
   currentClientName = name;
-  currentFormData = {};
+  await flushSave();
+  currentFormData = trackForm({});
   taxFormClientId = null;
   cfSection = 0;
   // Determine cpa_code: CPA users use their own code; admins read from the selector
@@ -2116,7 +2119,7 @@ async function openIntakeById(clientId, clientName, opts) {
   currentClientId = clientId; currentClientName = clientName;
   if (!(opts && opts.keepSection && sameClient)) cfSection = 0;
   const rec = await dbGet(TBL_CLIENTS, clientId);
-  currentFormData = (rec && rec.form_data) ? rec.form_data : {};
+  currentFormData = trackForm(rec && rec.form_data);
   document.getElementById('intake-client-title').textContent = clientName;
   renderCFSection();
   showView('intake');
@@ -2481,9 +2484,95 @@ function handleCheckCard(event, fid, okey, oval) {
 function updateCheckStyle(fid,okey,checked){const el=document.getElementById(`cc-${fid}-${okey}`);if(el)el.classList.toggle('checked',checked);}
 function saveField(id,val){currentFormData[id]=val;autosave();}
 function saveMulti(id){currentFormData[id]=Array.from(document.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(c=>c.value);autosave();}
-let autosaveTimer;
-function autosave(){clearTimeout(autosaveTimer);autosaveTimer=setTimeout(async()=>{if(currentClientId)await dbUpdate(TBL_CLIENTS,currentClientId,{form_data:currentFormData});},1200);}
-async function flushSave(){clearTimeout(autosaveTimer);if(currentClientId)await dbUpdate(TBL_CLIENTS,currentClientId,{form_data:JSON.parse(JSON.stringify(currentFormData))});}
+// ── Saving client form data ──────────────────────────────────────
+// The same client can be open in more than one place (two people in a meeting, two tabs). Saves used to
+// write this copy's whole form_data, so a copy loaded earlier wiped what another copy had entered since
+// (Spreadsheet View data lost, Nov 2026). Now each save writes only the fields this copy changed, merged
+// onto the latest saved record, and pulls in what the other copy saved. Each save is also bound to the
+// client it was made for, so switching clients can't write one client's answers onto another.
+const formBases = new WeakMap();   // form data object -> {field: JSON as last loaded/saved}
+function snapshotFields(fd) { const m = {}; Object.keys(fd || {}).forEach(k => { m[k] = JSON.stringify(fd[k]); }); return m; }
+function trackForm(fd) { fd = fd || {}; formBases.set(fd, snapshotFields(fd)); return fd; }
+let autosaveTimer, pendingSave = null, saveChain = Promise.resolve(), savesInFlight = 0;
+function autosave() {
+  if (!currentClientId) return;
+  pendingSave = {id: currentClientId, fd: currentFormData};
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(runSave, 1200);
+}
+function runSave(extra) {
+  clearTimeout(autosaveTimer);
+  const p = pendingSave; pendingSave = null;
+  if (!p) return saveChain;
+  savesInFlight++;
+  saveChain = saveChain.then(() => saveClientForm(p.id, p.fd, extra)).catch(e => console.error('save error:', e)).finally(() => { savesInFlight--; });
+  return saveChain;
+}
+async function flushSave(extra) {
+  if (!pendingSave && currentClientId) pendingSave = {id: currentClientId, fd: currentFormData};
+  await runSave(extra);
+}
+async function fetchSavedFormData(id) {
+  if (!useCloud) { const r = dbGet(TBL_CLIENTS, id); return ((await r) || {}).form_data || {}; }
+  const {data, error} = await db.from(TBL_CLIENTS).select('form_data').eq('id', id).single();
+  if (error) throw error;
+  return (data && data.form_data) || {};
+}
+async function saveClientForm(id, fd, extra) {
+  backupFormLocally(id, fd);   // this copy's answers, before anything can go wrong
+  const base = formBases.get(fd);
+  const mine = snapshotFields(fd);
+  let remote;
+  try { remote = await fetchSavedFormData(id); }
+  catch (e) {
+    console.error('save: could not read saved record:', e?.message || e);
+    toast('Save failed (connection?) — retrying. Keep this page open.');
+    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(runSave, 5000); }
+    return;
+  }
+  const merged = {...remote};
+  Object.keys(mine).forEach(k => { if (!base || base[k] !== mine[k]) merged[k] = fd[k]; });
+  if (base) Object.keys(base).forEach(k => { if (!(k in mine)) delete merged[k]; });
+  const ok = await dbUpdate(TBL_CLIENTS, id, {form_data: merged, ...(extra || {})});
+  if (!ok) {
+    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(runSave, 5000); }
+    return;
+  }
+  // Bring in fields another copy saved, unless they were edited here while this save was running.
+  let pulled = false;
+  const now = snapshotFields(merged);
+  Object.keys(now).forEach(k => { if (JSON.stringify(fd[k]) === mine[k] && mine[k] !== now[k]) { fd[k] = merged[k]; pulled = true; } });
+  Object.keys(mine).forEach(k => { if (!(k in now) && JSON.stringify(fd[k]) === mine[k]) { delete fd[k]; pulled = true; } });
+  formBases.set(fd, now);
+  backupFormLocally(id, merged);
+  if (pulled && fd === currentFormData && String(id) === String(currentClientId))
+    toast('This client was also updated in another window — both sets of answers were kept.');
+}
+
+// Local safety net: the last few versions of each client's answers in this browser.
+// Recover from the console with pfoLocalBackups(clientId).
+const BACKUP_PREFIX = 'pfo_formbackup_', BACKUP_VERSIONS = 15;
+function backupFormLocally(id, fd) {
+  try {
+    const key = BACKUP_PREFIX + id, json = JSON.stringify(fd || {});
+    let list = []; try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    if (list.length && JSON.stringify(list[list.length - 1].fd) === json) return;
+    list.push({at: new Date().toISOString(), by: staffName || '', fd: JSON.parse(json)});
+    const data = JSON.stringify(list.slice(-BACKUP_VERSIONS));
+    try { localStorage.setItem(key, data); }
+    catch {   // storage full: drop other clients' backups, oldest first, then retry once
+      Object.keys(localStorage).filter(k => k.startsWith(BACKUP_PREFIX) && k !== key)
+        .map(k => { try { const l = JSON.parse(localStorage.getItem(k)); return {k, at: l[l.length - 1].at}; } catch { return {k, at: ''}; } })
+        .sort((a, b) => a.at < b.at ? -1 : 1).slice(0, 10).forEach(x => localStorage.removeItem(x.k));
+      localStorage.setItem(key, data);
+    }
+  } catch (e) { console.warn('local backup skipped:', e?.message || e); }
+}
+window.pfoLocalBackups = id => { try { return JSON.parse(localStorage.getItem(BACKUP_PREFIX + id) || '[]'); } catch { return []; } };
+window.addEventListener('beforeunload', e => {
+  if (pendingSave) { backupFormLocally(pendingSave.id, pendingSave.fd); runSave(); }
+  if (pendingSave || savesInFlight) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function parseNum(id) {
   const el = document.getElementById('cf-'+id);
@@ -3348,8 +3437,7 @@ function triggerCond(fid, val) {
 }
 
 async function cfSubmit() {
-  clearTimeout(autosaveTimer);
-  await dbUpdate(TBL_CLIENTS, currentClientId, {form_data:currentFormData, form_status:'complete'});
+  await flushSave({form_status:'complete'});
   pSessionComplete = true;
   goDirectToPrioritizer(currentClientId);
 }
@@ -3503,7 +3591,7 @@ async function openAnalysisById(clientId) {
   if (!rec) { toast('Could not load client.'); return; }
   currentClientId = clientId;
   currentClientName = rec.client_name || '';
-  currentFormData = rec.form_data || {};
+  currentFormData = trackForm(rec.form_data);
   pSessionComplete = true;
   await goDirectToPrioritizer(clientId);
 }
@@ -3514,7 +3602,7 @@ async function openPrioritiesById(clientId) {
   if (!rec) { toast('Could not load client.'); return; }
   currentClientId = clientId;
   currentClientName = rec.client_name || '';
-  currentFormData = rec.form_data || {};
+  currentFormData = trackForm(rec.form_data);
   pSessionComplete = true;
   await goDirectToPrioritizer(clientId);
 }
@@ -3980,7 +4068,7 @@ async function openPlanById(clientId, clientName) {
   if (!rec) { toast('Could not load client.'); return; }
   currentClientId = clientId;
   currentClientName = clientName || rec.client_name || '';
-  currentFormData = rec.form_data || {};
+  currentFormData = trackForm(rec.form_data);
   planClientId = clientId;
 
   document.getElementById('plan-client-title').textContent = currentClientName;
@@ -4014,7 +4102,7 @@ async function openExportById(clientId, clientName) {
   if (!rec) { toast('Could not load client.'); return; }
   currentClientId = clientId;
   currentClientName = clientName || rec.client_name || '';
-  currentFormData = rec.form_data || {};
+  currentFormData = trackForm(rec.form_data);
 
   const intake = await getIntakeForClient(clientId);
   if (!intake) { toast('No data found. Complete the prioritizer first.'); return; }
@@ -5322,8 +5410,8 @@ async function confirmDelete(){
     await dbUpdate(TBL_CLIENTS, id, {form_data: {...((rec && rec.form_data) || {}), __deleted: marker}});
     if (String(currentClientId) === String(id)) {
       // Make sure a pending autosave can't write the client back without the marker.
-      clearTimeout(autosaveTimer);
-      currentFormData = {...(currentFormData || {}), __deleted: marker};
+      clearTimeout(autosaveTimer); pendingSave = null;
+      currentFormData = trackForm({...(currentFormData || {}), __deleted: marker});
       currentClientId = null; currentClientName = '';
     }
     toast('Client deleted.');
