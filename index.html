@@ -818,7 +818,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.10.1'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.10.2'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -1152,7 +1152,7 @@ async function flushStageSaves() {
   if (currentView === 'intake') await flushSave();
   if (currentView === 'prioritizer' && pCurrentId && pClientId === currentClientId) {
     clearTimeout(autosavePTimer);
-    await dbUpdate(TBL_INTAKES, pCurrentId, {items: JSON.parse(JSON.stringify(pItems))});
+    await saveIntake(pCurrentId, {items: pItems});
   }
   if (currentView === 'plan' && planClientId === currentClientId) {
     clearTimeout(planSaveTimer);
@@ -1388,12 +1388,7 @@ function formatAllMoneyInputs(root) {
 async function goToExport() {
   // Save plan edits first (flush debounce)
   clearTimeout(planSaveTimer);
-  if (pCurrentId) {
-    const baseFormData = pClientFormData || {};
-    const merged = {...baseFormData, __plan_data: JSON.parse(JSON.stringify(planData))};
-    pClientFormData = merged;
-    await dbUpdate(TBL_INTAKES, pCurrentId, {form_data: merged});
-  }
+  if (pCurrentId) await savePlanData();
   try { await loadTaxModule(); } catch(e) { /* tax summary is optional */ }
   buildPDFPreview();
   const backPlanBtn = document.getElementById('back-to-plan-btn');
@@ -1407,16 +1402,9 @@ async function goToExport() {
 // Save prioritizer items and go straight to export (skipping plan page)
 async function savePrioritizerAndGoToExport() {
   document.getElementById('p-saved-status').textContent = 'Saving…';
-  const existingIntake = await getIntakeForClient(currentClientId);
-  const existingSavedPlan = existingIntake?.form_data?.__plan_data;
-  const formDataToSave = {...(pClientFormData||{})};
-  if (existingSavedPlan && (existingSavedPlan.goals?.length || existingSavedPlan.friction?.length || existingSavedPlan.actions?.length)) {
-    formDataToSave.__plan_data = existingSavedPlan;
-    planData = existingSavedPlan;
-  }
-  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataToSave, staff_name:staffName, saved_at:Date.now()};
-  if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
-  else pCurrentId = await dbInsert(TBL_INTAKES, payload);
+  const saved = await savePrioritiesRecord(false);
+  const savedPlan = saved?.form_data?.__plan_data;
+  if (hasPlanItems(savedPlan)) planData = savedPlan;
   document.getElementById('p-saved-status').textContent = 'Saved ✓';
   try { await loadTaxModule(); } catch(e) { /* tax summary is optional */ }
   buildPDFPreview();
@@ -1835,7 +1823,18 @@ async function renderClientList() {
       ta.addEventListener('input', () => {
         clearTimeout(noteTimer);
         noteTimer = setTimeout(async () => {
-          await dbUpdate(TBL_CLIENTS, ta.dataset.id, {staff_notes: ta.value});
+          // Someone else may have saved notes since this list loaded: keep theirs and add this window's text
+          const base = ta.dataset.base ?? ta.defaultValue, mine = ta.value;
+          const rec = await dbGet(TBL_CLIENTS, ta.dataset.id);
+          const theirs = rec ? (rec.staff_notes || '') : base;
+          let next = mine;
+          if (theirs !== base && theirs !== mine) {
+            next = mine.startsWith(base) ? theirs + mine.slice(base.length) : theirs + (theirs.trim() ? '\n\n' : '') + mine;
+            ta.value = next;
+            toast('Staff notes were also edited in another window — both were kept.');
+          }
+          if (!(await dbUpdate(TBL_CLIENTS, ta.dataset.id, {staff_notes: next}))) return;
+          ta.dataset.base = next;
           const toggle = card.querySelector('[data-action="toggle-client-notes"]');
           if (toggle) toggle.textContent = ta.value.trim() ? '✎ Staff notes' : '+ Staff notes';
         }, 1000);
@@ -2484,70 +2483,175 @@ function handleCheckCard(event, fid, okey, oval) {
 function updateCheckStyle(fid,okey,checked){const el=document.getElementById(`cc-${fid}-${okey}`);if(el)el.classList.toggle('checked',checked);}
 function saveField(id,val){currentFormData[id]=val;autosave();}
 function saveMulti(id){currentFormData[id]=Array.from(document.querySelectorAll(`input[name="cf-${id}"]:checked`)).map(c=>c.value);autosave();}
-// ── Saving client form data ──────────────────────────────────────
-// The same client can be open in more than one place (two people in a meeting, two tabs). Saves used to
-// write this copy's whole form_data, so a copy loaded earlier wiped what another copy had entered since
-// (Spreadsheet View data lost, Nov 2026). Now each save writes only the fields this copy changed, merged
-// onto the latest saved record, and pulls in what the other copy saved. Each save is also bound to the
-// client it was made for, so switching clients can't write one client's answers onto another.
-const formBases = new WeakMap();   // form data object -> {field: JSON as last loaded/saved}
-function snapshotFields(fd) { const m = {}; Object.keys(fd || {}).forEach(k => { m[k] = JSON.stringify(fd[k]); }); return m; }
-function trackForm(fd) { fd = fd || {}; formBases.set(fd, snapshotFields(fd)); return fd; }
+// ── Saving when the same client is open in more than one place ───
+// Two people in a meeting (or two tabs, or one login on two computers) can have the same client open.
+// Saves used to write a whole blob from this window, so a window loaded earlier wiped what the other
+// had entered since (Spreadsheet View data lost, Nov 2026). Every save now does a three-way merge:
+// what this window started from (base), what it has now (mine), and what is saved (theirs). Only
+// this window's own changes are applied; lists of items with ids (spreadsheet rows, priorities, plan
+// items) merge item by item, so two people can each add or edit different rows.
+const clone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+const jsonEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const isPlainObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const isIdList = v => Array.isArray(v) && v.every(x => isPlainObj(x) && x.id != null);
+function merge3(base, mine, theirs) {
+  if (jsonEq(mine, base)) return theirs;                      // only the other window changed it
+  if (jsonEq(theirs, base) || jsonEq(mine, theirs)) return mine;  // only this window changed it
+  if (isPlainObj(mine) && isPlainObj(theirs) && (base === undefined || isPlainObj(base))) {
+    const b = base || {}, out = {};
+    new Set([...Object.keys(theirs), ...Object.keys(mine), ...Object.keys(b)]).forEach(k => {
+      const v = merge3(b[k], mine[k], theirs[k]);
+      if (v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+  if (isIdList(mine) && isIdList(theirs) && (base === undefined || isIdList(base))) return mergeIdList(base || [], mine, theirs);
+  return mine;   // both changed the same single value: the newest edit (this one) wins
+}
+function mergeIdList(base, mine, theirs) {
+  const byId = l => new Map(l.map(x => [String(x.id), x]));
+  const B = byId(base), M = byId(mine), T = byId(theirs);
+  const out = [];
+  mine.forEach(x => {
+    const id = String(x.id);
+    if (T.has(id)) out.push(merge3(B.get(id), x, T.get(id)));
+    else if (!B.has(id) || !jsonEq(x, B.get(id))) out.push(x);   // added here, or edited here after the other window removed it
+  });
+  theirs.forEach((x, i) => {
+    const id = String(x.id);
+    if (M.has(id)) return;
+    if (B.has(id) && jsonEq(x, B.get(id))) return;               // removed here, untouched there
+    const prev = i > 0 ? out.findIndex(y => String(y.id) === String(theirs[i - 1].id)) : -1;
+    out.splice(prev + 1 || (i === 0 ? 0 : out.length), 0, x);    // keep it next to its neighbour
+  });
+  return out;
+}
+const setOrDelete = (o, k, v) => { if (v === undefined) delete o[k]; else o[k] = clone(v); };
+
+// Client answers (pfo_clients.form_data)
+const formBases = new WeakMap();    // form data object -> copy as this window last loaded/synced it
+const formNotified = new WeakMap(); // form data object -> fields already flagged as changed elsewhere
+function trackForm(fd) { fd = fd || {}; formBases.set(fd, clone(fd)); return fd; }
 let autosaveTimer, pendingSave = null, saveChain = Promise.resolve(), savesInFlight = 0;
 function autosave() {
   if (!currentClientId) return;
   pendingSave = {id: currentClientId, fd: currentFormData};
   clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(runSave, 1200);
+  autosaveTimer = setTimeout(() => runSave(), 1200);
 }
-function runSave(extra) {
+function runSave(extra, pull) {
   clearTimeout(autosaveTimer);
   const p = pendingSave; pendingSave = null;
   if (!p) return saveChain;
   savesInFlight++;
-  saveChain = saveChain.then(() => saveClientForm(p.id, p.fd, extra)).catch(e => console.error('save error:', e)).finally(() => { savesInFlight--; });
+  saveChain = saveChain.then(() => saveClientForm(p.id, p.fd, extra, pull)).catch(e => console.error('save error:', e)).finally(() => { savesInFlight--; });
   return saveChain;
 }
+// Called when leaving a page or section: saves, then brings in what other windows saved
+// (safe here because the page is about to be redrawn from the data).
 async function flushSave(extra) {
   if (!pendingSave && currentClientId) pendingSave = {id: currentClientId, fd: currentFormData};
-  await runSave(extra);
+  await runSave(extra, true);
 }
 async function fetchSavedFormData(id) {
-  if (!useCloud) { const r = dbGet(TBL_CLIENTS, id); return ((await r) || {}).form_data || {}; }
+  if (!useCloud) return ((await dbGet(TBL_CLIENTS, id)) || {}).form_data || {};
   const {data, error} = await db.from(TBL_CLIENTS).select('form_data').eq('id', id).single();
   if (error) throw error;
   return (data && data.form_data) || {};
 }
-async function saveClientForm(id, fd, extra) {
-  backupFormLocally(id, fd);   // this copy's answers, before anything can go wrong
-  const base = formBases.get(fd);
-  const mine = snapshotFields(fd);
+async function saveClientForm(id, fd, extra, pull) {
+  backupFormLocally(id, fd);   // this window's answers, before anything can go wrong
+  const base = formBases.get(fd) || {};
+  const mine = clone(fd);
   let remote;
   try { remote = await fetchSavedFormData(id); }
   catch (e) {
     console.error('save: could not read saved record:', e?.message || e);
     toast('Save failed (connection?) — retrying. Keep this page open.');
-    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(runSave, 5000); }
+    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(() => runSave(), 5000); }
     return;
   }
-  const merged = {...remote};
-  Object.keys(mine).forEach(k => { if (!base || base[k] !== mine[k]) merged[k] = fd[k]; });
-  if (base) Object.keys(base).forEach(k => { if (!(k in mine)) delete merged[k]; });
+  const merged = merge3(base, mine, remote) || {};
   const ok = await dbUpdate(TBL_CLIENTS, id, {form_data: merged, ...(extra || {})});
   if (!ok) {
-    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(runSave, 5000); }
+    if (!pendingSave) { pendingSave = {id, fd}; autosaveTimer = setTimeout(() => runSave(), 5000); }
     return;
   }
-  // Bring in fields another copy saved, unless they were edited here while this save was running.
-  let pulled = false;
-  const now = snapshotFields(merged);
-  Object.keys(now).forEach(k => { if (JSON.stringify(fd[k]) === mine[k] && mine[k] !== now[k]) { fd[k] = merged[k]; pulled = true; } });
-  Object.keys(mine).forEach(k => { if (!(k in now) && JSON.stringify(fd[k]) === mine[k]) { delete fd[k]; pulled = true; } });
-  formBases.set(fd, now);
+  const newBase = clone(base), seen = formNotified.get(fd) || new Set();
+  let pulled = false, fresh = false;
+  new Set([...Object.keys(merged), ...Object.keys(mine), ...Object.keys(base)]).forEach(k => {
+    if (jsonEq(mine[k], merged[k])) { setOrDelete(newBase, k, merged[k]); return; }
+    if (pull && jsonEq(fd[k], mine[k])) { setOrDelete(fd, k, merged[k]); setOrDelete(newBase, k, merged[k]); pulled = true; }
+    else if (!seen.has(k)) { seen.add(k); fresh = true; }
+  });
+  formBases.set(fd, newBase); formNotified.set(fd, pulled ? new Set() : seen);
   backupFormLocally(id, merged);
-  if (pulled && fd === currentFormData && String(id) === String(currentClientId))
+  if ((pulled || fresh) && fd === currentFormData && String(id) === String(currentClientId))
     toast('This client was also updated in another window — both sets of answers were kept.');
 }
+
+// Priorities, action plan and follow-up (pfo_intakes: items, ai_items, form_data.__plan_data / __followup_data)
+const intakeBases = new Map();   // intake id -> {items, ai_items, form_data} as this window last loaded/synced it
+function trackIntake(row) {
+  if (row && row.id != null) intakeBases.set(String(row.id), clone({items: row.items || [], ai_items: row.ai_items || [], form_data: row.form_data || {}}));
+  return row;
+}
+let intakeChain = Promise.resolve();
+function saveIntake(id, mine, extra) {
+  const p = intakeChain.then(() => saveIntakeNow(id, mine, extra));
+  intakeChain = p.catch(() => {});
+  return p;
+}
+async function fetchIntakeRow(id) {
+  if (!useCloud) return dbGet(TBL_INTAKES, id);
+  const {data, error} = await db.from(TBL_INTAKES).select('items,ai_items,form_data').eq('id', id).single();
+  if (error) throw error;
+  return data;
+}
+// mine: any of {items, ai_items, form_data: {only the keys this caller owns}}. Returns the merged values.
+async function saveIntakeNow(id, mine, extra) {
+  if (id == null) return null;
+  mine = clone(mine);
+  const key = String(id), base = intakeBases.get(key) || {};
+  let remote;
+  try { remote = (await fetchIntakeRow(id)) || {}; }
+  catch (e) { console.error('intake save: could not read saved record:', e?.message || e); toast('Save failed (connection?) — please try again.'); return null; }
+  const payload = {...(extra || {})}, synced = clone(base) || {};
+  let otherWindow = false;
+  ['items', 'ai_items'].forEach(f => {
+    if (!(f in mine)) return;
+    payload[f] = merge3(base[f], mine[f], remote[f] || []) || [];
+    if (jsonEq(payload[f], mine[f])) synced[f] = clone(payload[f]); else otherWindow = true;
+  });
+  if (mine.form_data) {
+    const fd = {...(remote.form_data || {})}, bfd = base.form_data || {};
+    synced.form_data = {...(synced.form_data || {})};
+    Object.keys(mine.form_data).forEach(k => {
+      const v = merge3(bfd[k], mine.form_data[k], fd[k]);
+      setOrDelete(fd, k, v);
+      if (jsonEq(v, mine.form_data[k])) setOrDelete(synced.form_data, k, v); else otherWindow = true;
+    });
+    payload.form_data = fd;
+  }
+  const ok = await dbUpdate(TBL_INTAKES, id, payload);
+  if (!ok) return null;
+  intakeBases.set(key, synced);
+  if (otherWindow) toast('This client was also updated in another window — both sets of changes were kept.');
+  return payload;
+}
+// Priority items keep their ids across loads, so two windows can merge them item by item.
+function stableItems(list) {
+  const seen = new Set();
+  return (list || []).map(i => {
+    let id = i.id;
+    if (id == null || seen.has(String(id))) id = 'p' + uid();
+    seen.add(String(id));
+    return {...i, id};
+  });
+}
+const PLAN_KEYS_OWNED_ELSEWHERE = ['__plan_data', '__followup_data'];
+const intakeAnswersCopy = fd => { const o = {...(fd || {})}; PLAN_KEYS_OWNED_ELSEWHERE.forEach(k => delete o[k]); return o; };
+const hasPlanItems = pl => !!(pl && (pl.goals?.length || pl.friction?.length || pl.actions?.length));
 
 // Local safety net: the last few versions of each client's answers in this browser.
 // Recover from the console with pfoLocalBackups(clientId).
@@ -2955,8 +3059,10 @@ const NWS_COLS = [
 ];
 const NWS_NUM_KEYS = ['value','debt','savings','income','mdebt'];
 function nwsDefaultRows() {
-  const fixed = (g, label) => ({id:uid(), g, label, fixed:true});
-  const open  = g => ({id:uid(), g, label:''});
+  // Fixed ids, so two windows starting a blank statement edit the same rows instead of duplicating them
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const fixed = (g, label) => ({id:'d-'+g+'-'+slug(label), g, label, fixed:true});
+  const open  = g => ({id:'d-'+g+'-open', g, label:''});
   return [
     fixed('re','Primary home'),
     fixed('liquid','Cash equivalents (checking / savings)'),
@@ -3459,7 +3565,8 @@ async function goDirectToPrioritizer(clientId) {
   // Check for existing saved intake
   const existing = await getIntakeForClient(clientId);
   if (existing && existing.items && existing.items.length) {
-    pItems = existing.items.map(i=>({...i, id:++pItemCounter}));
+    trackIntake(existing);
+    pItems = stableItems(existing.items);
     pCurrentId = existing.id;
     pClientFormData = currentFormData;
     document.getElementById('p-client-title').textContent = currentClientName;
@@ -3525,11 +3632,19 @@ async function runAnalysisAndPopulate(clientId) {
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('No JSON');
     aiItems = JSON.parse(match[0]).filter(i => i && !MEETING2_TERMS.test((i.title||'') + ' ' + (i.rationale||'')));
-    pItems = aiItems.map(item=>({id:++pItemCounter, text:item.title, status:null, notes:''}));
+    // Another window may have generated priorities for this client while this one was waiting
+    const already = await getIntakeForClient(clientId);
+    if (already && already.items && already.items.length) {
+      trackIntake(already);
+      pCurrentId = already.id; aiItems = already.ai_items || aiItems; pItems = stableItems(already.items);
+      renderPForm();
+      document.getElementById('p-saved-status').textContent = '';
+      toast('Priorities were already created in another window — showing those.');
+      return;
+    }
+    pItems = aiItems.map(item=>({id:'p'+uid(), text:item.title, status:null, notes:''}));
     await saveAIItems(clientId);
-    // Update pCurrentId after save
-    const saved = await getIntakeForClient(clientId);
-    if (saved) { pCurrentId = saved.id; await dbUpdate(TBL_INTAKES, pCurrentId, {items: JSON.parse(JSON.stringify(pItems))}); }
+    if (pCurrentId) await saveIntake(pCurrentId, {items: pItems});
     renderPForm();
     document.getElementById('p-saved-status').textContent = '';
   } catch(e) {
@@ -3738,11 +3853,14 @@ async function runAnalysis(clientId) {
 async function saveAIItems(cid) {
   const existing = await getIntakeForClient(cid);
   if (existing) {
-    await dbUpdate(TBL_INTAKES, existing.id, {ai_items: aiItems});
+    trackIntake(existing);
+    await saveIntake(existing.id, {ai_items: aiItems});
     pCurrentId = existing.id;
   } else {
-    const id = await dbInsert(TBL_INTAKES, {client_id: String(cid), client_name: currentClientName, ai_items: aiItems, items: [], form_data: currentFormData, saved_at: Date.now()});
+    const payload = {client_id: String(cid), client_name: currentClientName, ai_items: aiItems, items: [], form_data: intakeAnswersCopy(currentFormData), saved_at: Date.now()};
+    const id = await dbInsert(TBL_INTAKES, payload);
     pCurrentId = id;
+    if (id) trackIntake({...payload, id});
   }
 }
 
@@ -3798,11 +3916,12 @@ async function loadPrioritizerFromSaved() {
 
   if (existing && existing.items && existing.items.length) {
     // Restore saved prioritized items (with statuses and notes)
-    pItems = existing.items.map(i => ({...i, id: ++pItemCounter}));
+    trackIntake(existing);
+    pItems = stableItems(existing.items);
     pCurrentId = existing.id;
   } else {
     // Fresh from AI items
-    pItems = aiItems.map(item => ({id: ++pItemCounter, text: item.title, status: null, notes: '', progress: null}));
+    pItems = aiItems.map(item => ({id: 'p' + uid(), text: item.title, status: null, notes: '', progress: null}));
   }
 
   pClientFormData = currentFormData;
@@ -3992,7 +4111,7 @@ function autosavePrioritizer() {
   clearTimeout(autosavePTimer);
   autosavePTimer = setTimeout(async () => {
     if (!pCurrentId) return;
-    await dbUpdate(TBL_INTAKES, pCurrentId, {items: JSON.parse(JSON.stringify(pItems))});
+    await saveIntake(pCurrentId, {items: pItems});
     document.getElementById('p-saved-status').textContent = 'Saved ✓';
   }, 800);
 }
@@ -4004,7 +4123,7 @@ function sortItems() {
 }
 
 function addPItem() {
-  pItems.push({id:++pItemCounter, text:'New item', status:null, notes:'', progress:null});
+  pItems.push({id:'p'+uid(), text:'New item', status:null, notes:'', progress:null});
   renderPForm();
   setTimeout(()=>{ const displays=document.querySelectorAll('.item-text-display'); if(displays.length) displays[displays.length-1].click(); },40);
 }
@@ -4013,29 +4132,37 @@ function addPItem() {
 //  CLIENT PLAN
 // ══════════════════════════════════
 
+// Save the priorities record (items, AI suggestions, a copy of the answers). includePlan: also save an
+// in-memory plan when none is saved yet. Returns the saved values (merged with other windows).
+async function savePrioritiesRecord(includePlan) {
+  const fd = intakeAnswersCopy(pClientFormData);
+  if (includePlan && hasPlanItems(planData)) fd.__plan_data = planData;
+  const meta = {client_id:String(currentClientId), client_name:currentClientName, staff_name:staffName, saved_at:Date.now()};
+  if (pCurrentId) {
+    if (fd.__plan_data) {   // only fill in a plan when nothing is saved yet — never replace a saved one
+      const row = await fetchIntakeRow(pCurrentId).catch(() => null);
+      if (hasPlanItems(row?.form_data?.__plan_data)) delete fd.__plan_data;
+    }
+    return saveIntake(pCurrentId, {items: pItems, ai_items: aiItems, form_data: fd}, meta);
+  }
+  // Another window may have created the record meanwhile: merge into it instead of making a second one
+  const other = await getIntakeForClient(currentClientId);
+  if (other) { pCurrentId = other.id; return saveIntake(pCurrentId, {items: pItems, ai_items: aiItems, form_data: fd}, meta); }
+  const payload = {...meta, items: clone(pItems), ai_items: aiItems, form_data: fd};
+  pCurrentId = await dbInsert(TBL_INTAKES, payload);
+  if (pCurrentId) trackIntake({...payload, id: pCurrentId});
+  return payload;
+}
+
 // Entry from prioritizer after items are saved
 async function goToPlan() {
   sortItems();
   document.getElementById('p-saved-status').textContent = 'Saving…';
 
-  // Fetch existing intake FIRST so we can preserve any __plan_data already saved
-  const existingIntake = await getIntakeForClient(currentClientId);
-  const existingSavedPlan = existingIntake?.form_data?.__plan_data;
-  const hasSavedPlan = existingSavedPlan &&
-    (existingSavedPlan.goals?.length || existingSavedPlan.friction?.length || existingSavedPlan.actions?.length);
-
-  // Merge __plan_data into form_data so it is never lost on save
-  const formDataToSave = {...(pClientFormData||{})};
-  if (hasSavedPlan) {
-    formDataToSave.__plan_data = existingSavedPlan;
-  } else if (planData && (planData.goals?.length || planData.friction?.length || planData.actions?.length)) {
-    // In-memory plan (e.g. generated earlier this session but not yet persisted here)
-    formDataToSave.__plan_data = JSON.parse(JSON.stringify(planData));
-  }
-
-  const payload = {client_id:String(currentClientId), client_name:currentClientName, items:JSON.parse(JSON.stringify(pItems)), ai_items:aiItems, form_data:formDataToSave, staff_name:staffName, saved_at:Date.now()};
-  if (pCurrentId) await dbUpdate(TBL_INTAKES, pCurrentId, payload);
-  else pCurrentId = await dbInsert(TBL_INTAKES, payload);
+  // Save priorities; a plan already saved (by this or another window) is kept, never regenerated
+  const saved = await savePrioritiesRecord(true);
+  const existingSavedPlan = saved?.form_data?.__plan_data;
+  const hasSavedPlan = hasPlanItems(existingSavedPlan);
   document.getElementById('p-saved-status').textContent = 'Saved ✓';
   setSyncStatus('connected','Saved '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
 
@@ -4080,8 +4207,9 @@ async function openPlanById(clientId, clientName) {
 
   // Restore prioritizer state so Save & Share works
   pClientId = clientId;
+  trackIntake(intake);
   pCurrentId = intake.id;
-  pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
+  pItems = stableItems(intake.items);
   pClientFormData = intake.form_data || currentFormData;
   aiItems = intake.ai_items || [];
 
@@ -4109,8 +4237,9 @@ async function openExportById(clientId, clientName) {
 
   // Restore prioritizer state
   pClientId = clientId;
+  trackIntake(intake);
   pCurrentId = intake.id;
-  pItems = (intake.items || []).map(i => ({...i, id:++pItemCounter}));
+  pItems = stableItems(intake.items);
   pClientFormData = intake.form_data || currentFormData;
   aiItems = intake.ai_items || [];
   pSessionComplete = true;
@@ -4147,6 +4276,7 @@ async function openFollowUpById(clientId, clientName) {
 
   const intake = await getIntakeForClient(clientId);
   if (!intake) { toast('No data found. Complete the prioritizer first.'); return; }
+  trackIntake(intake);
   followUpIntakeId = intake.id;
 
   const saved = intake.form_data?.__followup_data;
@@ -4189,10 +4319,8 @@ function scheduleFollowUpSave() {
 async function saveFollowUpData() {
   if (!followUpIntakeId) return;
   try {
-    const intake = await getIntakeForClient(followUpClientId);
-    const baseFormData = intake?.form_data || {};
-    const merged = {...baseFormData, __followup_data: JSON.parse(JSON.stringify(followUpData))};
-    await dbUpdate(TBL_INTAKES, followUpIntakeId, {form_data: merged});
+    const saved = await saveIntake(followUpIntakeId, {form_data: {__followup_data: followUpData}});
+    if (!saved) return;
     const el = document.getElementById('followup-saved-status');
     if (el) { el.textContent = '✓ Saved'; setTimeout(()=>{ if(el) el.textContent=''; }, 2000); }
   } catch(e) {
@@ -4480,6 +4608,16 @@ async function generatePlanWithAI() {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     const parsed = JSON.parse(match[0]);
+    // Another window may have created the plan while this one was waiting — keep that one
+    const row = pCurrentId ? await fetchIntakeRow(pCurrentId).catch(() => null) : null;
+    if (hasPlanItems(row?.form_data?.__plan_data)) {
+      planData = row.form_data.__plan_data;
+      trackIntake({...row, id: pCurrentId});
+      pClientFormData = {...(pClientFormData || {}), __plan_data: clone(planData)};
+      renderPlanView(false); updatePlanBtnLabel();
+      toast('The action plan was already created in another window — showing that one.');
+      return;
+    }
     planData.goals = keepMeeting1Items(parsed.goals).map(t => ({id: uid(), text: t}));
     planData.friction = keepMeeting1Items(parsed.friction).map(t => ({id: uid(), text: t}));
     planData.actions = keepMeeting1Items(parsed.actions).map(t => ({id: uid(), text: t}));
@@ -4556,11 +4694,10 @@ async function savePlanData() {
   // Use pClientFormData as the base (already in memory) so we never lose other fields,
   // and never re-fetch from DB which could return a stale record that lacks __plan_data.
   try {
-    const baseFormData = pClientFormData || {};
-    const merged = {...baseFormData, __plan_data: JSON.parse(JSON.stringify(planData))};
-    // Also keep pClientFormData in sync so future saves in this session preserve the plan
-    pClientFormData = merged;
-    await dbUpdate(TBL_INTAKES, pCurrentId, {form_data: merged});
+    // Only the plan is written, merged with the saved record (other windows' edits are kept)
+    pClientFormData = {...(pClientFormData || {}), __plan_data: clone(planData)};
+    const saved = await saveIntake(pCurrentId, {form_data: {__plan_data: planData}});
+    if (!saved) return;
     const el = document.getElementById('plan-saved-status');
     if (el) { el.textContent = '✓ Saved'; setTimeout(()=>{ if(el) el.textContent=''; }, 2000); }
   } catch(e) {
