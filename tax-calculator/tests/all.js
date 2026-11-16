@@ -4,3 +4,4 @@ import './tax-law.test.js';
 import './parity.test.js';
 import './strategies.test.js';
 import './site.test.js';
+import './plan.test.js';
