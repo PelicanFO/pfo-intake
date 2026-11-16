@@ -1,7 +1,7 @@
 // The combined tax plan (src/site/plan.js): strategies computed together.
 import { suite } from './harness.js';
 import { analyze, planFor, withAutoDb, foundationResult } from '../src/site/tax-step.js';
-import { computePlan, normalize, planSteps } from '../src/site/plan.js';
+import { computePlan, normalize, planSteps, attribution, prune, marginal } from '../src/site/plan.js';
 
 const client = (extra = {}) => withAutoDb({
   filing_status: 'Married filing jointly', state: 'Louisiana', age: '52', w2_income: '150000', business_income: '850000', lt_cap_gains: '120000',
@@ -49,4 +49,22 @@ suite('Plan: permitted combinations', (t) => {
   t.equal(noKids.sel.payroll, false, 'and not in the plan');
   const custom = planFor(client({ __tax: { ...client().__tax, plan: { db: true, augusta: false, payroll: true, adv: ['film'] } } }));
   t.ok(custom.custom && !custom.sel.augusta && custom.sel.adv[0] === 'film' || !custom.ctx.advAvail.includes('film'), 'a saved custom selection is used');
+});
+
+suite('Plan: fair shares and nothing that hurts', (t) => {
+  const P = planFor(client());
+  const all = { db: true, augusta: true, payroll: true, roth: false, adv: ['leap'] };
+  const sh = attribution(P.ctx, all);
+  t.close(sh.reduce((s, x) => s + x.amount, 0), computePlan(P.ctx, all).savings, 0.01, 'shares add up to the plan savings');
+  t.ok(sh.every((x, i) => i === 0 || sh[i - 1].amount >= x.amount), 'largest share first');
+  const leap = sh.find((x) => x.key === 'adv').amount;
+  const seq = planSteps(P.ctx, all, (id) => id).find((x) => x.key === 'adv').amount;
+  t.ok(leap > seq, `LEAP's share (${Math.round(leap)}) isn't penalized for coming last (${Math.round(seq)})`);
+  t.ok(P.shares.every((x) => x.amount > 0), 'every strategy in the recommended plan has a positive share');
+  const rp = planFor(client({ __tax: { ...client().__tax, rothConversion: 900000, plan: { db: true, augusta: true, payroll: true, roth: true, adv: ['leap'] } } }));
+  t.ok(rp.shares.every((x) => x.amount > 0), `with a Roth conversion every share is positive (${rp.shares.map((x) => x.key + ' ' + Math.round(x.amount)).join(', ')})`);
+  const withRoth = client({ __tax: { ...client().__tax, rothConversion: 900000, plan: { db: true, roth: true, adv: [] } } });
+  t.equal(planFor(withRoth).sel.roth, false, 'a Roth conversion without an advanced strategy is dropped');
+  const p2 = prune(P.ctx, all);
+  t.ok(['db', 'augusta', 'payroll', 'adv'].every((k) => !(k === 'adv' ? p2.adv.length : p2[k]) || marginal(P.ctx, p2, k) > 0.5), 'pruned plan: every part lowers the liability');
 });
