@@ -103,7 +103,7 @@ export function recommendedPlan(ctx) {
       if (p.savings > best.savings + 0.5) best = p;
     }
   }
-  return best.sel;
+  return prune(ctx, best.sel);
 }
 
 export const STEP_LABEL = { db: 'DB plan', augusta: 'Augusta Rule', payroll: 'Family Payroll', roth: 'Roth conversion' };
@@ -135,4 +135,58 @@ export function advToggleState(ctx, sel, id, labelOf) {
   // A pair that isn't permitted: suggest swapping instead.
   const others = sel.adv.map((x) => labelOf(x)).join(' & ');
   return { ok: true, swap: true, why: `Replaces ${others}` };
+}
+
+// ------------------------------------------------------------------ attribution and pruning
+const PLAYERS = ['db', 'augusta', 'payroll', 'adv', 'roth'];
+const membersOf = (sel) => PLAYERS.filter((k) => (k === 'adv' ? sel.adv.length > 0 : sel[k]));
+const subsetSel = (sel, keys) => ({ db: keys.includes('db'), augusta: keys.includes('augusta'), payroll: keys.includes('payroll'), roth: keys.includes('roth'), adv: keys.includes('adv') ? sel.adv : [] });
+
+/**
+ * Each strategy's share of the plan's savings, independent of the order they're applied in: its added
+ * savings averaged over every order (Shapley value; the Roth conversion always after the advanced strategy). The shares add up to the plan's savings.
+ * Returns [{ key, amount }] largest first.
+ */
+export function attribution(ctx, sel) {
+  const keys = membersOf(sel);
+  const memo = new Map();
+  const S = (ks) => { const k = [...ks].sort().join(','); if (!memo.has(k)) memo.set(k, ks.length ? computePlan(ctx, subsetSel(sel, ks)).savings : 0); return memo.get(k); };
+  const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+  // A Roth conversion only counts alongside an advanced strategy, so it always comes after it.
+  const all = perms(keys).filter((p) => !p.includes('roth') || p.indexOf('roth') > p.indexOf('adv'));
+  const total = Object.fromEntries(keys.map((k) => [k, 0]));
+  for (const p of all) {
+    const cur = [];
+    for (const k of p) { const before = S(cur); cur.push(k); total[k] += S(cur) - before; }
+  }
+  return keys.map((k) => ({ key: k, amount: total[k] / all.length })).sort((a, b) => b.amount - a.amount);
+}
+
+/** Savings with vs. without one part of the plan (its effect on the overall tax liability). */
+export function marginal(ctx, sel, key) {
+  const keys = membersOf(sel);
+  const without = keys.filter((k) => k !== key);
+  return computePlan(ctx, normalize(ctx, subsetSel(sel, [...without, key]))).savings - computePlan(ctx, normalize(ctx, subsetSel(sel, without))).savings;
+}
+
+/** Drops any part of the plan that doesn't lower the overall tax liability (worst first, repeated). */
+export function prune(ctx, sel) {
+  let cur = normalize(ctx, sel);
+  for (;;) {
+    const parts = membersOf(cur).map((k) => ({ k, m: marginal(ctx, cur, k) })).filter((x) => x.m <= 0.5);
+    if (!parts.length) return cur;
+    const worst = parts.reduce((a, b) => (b.m < a.m ? b : a));
+    cur = normalize(ctx, worst.k === 'adv' ? { ...cur, adv: [] } : { ...cur, [worst.k]: false });
+  }
+}
+
+/** Whether toggling `key` (or advanced id) on would lower the overall tax liability. */
+export function helps(ctx, sel, key, advId = null) {
+  if (key === 'adv') {
+    const next = ctx.setOk([...sel.adv, advId]) ? [...sel.adv, advId] : [advId];
+    const with_ = computePlan(ctx, normalize(ctx, { ...sel, adv: next })).savings;
+    const without = computePlan(ctx, normalize(ctx, { ...sel, adv: [] })).savings;
+    return with_ > without + 0.5;
+  }
+  return marginal(ctx, { ...sel, [key]: true }, key) > 0.5;
 }
