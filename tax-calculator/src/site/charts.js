@@ -128,23 +128,10 @@ export function donut(parts, centerTop, centerBottom) {
     <text class="dn-bottom" x="60" y="74" text-anchor="middle">${esc(centerBottom)}</text></svg>`;
 }
 
-// ------------------------------------------------------------------ one-time investment, realistic path
-// Year-to-year deviations from the average return (a market-like sequence with down years). Each path
-// is rescaled so it compounds to exactly the target rate at the horizon: same end value as a steady
-// return, but with the ups and downs real portfolios have along the way.
-const SWINGS = [0.11, -0.06, 0.08, 0.14, -0.17, 0.19, 0.05, 0.01, -0.09, 0.12, 0.09, -0.03, 0.16, 0.03, -0.12, 0.13, 0.07, 0.0, 0.1, -0.05, 0.08, 0.15, -0.08, 0.06, 0.11, -0.02, 0.09, 0.04, -0.1, 0.12];
-const pathCache = new Map();
-/** Growth factors by year (index 0 = 1) for a rate over a horizon. */
+// ------------------------------------------------------------------ one-time investment
+/** Growth factors by year (index 0 = 1) at a steady rate. */
 export function realisticPath(rate, years) {
-  const key = `${rate}:${years}`;
-  if (pathCache.has(key)) return pathCache.get(key);
-  const raw = Array.from({ length: years }, (_, i) => 1 + rate + SWINGS[i % SWINGS.length] * 0.8);
-  const prod = raw.reduce((p, x) => p * x, 1);
-  const adj = Math.pow(Math.pow(1 + rate, years) / prod, 1 / years);
-  const out = [1];
-  for (let i = 0; i < years; i++) out.push(out[i] * raw[i] * adj);
-  pathCache.set(key, out);
-  return out;
+  return Array.from({ length: years + 1 }, (_, t) => Math.pow(1 + rate, t));
 }
 
 /**
