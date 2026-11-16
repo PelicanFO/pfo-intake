@@ -596,7 +596,7 @@ function docHeadHTML(a, clientName) {
   return `<header class="tx-doc">
     <div class="tx-doc-top">
       <div><div class="tx-doc-eyebrow">Pelican Family Office</div>
-        <h2 class="tx-doc-title">${a.model.year} Tax Plan</h2>
+        <h2 class="tx-doc-title">Tax Plan</h2>
         <div class="tx-doc-meta">${clientName ? `<span>Prepared for <b>${esc(clientName)}</b></span>` : ''}<span>${esc(date)}</span><span>${esc(FILING_LABEL[p.filingStatus])}</span><span>${esc(a.stateName)}</span></div></div>
       <details class="tx-doc-profile"><summary>Inputs</summary>
         <div class="tx-chips">${profileChips(a)}</div>
@@ -656,12 +656,12 @@ function resultsHTML(P, tips, fd) {
       ${liabilityBars(plan, roth)}
     </section>`;
   const summary = section('Your strategies', `<div class="tx-sumlist">
+      <div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings</span><span></span></div>
       ${shares.map((s) => `<div class="tx-sum" role="button" tabindex="0" ${detailAttrs(s.key, P)}>
         <b class="tx-sum-name">${esc(s.label)}</b>
         <span class="tx-sum-desc">${esc(ONE_LINE[s.key === 'adv' ? scenarioFor(sel.adv) : s.key])}</span>
-        <span class="tx-sum-pct">−${pctOf(s.amount / Math.max(1, plan.baseline))}</span>
         <b class="tx-sum-amt">${money(s.amount)}</b><span class="tx-sum-go" aria-hidden="true">›</span></div>`).join('')}
-      <div class="tx-sum tx-sum-total"><b class="tx-sum-name">Total savings</b><span class="tx-sum-desc">${roth ? 'Compared with not converting, including tax on future IRA withdrawals.' : ''}</span><span class="tx-sum-pct">−${pctOf(red)}</span><b class="tx-sum-amt">${money(plan.savings)}</b><span></span></div>
+      <div class="tx-sum tx-sum-total"><b class="tx-sum-name">Total savings</b><span class="tx-sum-desc">${roth ? 'Compared with not converting, including tax on future IRA withdrawals.' : ''}</span><b class="tx-sum-amt">${money(plan.savings)}</b><span></span></div>
     </div>`, { cls: 'tx-summary', right: '<span class="tx-card-sub">Click a strategy for the full calculation</span>' });
 
   // ---- Walkthrough: how each one works, with the client's numbers.
@@ -681,8 +681,8 @@ function resultsHTML(P, tips, fd) {
     alt.push({ name: r.label, key: r.id, sav: r.savings, attrs: `data-tx-detail="${r.id}" data-tx-detail-block="base"` });
   }
   alt.sort((x, y) => y.sav - x.sav);
-  const also = alt.length ? section('Also considered', `<div class="tx-sumlist tx-alt">${alt.map((x) => `<div class="tx-sum" role="button" tabindex="0" ${x.attrs}>
-      <b class="tx-sum-name">${esc(x.name)}</b><span class="tx-sum-desc">${esc(ONE_LINE[x.key])}</span><span class="tx-sum-pct">−${pctOf(x.sav / Math.max(1, cmp.blocks.base.baseline))}</span><b class="tx-sum-amt">${money(x.sav)}</b><span class="tx-sum-go" aria-hidden="true">›</span></div>`).join('')}</div>`, { right: '<span class="tx-card-sub">Savings on its own</span>' }) : '';
+  const also = alt.length ? section('Also considered', `<div class="tx-sumlist tx-alt"><div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings on its own</span><span></span></div>${alt.map((x) => `<div class="tx-sum" role="button" tabindex="0" ${x.attrs}>
+      <b class="tx-sum-name">${esc(x.name)}</b><span class="tx-sum-desc">${esc(ONE_LINE[x.key])}</span><b class="tx-sum-amt">${money(x.sav)}</b><span class="tx-sum-go" aria-hidden="true">›</span></div>`).join('')}</div>`) : '';
 
   return `${hero}${summary}${walk}${growthSectionHTML(P, fd)}${also}
     <p class="tx-foot">PFO Tax Strategy Calculator method, ${model.year} federal rates. Each strategy's amount is its share of the combined savings, averaged over every order the strategies could be applied in. Estimates for discussion, not tax advice; growth figures are illustrations, not guarantees.</p>`;
@@ -720,8 +720,7 @@ function builderHTML(P, tips) {
 }
 
 // ------------------------------------------------------------------ growth over time
-// One contribution this year (no repeats) and the tax it saves, both invested. Each line follows a
-// market-like path with down years that averages 6%, 7% or 8% a year over the period (charts.js).
+// One contribution this year (no repeats) and the tax it saves, both invested at a steady 6%, 7% or 8% a year.
 const GROUP_CLS = ['ic-a', 'ic-b', 'ic-c'];
 
 function investBlock({ years, groups, xLabel = null }) {
@@ -780,7 +779,7 @@ function growthSectionHTML(P, fd) {
   const v = views.find((x) => x.id === growthTab) || views[0];
   const tabs = views.length > 1 ? `<div class="tx-gtabs" role="tablist">${views.map((x) => `<button type="button" role="tab" data-tx-gtab="${x.id}" aria-selected="${x.id === v.id}">${esc(x.label)}</button>`).join('')}</div>` : '';
   return section('Growth over time', `<p class="tx-gsub">${esc(v.sub)}</p>${v.html}
-    <p class="tx-gnote">Illustration with market ups and downs, averaging 6–8% a year. Actual returns will vary.</p>`, { cls: 'tx-growth-card', right: tabs });
+    <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p>`, { cls: 'tx-growth-card', right: tabs });
 }
 
 function naReason(r) {
@@ -1039,7 +1038,7 @@ function growthHTML(res, opts = {}) {
   return growthCard(opts.title || 'Growth over time', sub, investBlock({ years: 20, groups: [...(account ? [{ label: 'LEAP account', amount: account }] : []), { label: 'Tax savings', amount: savings }] }));
 }
 const growthCard = (title, sub, html) => `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(title)}</h3></div><p class="tx-gsub">${esc(sub)}</p>${html}
-  <p class="tx-gnote">Illustration with market ups and downs, averaging 6–8% a year. Actual returns will vary.</p></section>`;
+  <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p></section>`;
 
 /** A growth view on a detail page (DB plan, Family Payroll) with that strategy's own savings. */
 function detailGrowthHTML(id, a, fd, sel, savings, pay = {}) {
