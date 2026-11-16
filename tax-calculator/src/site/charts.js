@@ -127,3 +127,54 @@ export function donut(parts, centerTop, centerBottom) {
     <text class="dn-top" x="60" y="58" text-anchor="middle">${esc(centerTop)}</text>
     <text class="dn-bottom" x="60" y="74" text-anchor="middle">${esc(centerBottom)}</text></svg>`;
 }
+
+// ------------------------------------------------------------------ one-time investment, realistic path
+// Year-to-year deviations from the average return (a market-like sequence with down years). Each path
+// is rescaled so it compounds to exactly the target rate at the horizon: same end value as a steady
+// return, but with the ups and downs real portfolios have along the way.
+const SWINGS = [0.11, -0.06, 0.08, 0.14, -0.17, 0.19, 0.05, 0.01, -0.09, 0.12, 0.09, -0.03, 0.16, 0.03, -0.12, 0.13, 0.07, 0.0, 0.1, -0.05, 0.08, 0.15, -0.08, 0.06, 0.11, -0.02, 0.09, 0.04, -0.1, 0.12];
+const pathCache = new Map();
+/** Growth factors by year (index 0 = 1) for a rate over a horizon. */
+export function realisticPath(rate, years) {
+  const key = `${rate}:${years}`;
+  if (pathCache.has(key)) return pathCache.get(key);
+  const raw = Array.from({ length: years }, (_, i) => 1 + rate + SWINGS[i % SWINGS.length] * 0.8);
+  const prod = raw.reduce((p, x) => p * x, 1);
+  const adj = Math.pow(Math.pow(1 + rate, years) / prod, 1 / years);
+  const out = [1];
+  for (let i = 0; i < years; i++) out.push(out[i] * raw[i] * adj);
+  pathCache.set(key, out);
+  return out;
+}
+
+/**
+ * groups: [{ label, amount, cls }] one-time amounts at year 0, each drawn as a 6–8% band with a 7% line.
+ */
+export function investChart({ years, groups, xLabel = (t) => `Yr ${t}` }) {
+  const W = 560, H = 210, top = 16, bottom = 28, left = 52, right = 104;
+  const plotW = W - left - right, plotH = H - top - bottom;
+  const yrs = Array.from({ length: years + 1 }, (_, i) => i);
+  const val = (g, r, t) => g.amount * realisticPath(r, years)[t];
+  const max = niceMax(Math.max(1, ...groups.flatMap((g) => yrs.map((t) => val(g, 0.08, t)))));
+  const x = (t) => left + (t / years) * plotW;
+  const y = (v) => top + plotH - (v / max) * plotH;
+  const grid = [0, 0.5, 1].map((f) => `<line class="gc-grid" x1="${left}" x2="${left + plotW}" y1="${y(max * f)}" y2="${y(max * f)}"/>
+    <text class="gc-axis" x="${left - 8}" y="${y(max * f) + 4}" text-anchor="end">${short(max * f)}</text>`).join('');
+  const step = years <= 12 ? 2 : 5;
+  const ticks = yrs.filter((t) => t === 0 || t === years || (t % step === 0 && years - t >= step * 0.6)).map((t) => `<text class="gc-axis" x="${x(t)}" y="${H - 9}" text-anchor="middle">${esc(xLabel(t))}</text>`).join('');
+  const path = (vals) => vals.map((v, t) => `${t ? 'L' : 'M'}${x(t).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const ends = [];
+  const body = groups.map((g) => {
+    const hi = yrs.map((t) => val(g, 0.08, t)), lo = yrs.map((t) => val(g, 0.06, t)), mid = yrs.map((t) => val(g, 0.07, t));
+    ends.push({ g, y: y(mid[years]), v: mid[years], lo: lo[years], hi: hi[years] });
+    return `<path class="ic-band ${g.cls}" d="${path(hi)}${lo.map((v, t) => `L${x(years - t).toFixed(1)},${y(lo[years - t]).toFixed(1)}`).join('')}Z"/>
+      <path class="ic-line ${g.cls}" d="${path(mid)}"/>
+      <circle class="ic-dot ${g.cls}" cx="${x(0)}" cy="${y(g.amount)}" r="4"><title>${esc(g.label)}: ${full(g.amount)} today</title></circle>`;
+  }).join('');
+  ends.sort((a, b) => a.y - b.y);
+  for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 30) ends[k].y = ends[k - 1].y + 30;
+  const labels = ends.map((e) => `<text class="ic-end ${e.g.cls}" x="${x(years) + 8}" y="${e.y}">${short(e.v)}</text>
+    <text class="ic-range" x="${x(years) + 8}" y="${e.y + 13}">${short(e.lo)}–${short(e.hi)}</text>`).join('');
+  return `<div class="tx-chart-wrap"><svg class="tx-gc tx-ic" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(groups.map((g) => `${g.label} ${full(g.amount)} today`).join(', '))}">
+    ${grid}${body}${labels}${ticks}</svg></div>`;
+}
