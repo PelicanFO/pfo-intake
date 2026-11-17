@@ -1,7 +1,7 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
 import { augustaRule, familyPayroll } from '../src/site/foundational.js';
-import { planFor, qbiImpact, analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
+import { planFor, analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
@@ -169,12 +169,22 @@ suite('Site: QBI deduction, NIIT and RMD age (tax-law corrections)', (t) => {
   t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Engineering' }).model.profile.qbiType, 'nonsstb', 'engineering: not a specified service');
   t.equal(analyze({ ...TX, business_income: '1500000', business_entity: 'C-Corp' }).model.profile.qbiType, 'none', 'C corp: no QBI');
   t.equal(analyze({ ...TX, business_income: '1500000', business_entity: 'Sole proprietorship' }).model.profile.businessType, 'scheduleC', 'sole proprietor pays SE tax');
-  // QBI lowers what the plan saves: the plan shows the figure without QBI next to it.
+  // The plan's strategies lower the QBI deduction (a deduction the client gets anyway).
   const fd = withAutoDb({ ...TX, business_income: '1500000', business_entity: 'S-Corp' });
   const P = planFor(fd);
-  const q = qbiImpact(P, fd);
-  t.ok(q && q.before > q.after, `the plan lowers the QBI deduction (${Math.round(q.before)} → ${Math.round(q.after)})`);
-  t.ok(q.withoutSavings > P.plan.savings, `savings without QBI (${Math.round(q.withoutSavings)}) exceed savings with it (${Math.round(P.plan.savings)})`);
+  t.ok(P.plan.res.return.qbiDeduction < none.return.qbiDeduction, `the plan lowers the QBI deduction (${Math.round(none.return.qbiDeduction)} → ${Math.round(P.plan.res.return.qbiDeduction)})`);
+  const P0 = planFor({ ...fd, __tax: { ...fd.__tax, qbiType: 'none' } });
+  t.ok(P0.plan.savings > P.plan.savings, `QBI lowers the plan's savings (${Math.round(P.plan.savings)} vs ${Math.round(P0.plan.savings)} without QBI)`);
+  // Intake questions: specified-service answer beats the industry guess; business W-2 wages feed the limit.
+  t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Medical practice', business_sstb: 'No' }).model.profile.qbiType, 'nonsstb', 'intake answer "No" overrides the industry guess');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Manufacturing', business_sstb: 'Yes' }).model.profile.qbiType, 'sstb', 'intake answer "Yes"');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_sstb: 'Not sure' }).model.profile.qbiType, 'nonsstb', '"Not sure" falls back to the industry guess');
+  const iw = analyze({ ...TX, business_income: '1500000', business_entity: 'S-Corp', biz_w2_wages: '200,000' });
+  t.close(iw.comparison.blocks.base.scenarios.none.return.qbiDeduction, 100000, 0.01, 'intake business W-2 wages apply the wage limit');
+  t.close(analyze({ ...TX, business_income: '1500000', business_entity: 'S-Corp', biz_w2_wages: '200,000', __tax: { qbiWages: 400000 } }).comparison.blocks.base.scenarios.none.return.qbiDeduction, 200000, 0.01, 'Scenario options wages override the intake');
+  // Solar in Texas with QBI: no spreadsheet "state saving" credit (there is no state tax).
+  const sol = a.comparison.blocks.base.scenarios.solar;
+  t.ok(!sol.situation.credits.some((c) => c.id === 'solar-spreadsheet'), 'Solar: no phantom credit in a no-tax state with QBI');
   // NIIT only on investment income: $600k wages + $100k interest → 3.8% × 100,000.
   t.close(analyze({ ...TX, w2_income: '600000', interest_income: '100000' }).comparison.blocks.base.scenarios.none.rows.niit, 3800, 0.01, 'NIIT = 3.8% × lesser of NII or MAGI over $250k');
   // Born 1971 (55 in 2026): RMDs start at 75.

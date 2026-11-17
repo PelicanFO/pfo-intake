@@ -46,6 +46,13 @@ amounts under each strategy.
 | 13 | RMDs start at 73 for everyone | 73 if born 1951–1959; 75 if born 1960+ | SECURE 2.0 §107 |
 | 14 | First-year IRA withdrawal tax left out of the present value | Included | Spreadsheet fix |
 
+## What the intake site uses (v1.14.1)
+
+The site (`SITE_RULES` in `src/site/tax-step.js`) applies corrections 1, 3, 4, 5, 6, 7, 11, 12 and 13.
+Corrections 2, 8, 9, 10 and 14 are still off, so the Solar sizing keeps the workbook's
+state-saving adjustment. The charitable gift is treated as appreciated property (30% of AGI).
+QBI treatment and business W-2 wages come from the intake or Scenario options (see the README).
+
 ## Workbook mechanics (not tax law, but they change numbers)
 
 These are reproduced exactly by the Excel replica and fixed by the engine. They show up as the

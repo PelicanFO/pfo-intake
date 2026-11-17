@@ -78,7 +78,11 @@ export function computePlan(ctx, sel) {
   const payrollCost = sel.payroll ? pay.employerTax + pay.employeeTax + pay.childTax : 0;
   let corpSavings = 0;
   if (entity.kind === 'ccorp') corpSavings = (rent + payDeduction) * CORPORATE_RATE;
-  else m.profile.businessIncome = (+m.profile.businessIncome || 0) - rent - payDeduction;
+  else {
+    m.profile.businessIncome = (+m.profile.businessIncome || 0) - rent - payDeduction;
+    // Children's wages count toward the business's W-2 wages for the QBI wage limit (when known).
+    if (sel.payroll && m.profile.qbiWages !== null && m.profile.qbiWages !== undefined) m.profile.qbiWages = +m.profile.qbiWages + Math.min(pay.wages, payDeduction);
+  }
   const block = blockFor(sel);
   const scenario = scenarioFor(sel.adv) || 'none';
   const cmp = comparisonFor(m);

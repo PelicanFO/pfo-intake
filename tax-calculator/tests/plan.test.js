@@ -69,3 +69,14 @@ suite('Plan: fair shares and nothing that hurts', (t) => {
   const p2 = prune(P.ctx, all);
   t.ok(['db', 'augusta', 'payroll', 'adv'].every((k) => !(k === 'adv' ? p2.adv.length : p2[k]) || marginal(P.ctx, p2, k) > 0.5), 'pruned plan: every part lowers the liability');
 });
+
+suite('Plan: family payroll wages count toward the QBI wage limit', (t) => {
+  // Wage limit binding: $850k S corp income, $100k business W-2 wages entered.
+  const fd = client({ biz_w2_wages: '100000' });
+  const P = planFor(fd);
+  const pay = computePlan(P.ctx, { ...none, payroll: true });
+  const without = analyze(fd).comparison.blocks.base.scenarios.none.return.qbiDeduction;
+  t.ok(pay.res.return.qbiDeduction > without, `children's wages raise the wage limit (${Math.round(without)} → ${Math.round(pay.res.return.qbiDeduction)})`);
+  t.close(pay.savings, P.pay.savings, 0.01, 'Family Payroll in the plan equals Family Payroll on its own');
+});
+

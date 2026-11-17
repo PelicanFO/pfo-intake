@@ -69,10 +69,14 @@ export function childAges(fd = {}) {
 
 const taxOf = (model) => runScenario(model, 'base', NONE).rows.totalTax;
 
-/** Household tax with business income lowered by `deduction` (pass-through entities). */
-function householdTaxAfter(model, deduction) {
+/**
+ * Household tax with business income lowered by `deduction` (pass-through entities). `wages` paid to
+ * employees add to the business's W-2 wages for the QBI wage limit (when those wages are known).
+ */
+function householdTaxAfter(model, deduction, wages = 0) {
   const m = cloneModel(model);
   m.profile.businessIncome = (+m.profile.businessIncome || 0) - deduction;
+  if (wages && m.profile.qbiWages !== null && m.profile.qbiWages !== undefined) m.profile.qbiWages = +m.profile.qbiWages + wages;
   return taxOf(m);
 }
 
@@ -166,7 +170,7 @@ export function familyPayroll(fd, model, saved = {}) {
     after = before;
     taxSaved = deduction * P.corporateRate;
   } else {
-    after = householdTaxAfter(model, deduction);
+    after = householdTaxAfter(model, deduction, Math.min(wages, deduction));
     taxSaved = before - after;
   }
   const savings = taxSaved - employerTax - employeeTax - childTax;
