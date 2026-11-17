@@ -85,7 +85,9 @@ export default {
     const nii = inc.stcg + inc.interest + inc.qualifiedDividends + inc.nonqualifiedDividends + inc.ltcg;
     const thr = T.niit.threshold[fs] === undefined ? 200000 : T.niit.threshold[fs];
     let niit;
-    if (options.excelVariant === 'afterCharitable') {
+    if (ctx.rules.niit) {
+      niit = cur.totals.niit; // corrected NIIT, the same figure the return uses
+    } else if (options.excelVariant === 'afterCharitable') {
       // Solar & Charitable!J46: the comparison uses the right threshold, the amount always uses $200,000.
       const gifts = s.charitable.reduce((a, c) => a + c.amount, 0);
       niit = cur.agi - gifts - thr > nii ? (cur.agi - gifts - 200000) * T.niit.rate : nii * T.niit.rate;

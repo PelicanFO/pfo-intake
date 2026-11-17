@@ -451,3 +451,8 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 .tx-sum-head .tx-sum-h { text-align: right; }
 .tx-sum-head + .tx-sum { border-top: 1px solid var(--border); }
 @media (max-width: 700px) { .tx-sum { grid-template-columns: minmax(0, 1fr) auto 12px; } .tx-sum-desc { grid-column: 1 / 4; grid-row: 2; } .tx-sum-head > span:nth-child(2) { display: none; } }
+
+/* ================= v1.14 ================= */
+.tx-hero-qbi { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.12); font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.75); font-variant-numeric: tabular-nums; }
+.tx-hero-qbi b { color: #fff; font-weight: 600; }
+.tx-input select { width: 100%; min-width: 0; border: 0; background: transparent; font: 14px "DM Sans", sans-serif; color: inherit; padding: 8px 4px; text-overflow: ellipsis; }

@@ -29,6 +29,8 @@ export function emptySituation() {
     propertyTax: 0, otherItemized: 0,
     businessType: 'passthrough', // 'passthrough' (K-1, no SE tax) | 'scheduleC'
     qbiType: 'sstb',             // 'sstb' (conservative) | 'nonsstb' | 'none'
+    qbiWages: null,              // W-2 wages the business pays (incl. an S corp owner's salary); null = unknown, limit assumed not to bind
+    qbiUbia: 0,                  // unadjusted basis of the business's qualified property
   };
 }
 
@@ -215,14 +217,27 @@ export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
           if (sit.qbiType === 'sstb') applicable = pos(1 - (tiBefore - thr) / range);
         }
         let d = Q.rate * qbi * applicable;
+        // W-2 wage / property limit above the threshold (§199A(b)(2)(B), phased in over the range).
+        const wages = sit.qbiWages;
+        let wageLimited = false;
+        if (tiBefore > thr && wages !== null && wages !== undefined && wages !== '') {
+          const W = pos(+wages || 0), U = pos(+sit.qbiUbia || 0);
+          const limit = Math.max(0.5 * W, 0.25 * W + 0.025 * U) * applicable;
+          if (limit < d) {
+            const phase = Math.min(1, (tiBefore - thr) / range);
+            const reduced = d - (d - limit) * phase;
+            L.line('W-2 wage limit', limit, { kind: 'info', calc: `greater of 50% × ${money(W)} wages or 25% × wages + 2.5% × ${money(U)} property${applicable < 1 ? ` × ${pct(applicable)}` : ''}${phase < 1 ? `; phased in ${pct(phase)}` : ''}`, source: 'IRC §199A(b)(2)(B), (b)(3)' });
+            d = reduced; wageLimited = true;
+          }
+        }
         const cap = Q.rate * pos(tiBefore - pos(prefIncome));
         d = Math.min(d, cap);
         if (qbi >= Q.minimumQbi) d = Math.max(d, Math.min(Q.minimumDeduction, tiBefore));
         qbiDeduction = d;
         L.line('Taxable income before QBI deduction', tiBefore, { kind: 'info' });
         if (applicable < 1) L.line('Specified-service phase-out applied', applicable, { kind: 'info', calc: `1 − (${money(tiBefore)} − ${money(thr)}) ÷ ${money(range)} = ${pct(applicable)} of the deduction remains`, source: 'IRC §199A(d)(3); default assumption: specified service business' });
-        if (sit.qbiType === 'nonsstb' && tiBefore > thr) L.note('Assumes W-2 wage / property limits do not bind (non-specified-service business).', 'warn');
-        L.line('QBI deduction', qbiDeduction, { kind: 'total', calc: `20% × ${money(qbi)}${applicable < 1 ? ` × ${pct(applicable)}` : ''}, capped at 20% of taxable income less net capital gain` });
+        if (tiBefore > thr && (wages === null || wages === undefined || wages === '')) L.note('Assumes the W-2 wage / property limit does not bind (business wages not entered).', 'warn');
+        L.line('QBI deduction', qbiDeduction, { kind: 'total', calc: `20% × ${money(qbi)}${applicable < 1 ? ` × ${pct(applicable)}` : ''}${wageLimited ? ', limited by W-2 wages' : ''}, capped at 20% of taxable income less net capital gain` });
       } else L.note('No QBI deduction: qualified business income is not positive (a loss carries forward).');
     }
   }
