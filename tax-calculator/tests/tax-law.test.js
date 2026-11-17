@@ -98,6 +98,16 @@ suite('Tax law: excess business loss, QBI, capital losses', (t) => {
   t.close(q.taxableIncome, 417800 - 81420, 0.01, 'taxable income after QBI');
   const q2 = run(sit({ income: { business: 450000 }, qbiType: 'nonsstb' }));
   t.close(q2.qbiDeduction, 83560, 0.01, 'non-SSTB: 20% × 450,000 = 90,000 capped at 20% × 417,800');
+  // W-2 wage limit, non-SSTB: joint, $1.5M K-1, $200k wages. Fully phased in (1,467,800 > 553,500):
+  // lesser of 20% × 1,500,000 = 300,000 or 50% × 200,000 = 100,000.
+  const w1 = run(sit({ income: { business: 1500000 }, qbiType: 'nonsstb', qbiWages: 200000 }));
+  t.close(w1.qbiDeduction, 100000, 0.01, 'wage limit fully phased in');
+  // Partly phased in: $500k K-1, $100k wages. Taxable before QBI 467,800 → 64,300/150,000 = 42.8667%.
+  // 100,000 − (100,000 − 50,000) × 0.428667 = 78,566.67 (under the 93,560 cap).
+  const w2 = run(sit({ income: { business: 500000 }, qbiType: 'nonsstb', qbiWages: 100000 }));
+  t.close(w2.qbiDeduction, 100000 - 50000 * (64300 / 150000), 0.01, 'wage limit phased in');
+  // Wages not entered: the limit is assumed not to bind.
+  t.close(run(sit({ income: { business: 1500000 }, qbiType: 'nonsstb' })).qbiDeduction, 293560, 0.01, 'no wages entered → 20% of taxable income cap');
   // Capital loss: single, $100k wages, $10k LTCG, $20k LEAP capital loss → net −10,000:
   // $3,000 deducted, $7,000 carried forward.
   const c = run(sit({ filingStatus: 'single', income: { w2: 100000, ltcg: 10000 }, capitalLosses: [{ id: 'l', label: 'loss', amount: 20000 }] }));

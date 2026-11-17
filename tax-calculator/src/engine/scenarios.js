@@ -55,6 +55,8 @@ export function situationFor(model, blockId) {
   s.otherItemized = +p.otherItemized || 0;
   s.businessType = p.businessType || 'passthrough';
   s.qbiType = p.qbiType || 'sstb';
+  s.qbiWages = p.qbiWages ?? null;
+  s.qbiUbia = +p.qbiUbia || 0;
   if (blockId === 'db' || blockId === 'dbRoth') {
     const c = +model.db.contribution || 0;
     s.income.business -= c;

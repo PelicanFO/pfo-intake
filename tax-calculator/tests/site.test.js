@@ -1,16 +1,18 @@
 // The intake site's tax step: intake mapping, suggestions and the Review & Share summary.
 import { suite } from './harness.js';
 import { augustaRule, familyPayroll } from '../src/site/foundational.js';
-import { analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
+import { planFor, qbiImpact, analyze, suggestions, taxSummary, taxDeferredBalance, futureValue, futureValueOfAnnual, dbMaxForAge, foundationResult, ADVANCED, COMBINED, withAutoDb, dbSuggestion } from '../src/site/tax-step.js';
 
 const LA = { filing_status: 'Married filing jointly', state: 'Louisiana' };
 
 suite('Site: intake answers drive the results (spreadsheet method + standard deduction)', (t) => {
   // Workbook (no deductions): liability $93,195.42 (Strategy comparison!F10). The site adds the
   // standard deduction: federal $32,200 + 2 × $1,650 age 65+ = $35,500 at 24% = $8,520 (senior
-  // deduction fully phased out at $400k), plus Louisiana's $25,750 at 3% = $772.50.
+  // deduction fully phased out at $400k), plus Louisiana's $25,750 at 3% = $772.50, plus the 0.9%
+  // Additional Medicare Tax on $150,000 of wages over $250,000 = $1,350.
   const a = analyze({ ...LA, age: '65', w2_income: '400,000' });
-  t.close(a.comparison.blocks.base.baseline, 93195.42 - 8520 - 772.5, 0.01, 'liability = workbook − standard deductions');
+  t.close(a.comparison.blocks.base.baseline, 93195.42 - 8520 - 772.5 + 1350, 0.01, 'liability = workbook − standard deductions + Additional Medicare');
+  t.close(a.comparison.blocks.base.scenarios.none.rows.niit, 0, 0.01, 'no NIIT on wages');
   const film = a.comparison.blocks.base.scenarios.film.savings;
   t.ok(film > 10000 && film < 15582.07, `Film still saves, a little less than the workbook's $15,582 now that the first $35,500 isn't taxed (${Math.round(film)})`);
   const s = taxSummary({ ...LA, age: '65', w2_income: '400000' });
@@ -111,8 +113,9 @@ suite('Site: DB plan is applied automatically', (t) => {
 
 suite('Site: Augusta Rule and Family Payroll (hand-checked)', (t) => {
   // MFJ, Louisiana, age 50, $500,000 pass-through income: taxable $467,800 → 32% federal bracket + 3% LA.
+  // QBI is switched off here so the hand checks isolate the rent and wage mechanics (QBI is tested below).
   const fd = (entity, extra = {}) => ({ ...LA, age: '50', business_income: '500000', has_business: 'Yes', business_entity: entity,
-    nw_view: 'simple', nw_real_estate: '1,200,000', children: 'Yes', children_count: '2', children_ages: '10, 14', ...extra });
+    nw_view: 'simple', nw_real_estate: '1,200,000', children: 'Yes', children_count: '2', children_ages: '10, 14', __tax: { qbiType: 'none' }, ...extra });
   const run = (f) => { const a = analyze(f); return { aug: augustaRule(f, a.model, f.__tax || {}), pay: familyPayroll(f, a.model, f.__tax || {}) }; };
 
   const s = run(fd('S-Corp'));
@@ -128,7 +131,10 @@ suite('Site: Augusta Rule and Family Payroll (hand-checked)', (t) => {
   const sole = run(fd('Sole proprietorship'));
   t.ok(!sole.aug.applies && /paying rent to the owner/.test(sole.aug.why), 'Augusta doesn\'t apply to a sole proprietorship');
   t.close(sole.pay.employerTax + sole.pay.employeeTax, 0, 0.01, 'sole proprietor: no FICA/FUTA for children under 18');
-  t.close(sole.pay.savings, 32200 * 0.35 - 193.5, 0.01, 'sole proprietor family payroll savings');
+  // Sole proprietor: wages also cut self-employment tax. Net earnings fall 32,200 × 92.35% = 29,736.70:
+  // Medicare 2.9% = 862.36 and Additional Medicare 0.9% = 267.63 (Social Security part stays at the wage
+  // base). AGI falls 32,200 − ½ × 862.36 = 31,768.82, at 32% + 3%.
+  t.close(sole.pay.savings, 0.029 * 29736.7 + 0.009 * 29736.7 + 0.35 * (32200 - 0.029 * 29736.7 / 2) - 193.5, 0.01, 'sole proprietor family payroll savings');
 
   const older = run(fd('Sole proprietorship', { children_ages: '19, 14' }));
   t.close(older.pay.employeeTax, 16100 * 0.0765, 0.01, 'a child 18+ pays FICA even in a sole proprietorship');
@@ -146,4 +152,31 @@ suite('Site: Augusta Rule and Family Payroll (hand-checked)', (t) => {
   t.ok(!young.pay.applies && /aged 7–24/.test(young.pay.why), 'children under 7 aren\'t counted');
   const noBiz = run({ ...LA, w2_income: '300000', nw_view: 'simple', nw_real_estate: '900000', children: 'Yes', children_ages: '12' });
   t.ok(!noBiz.aug.applies && !noBiz.pay.applies, 'no business: neither applies');
+});
+
+suite('Site: QBI deduction, NIIT and RMD age (tax-law corrections)', (t) => {
+  const TX = { filing_status: 'Married filing jointly', state: 'Texas', age: '55', has_business: 'Yes' };
+  // $1.5M S corp income, no industry: assumed non-SSTB, wage limit not applied.
+  // Taxable before QBI 1,500,000 − 32,200 = 1,467,800 → QBI deduction 20% × 1,467,800 = 293,560 (taxable-income cap).
+  const a = analyze({ ...TX, business_income: '1500000', business_entity: 'S-Corp' });
+  const none = a.comparison.blocks.base.scenarios.none;
+  t.equal(a.model.profile.qbiType, 'nonsstb', 'no industry: not a specified service business');
+  t.close(none.return.qbiDeduction, 293560, 0.01, 'QBI deduction in the baseline');
+  // With $200k of business W-2 wages the deduction is limited to 50% × 200,000.
+  const w = analyze({ ...TX, business_income: '1500000', business_entity: 'S-Corp', __tax: { qbiWages: 200000 } });
+  t.close(w.comparison.blocks.base.scenarios.none.return.qbiDeduction, 100000, 0.01, 'W-2 wage limit');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Medical practice' }).model.profile.qbiType, 'sstb', 'medical practice: specified service');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Engineering' }).model.profile.qbiType, 'nonsstb', 'engineering: not a specified service');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_entity: 'C-Corp' }).model.profile.qbiType, 'none', 'C corp: no QBI');
+  t.equal(analyze({ ...TX, business_income: '1500000', business_entity: 'Sole proprietorship' }).model.profile.businessType, 'scheduleC', 'sole proprietor pays SE tax');
+  // QBI lowers what the plan saves: the plan shows the figure without QBI next to it.
+  const fd = withAutoDb({ ...TX, business_income: '1500000', business_entity: 'S-Corp' });
+  const P = planFor(fd);
+  const q = qbiImpact(P, fd);
+  t.ok(q && q.before > q.after, `the plan lowers the QBI deduction (${Math.round(q.before)} → ${Math.round(q.after)})`);
+  t.ok(q.withoutSavings > P.plan.savings, `savings without QBI (${Math.round(q.withoutSavings)}) exceed savings with it (${Math.round(P.plan.savings)})`);
+  // NIIT only on investment income: $600k wages + $100k interest → 3.8% × 100,000.
+  t.close(analyze({ ...TX, w2_income: '600000', interest_income: '100000' }).comparison.blocks.base.scenarios.none.rows.niit, 3800, 0.01, 'NIIT = 3.8% × lesser of NII or MAGI over $250k');
+  // Born 1971 (55 in 2026): RMDs start at 75.
+  t.equal(a.comparison.roth.rmdStartAge, 75, 'RMDs start at 75 for anyone born 1960 or later');
 });

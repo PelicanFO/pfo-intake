@@ -2,10 +2,13 @@
 // Builds a calculator model from the client's intake answers, runs every strategy, and renders
 // a comparison and a Detailed Results page. All tax math lives in ../engine.
 //
-// The site uses the spreadsheet method (the PFO Tax Strategy Calculator's own math) with these
-// changes: the standard deduction (federal, or itemized if larger, plus the 65+ and senior
-// deductions, and the state's standard deduction) is applied, and strategy amounts that would come
-// out negative are set to $0 instead of raising taxes.
+// The site starts from the spreadsheet method (the PFO Tax Strategy Calculator's own math) with these
+// tax-law corrections (engine/rules.js): the standard deduction (federal, or itemized if larger, plus
+// the 65+ and senior deductions, and the state's standard deduction); capital gains stacked on top of
+// ordinary income; NIIT on investment income only, included in every total; the QBI deduction (with
+// the W-2 wage limit when business wages are entered) and self-employment / Additional Medicare tax;
+// charitable deduction limits with carryforward; RMD start age by birth year; and strategy amounts
+// that would come out negative are set to $0 instead of raising taxes.
 
 import { runComparison } from '../engine/compare.js';
 import { SCENARIOS } from '../engine/scenarios.js';
@@ -14,11 +17,30 @@ import { ALL_OFF } from '../engine/rules.js';
 import { STRATEGIES, defaultParams } from '../strategies/index.js';
 import { stateCodeFor } from '../tables/states/index.js';
 import { money, pct } from '../engine/ledger.js';
-import { augustaRule, familyPayroll, FOUNDATIONAL_PARAMS } from './foundational.js';
+import { augustaRule, familyPayroll, FOUNDATIONAL_PARAMS, entityOf } from './foundational.js';
 import { planContext, computePlan, recommendedPlan, scenarioFor, attribution, prune, helps } from './plan.js';
 import { beforeAfter, short, investChart, realisticPath } from './charts.js';
 
-export const SITE_RULES = { ...ALL_OFF, clampNegative: true, standardDeduction: true, stateStandardDeduction: true };
+export const SITE_RULES = {
+  ...ALL_OFF, clampNegative: true, standardDeduction: true, stateStandardDeduction: true,
+  capitalGainsStacking: true, niit: true, qbi: true, medicareSurtax: true, charitableLimits: true, rmdStartAge: true,
+};
+
+// Specified service trades or businesses (§199A(d)(2)): guessed from the intake's industry text.
+// Engineering and architecture are excluded by statute; real estate and insurance are not SSTBs.
+const SSTB_RE = /medic|physician|doctor|dental|dentist|orthodont|health|clinic|hospital|chiropract|therap|pharma|veterinar|nurs|\blaw\b|legal|attorney|accountan|\bcpa\b|tax prep|bookkeep|consult|financ|wealth|invest|advis|brokerage|actuar|athlet|perform|music|entertain/i;
+export const QBI_LABEL = { nonsstb: 'Not a specified service business', sstb: 'Specified service business', none: 'No QBI deduction' };
+
+/** QBI treatment for the client's business: { type, guessed, why }. */
+export function qbiTreatment(fd = {}) {
+  const saved = fd.__tax || {};
+  if (saved.qbiType && QBI_LABEL[saved.qbiType]) return { type: saved.qbiType, guessed: false, why: 'set under Scenario options' };
+  const entity = entityOf(fd);
+  if (entity.kind === 'ccorp') return { type: 'none', guessed: true, why: 'C corp income does not qualify' };
+  const ind = String(fd.business_industry || '').trim();
+  if (ind && SSTB_RE.test(ind)) return { type: 'sstb', guessed: true, why: `industry "${ind}" looks like a specified service` };
+  return { type: 'nonsstb', guessed: true, why: ind ? `industry "${ind}"` : 'no industry in the intake' };
+}
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -100,6 +122,11 @@ export function intakeToModel(fd = {}) {
     interest: num(fd.interest_income), qualifiedDividends: num(fd.qualified_dividends), nonqualifiedDividends: num(fd.nonqualified_dividends),
     otherIncome: num(fd.other_income), planningFee: num(saved.planningFee),
   });
+  // Business type: sole proprietors pay self-employment tax; QBI treatment from the intake or the advisor.
+  p.businessType = entityOf(fd).kind === 'sole' ? 'scheduleC' : 'passthrough';
+  const qbi = qbiTreatment(fd);
+  p.qbiType = qbi.type;
+  p.qbiWages = saved.qbiWages !== undefined && saved.qbiWages !== null && saved.qbiWages !== '' ? num(saved.qbiWages) : null;
   m.db.contribution = num(saved.dbContribution);
   m.roth.conversion = num(saved.rothConversion);
   m.roth.retirementAge = num(fd.retirement_target_age) || 65;
@@ -109,7 +136,11 @@ export function intakeToModel(fd = {}) {
   for (const [sid, vals] of Object.entries(saved.params || {})) if (params[sid]) Object.assign(params[sid], vals);
   m.params = params;
   m.rules = { ...SITE_RULES };
-  return { model: m, notes, stateName, stateCode: code, stateRate, stateRateSource, income };
+  // Film is sized to fill the 12% bracket in every block (the workbook's DB / Roth blocks default to a
+  // 100% income offset, which over-sizes it once QBI and the standard deduction are counted).
+  const fill12 = { film: { film: { offset: { fillToBracket: 0.12 } } } };
+  m.sizing = { ...m.sizing, db: { ...fill12, ...(m.sizing.db || {}) }, roth: { ...fill12, ...(m.sizing.roth || {}) }, dbRoth: { ...fill12, ...(m.sizing.dbRoth || {}) } };
+  return { model: m, notes, stateName, stateCode: code, stateRate, stateRateSource, income, qbi };
 }
 
 // ------------------------------------------------------------------ results
@@ -504,7 +535,9 @@ export function renderTaxStep(root, fd, handlers) {
       else saved.params[sid][pk] = kind === 'pct' ? num(el.value) / 100 : num(el.value);
     } else if (key === 'stateRate') {
       saved.stateRate = el.value === '' ? null : num(el.value) / 100;
-    } else if (['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage'].includes(key) && el.value.trim() === '') {
+    } else if (key === 'qbiType') {
+      if (el.value) saved.qbiType = el.value; else delete saved.qbiType;
+    } else if (['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage', 'qbiWages'].includes(key) && el.value.trim() === '') {
       delete saved[key]; // blank = estimated from the intake
     } else {
       saved[key] = num(el.value);
@@ -555,7 +588,7 @@ export function renderTaxStep(root, fd, handlers) {
     if (reset) {
       delete saved.params;
       delete saved.planningFee;
-      for (const k of ['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage']) delete saved[k];
+      for (const k of ['augustaDays', 'augustaRate', 'payrollKids', 'payrollWage', 'qbiType', 'qbiWages']) delete saved[k];
       drawOptions();
       draw(); handlers.save({ ...saved });
     }
@@ -631,6 +664,27 @@ function liabilityBars(plan, roth) {
     </div>`;
 }
 
+/**
+ * QBI line under the plan hero: the deduction before and with the plan, the assumption behind it,
+ * and what the plan would save if no QBI deduction were taken (so nobody is shown a false benefit).
+ */
+export function qbiImpact(P, fd) {
+  const { a, plan } = P;
+  const before = a.comparison.blocks[plan.block].scenarios.none.return.qbiDeduction || 0;
+  const after = plan.res.return.qbiDeduction || 0;
+  if (before < 0.5 && after < 0.5) return null;
+  const saved = fd.__tax || {};
+  const P0 = planFor({ ...fd, __tax: { ...saved, qbiType: 'none', plan: P.sel } });
+  return { before, after, withoutSavings: P0.plan.savings, type: a.model.profile.qbiType, wages: a.model.profile.qbiWages, guessed: a.qbi.guessed };
+}
+
+function qbiNote(P, fd) {
+  const q = qbiImpact(P, fd);
+  if (!q) return '';
+  const assume = `${q.guessed ? 'assumes ' : ''}${QBI_LABEL[q.type].toLowerCase()}; ${q.wages === null ? 'no W-2 wage limit, since business wages aren\'t entered' : `${money(q.wages)} of business W-2 wages`}`;
+  return `<p class="tx-hero-qbi"><b>QBI deduction</b> ${money(q.before)} → ${money(q.after)} with the plan (${esc(assume)}). Without QBI the plan would save ${money(q.withoutSavings)}. Confirm with the CPA.</p>`;
+}
+
 function resultsHTML(P, tips, fd) {
   const { a, aug, pay, rows, sel, plan, shares } = P;
   const { model, comparison: cmp } = a;
@@ -654,6 +708,7 @@ function resultsHTML(P, tips, fd) {
         ${roth ? '' : `<div class="tx-hero-stats"><div><span>Effective rate</span><b>${pctOf(effBefore)} → ${pctOf(effAfter)}</b></div></div>`}
       </div>
       ${liabilityBars(plan, roth)}
+      ${qbiNote(P, fd)}
     </section>`;
   const summary = section('Your strategies', `<div class="tx-sumlist">
       <div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings</span><span></span></div>
@@ -685,7 +740,7 @@ function resultsHTML(P, tips, fd) {
       <b class="tx-sum-name">${esc(x.name)}</b><span class="tx-sum-desc">${esc(ONE_LINE[x.key])}</span><b class="tx-sum-amt">${money(x.sav)}</b><span class="tx-sum-go" aria-hidden="true">›</span></div>`).join('')}</div>`) : '';
 
   return `${hero}${summary}${walk}${growthSectionHTML(P, fd)}${also}
-    <p class="tx-foot">PFO Tax Strategy Calculator method, ${model.year} federal rates. Each strategy's amount is its share of the combined savings, averaged over every order the strategies could be applied in. Estimates for discussion, not tax advice; growth figures are illustrations, not guarantees.</p>`;
+    <p class="tx-foot">${model.year} federal rates with the standard deduction, capital gains stacking, NIIT, QBI, self-employment tax and charitable limits. Each strategy's amount is its share of the combined savings, averaged over every order the strategies could be applied in. Estimates for discussion, not tax advice; growth figures are illustrations, not guarantees.</p>`;
 }
 
 // ------------------------------------------------------------------ plan builder (right column)
@@ -818,6 +873,15 @@ function optionsHTML(built, saved, fd) {
   const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field tx-field-sm"><span>${esc(label)}</span>
     <span class="tx-input ${kind}"><input type="text" inputmode="decimal" data-tax="${key}" ${kind === 'tx-money' ? 'data-money' : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"></span>
     ${hint ? `<small>${hint}</small>` : ''}</label>`;
+  if (m.profile.businessIncome > 0) {
+    const q = built.qbi;
+    html += `<label class="tx-field"><span>QBI deduction (business income)</span><span class="tx-input"><select data-tax="qbiType">
+      <option value="">Auto: ${esc(QBI_LABEL[q.guessed ? q.type : qbiTreatment({ ...fd, __tax: {} }).type].toLowerCase())}</option>
+      ${Object.entries(QBI_LABEL).map(([k, v]) => `<option value="${k}"${saved.qbiType === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+    </select></span><small>Specified service = health, law, accounting, consulting, financial services, performing arts, athletics. Confirm with the CPA.</small></label>`;
+    html += plain('qbiWages', 'W-2 wages the business pays', saved.qbiWages !== undefined && saved.qbiWages !== null ? commas(saved.qbiWages) : '', 'Not entered',
+      'All W-2 payroll, including an S corp owner\'s salary. Blank = the wage limit is assumed not to bind (largest deduction, smallest savings).', 'tx-money');
+  }
   const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
   html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
@@ -885,10 +949,13 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     dbAdj ? line('DB plan contribution', 0, -dbAdj, { goodWhenDown: false }) : '',
     losses ? line('Strategy deductions & losses', 0, -losses, { hint: 'see how it is sized below' }) : '',
     line('Adjusted gross income', N.agi, R.agi, { cls: 'sub' }),
-    gifts || R.deduction ? line('Charitable deduction', N.deduction, R.deduction) : '',
+    line('Standard or itemized deduction', N.deduction + N.seniorDeduction, R.deduction + R.seniorDeduction, { hint: R.usedStandard ? 'standard deduction' : 'itemized, including the charitable gift' }),
+    N.qbiDeduction || R.qbiDeduction ? line('QBI deduction', N.qbiDeduction, R.qbiDeduction, { hint: `${a.qbi.guessed ? 'assumes ' : ''}${QBI_LABEL[model.profile.qbiType].toLowerCase()}${model.profile.qbiWages === null ? ', no W-2 wage limit' : ''}; confirm with the CPA` }) : '',
     line('Taxable income', N.taxableIncome, R.taxableIncome, { cls: 'sub' }),
     line('Federal income tax before credits', N.regularTax, R.regularTax, { goodWhenDown: true }),
     credits ? line('Credits applied', 0, -credits, { goodWhenDown: true, hint: sit.credits.some((c) => c.id === 'solar-spreadsheet') ? 'energy credit, plus the spreadsheet\'s state-saving adjustment' : 'energy credit' }) : '',
+    N.totals.niit || R.totals.niit ? line('Net investment income tax', N.totals.niit, R.totals.niit, { goodWhenDown: true, hint: '3.8% of investment income over the threshold' }) : '',
+    N.totals.payroll || R.totals.payroll ? line('Self-employment / Additional Medicare tax', N.totals.payroll, R.totals.payroll, { goodWhenDown: true }) : '',
     line('State income tax', N.totals.state, R.totals.state, { goodWhenDown: true }),
     line('Total tax', none.rows.totalTax, res.rows.totalTax, { cls: 'sub', goodWhenDown: true }),
     line('Strategy contribution', 0, res.rows.contribution, { goodWhenDown: true }),

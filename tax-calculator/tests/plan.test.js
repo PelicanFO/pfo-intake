@@ -1,7 +1,7 @@
 // The combined tax plan (src/site/plan.js): strategies computed together.
 import { suite } from './harness.js';
 import { analyze, planFor, withAutoDb, foundationResult } from '../src/site/tax-step.js';
-import { computePlan, normalize, planSteps, attribution, prune, marginal } from '../src/site/plan.js';
+import { computePlan, normalize, planSteps, attribution, prune, marginal, scenarioFor, ADV_ORDER } from '../src/site/plan.js';
 
 const client = (extra = {}) => withAutoDb({
   filing_status: 'Married filing jointly', state: 'Louisiana', age: '52', w2_income: '150000', business_income: '850000', lt_cap_gains: '120000',
@@ -40,7 +40,8 @@ suite('Plan: permitted combinations', (t) => {
   const P = planFor(client());
   t.equal(normalize(P.ctx, { roth: true, adv: [] }).roth, false, 'a Roth conversion needs an advanced strategy');
   t.equal(normalize(P.ctx, { adv: ['film', 'leap'] }).adv.length, 0, 'Film & LEAP is not a permitted pair');
-  t.equal(normalize(P.ctx, { adv: ['charitable', 'leap'] }).adv.join(','), 'leap,charitable', 'LEAP & Charitable is permitted');
+  const open = { ...P.ctx, advAvail: ADV_ORDER, setOk: (adv) => scenarioFor(adv) !== null }; // every strategy available
+  t.equal(normalize(open, { adv: ['charitable', 'leap'] }).adv.join(','), 'leap,charitable', 'LEAP & Charitable is permitted');
   const c = planFor(client({ business_entity: 'C-Corp', biz_net_profit: '850000' }));
   const aug = computePlan(c.ctx, { ...none, augusta: true });
   t.close(aug.savings, aug.rent * 0.21, 0.01, 'C corp: Augusta rent deducted at 21% by the corporation');
