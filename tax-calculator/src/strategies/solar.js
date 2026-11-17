@@ -104,13 +104,16 @@ export default {
     this.spreadsheet = { benefitOf: null, federalBefore };
     if (target <= 0) return 0;
     const withState = options.excelVariant !== 'afterCharitable';
+    // With the QBI correction on, the depreciation also lowers the QBI deduction, so its federal benefit
+    // comes from the full return; otherwise the workbook's ordinary-bracket shortcut.
     const benefit = (c) => {
       const m = this.mechanics(c, p);
-      let b = m.credit + ordTax(cur.ordTI) - ordTax(cur.ordTI - m.netDepreciation);
-      if (withState) {
-        const r = ctx.evaluateWith((x) => { x.businessLosses.push({ id: 'solar', amount: m.netDepreciation }); });
-        b += cur.totals.state - r.totals.state;
-      }
+      const needReturn = withState || ctx.rules.qbi;
+      const r = needReturn ? ctx.evaluateWith((x) => { x.businessLosses.push({ id: 'solar', amount: m.netDepreciation, qbi: true }); }) : null;
+      let b = m.credit + (ctx.rules.qbi
+        ? (cur.ordinaryTax + cur.capitalGainsTax) - (r.ordinaryTax + r.capitalGainsTax)
+        : ordTax(cur.ordTI) - ordTax(cur.ordTI - m.netDepreciation));
+      if (withState) b += cur.totals.state - r.totals.state;
       return b;
     };
     let lo = 0, hi = target * p.equityPct / p.creditPct;

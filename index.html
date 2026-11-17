@@ -816,7 +816,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.14.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.14.1'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -2048,10 +2048,12 @@ const FORM_SECTIONS = [
           {show:'Yes',id:'business_entity',label:'Business entity type',type:'select',options:['','Sole proprietorship','S-Corp','C-Corp','LLC (single member)','LLC (multi-member)','Partnership','Other']},
           {show:'Yes',id:'business_role',label:'Your role',type:'radio',options:['Sole owner','Majority owner','Minority partner','Key employee with equity']},
           {show:'Yes',id:'business_industry',label:'Industry',type:'text',placeholder:'e.g. real estate, medical practice, technology...'},
+          {show:'Yes',id:'business_sstb',label:'Is the business in health, law, accounting, consulting, financial services, athletics or performing arts?',type:'radio',options:['Yes','No','Not sure']},
           {show:'Yes',id:'business_revenue_model',label:'Business revenue model',type:'text',placeholder:''},
           {show:'Yes',id:'business_employees',label:'Number of employees',type:'number',placeholder:''},
           {show:'Yes',id:'biz_revenue',label:'Annual gross revenue',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_net_profit',label:'Annual net profit',type:'currency',placeholder:'0'},
+          {show:'Yes',id:'biz_w2_wages',label:'Total W-2 wages the business pays per year (including your own salary)',type:'currency',placeholder:'0'},
           {show:'Yes',id:'business_est_value',label:'Estimated current business value',type:'currency',placeholder:'0'},
           {show:'Yes',id:'biz_value_method',label:'How did you arrive at that valuation?',type:'textarea',placeholder:''},
           {show:'Yes',id:'biz_hours_week',label:'How many hours per week do you work in the business?',type:'number',placeholder:'e.g. 55'},
@@ -3781,8 +3783,8 @@ Estate tax concern: ${yn(fd.estate_size_concern)} | Estate attorney: ${yn(fd.has
 
 BUSINESS OWNERSHIP
 Owns business: ${yn(fd.has_business)}
-${fd.has_business==='Yes'?`Name: ${yn(fd.business_name)} | Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)} | Revenue model: ${yn(fd.business_revenue_model)} | Employees: ${yn(fd.business_employees)}
-Revenue: ${cur(fd.biz_revenue)} | Net profit: ${cur(fd.biz_net_profit)} | Estimated value: ${cur(fd.business_est_value)} | Valuation: ${yn(fd.biz_value_method)}
+${fd.has_business==='Yes'?`Name: ${yn(fd.business_name)} | Entity: ${yn(fd.business_entity)} | Role: ${yn(fd.business_role)} | Industry: ${yn(fd.business_industry)} | Specified service field: ${yn(fd.business_sstb)} | Revenue model: ${yn(fd.business_revenue_model)} | Employees: ${yn(fd.business_employees)}
+Revenue: ${cur(fd.biz_revenue)} | Net profit: ${cur(fd.biz_net_profit)} | W-2 wages paid: ${cur(fd.biz_w2_wages)} | Estimated value: ${cur(fd.business_est_value)} | Valuation: ${yn(fd.biz_value_method)}
 Hours/week: ${yn(fd.biz_hours_week)} | Vacation weeks/year: ${yn(fd.biz_weeks_vacation)}
 If owner unable to work 90 days: ${yn(fd.biz_owner_dependent)}
 Top priorities: ${arr(fd.biz_priorities)}
@@ -5356,10 +5358,10 @@ const CSV_FORM_FIELDS = [
   {id:'has_poa',label:'Has POA'},{id:'beneficiaries_current',label:'Beneficiaries Reviewed'},
   {id:'estate_size_concern',label:'Estate Tax Concern'},{id:'has_estate_atty',label:'Has Estate Attorney'},
   {id:'has_business',label:'Has Business'},{id:'business_entity',label:'Business Entity'},
-  {id:'business_role',label:'Business Role'},{id:'business_industry',label:'Industry'},
+  {id:'business_role',label:'Business Role'},{id:'business_industry',label:'Industry'},{id:'business_sstb',label:'Specified Service Field'},
   {id:'business_years',label:'Years in Business'},{id:'business_employees',label:'Employees'},
   {id:'biz_revenue',label:'Business Revenue'},{id:'biz_gross_profit',label:'Gross Profit'},
-  {id:'biz_net_profit',label:'Net Profit'},{id:'business_est_value',label:'Business Value'},
+  {id:'biz_net_profit',label:'Net Profit'},{id:'biz_w2_wages',label:'Business W-2 Wages'},{id:'business_est_value',label:'Business Value'},
   {id:'biz_hours_week',label:'Hours/Week'},{id:'biz_weeks_vacation',label:'Vacation Weeks/Year'},
   {id:'business_exit',label:'Exit Strategy'},{id:'biz_exit_timeline',label:'Exit Timeline'},
   {id:'biz_exit_target_value',label:'Target Exit Value'},

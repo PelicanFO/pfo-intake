@@ -23,8 +23,18 @@ and Priorities. The code is in `src/site/` (`tax-step.js`, `tax-step.css`).
   are saved with the client under `form_data.__tax`.
 - **Total tax liability** means tax + strategy contribution. Savings are the reduction in it (less
   any planning fee), also shown as a % of the current liability.
-- **Calculation method:** the spreadsheet method, i.e. the workbook's math, with one fix: strategy
-  amounts that would come out negative are set to $0 (`SITE_RULES` in `tax-step.js`).
+- **Calculation method** (`SITE_RULES` in `tax-step.js`): the workbook's math with these tax-law
+  corrections on: federal and state standard deductions, capital gains stacked on ordinary income,
+  NIIT (3.8% × lesser of investment income or MAGI over the threshold), the QBI deduction (W-2 wage
+  limit when the business's wages are known), self-employment and Additional Medicare tax, charitable
+  limits (30% of AGI for appreciated property, 0.5% floor, 2/37 limit, carryforward), RMD start age by
+  birth year, and negative strategy amounts set to $0. Still off: continuous brackets, excess business
+  loss limit, AMT, the solar credit limit and the first-year IRA withdrawal tax.
+- **QBI inputs:** treatment comes from Scenario options, else the intake's "specified service field"
+  question (`business_sstb`), else a guess from entity (C corp = none) and industry text. Business W-2
+  wages come from Scenario options, else the intake (`biz_w2_wages`); blank = no wage limit. Sole
+  proprietors / single-member LLCs pay self-employment tax. Family Payroll wages add to the business's
+  W-2 wages.
 - **Suggestions** (`suggestions()` in `tax-step.js`, tested in `tests/site.test.js`):
   - A DB plan contribution is suggested when there is at least $50,000 of business income.
   - A Roth conversion is suggested when there is a pre-tax retirement balance and converting

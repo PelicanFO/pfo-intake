@@ -37,6 +37,8 @@ export function qbiTreatment(fd = {}) {
   if (saved.qbiType && QBI_LABEL[saved.qbiType]) return { type: saved.qbiType, guessed: false, why: 'set under Scenario options' };
   const entity = entityOf(fd);
   if (entity.kind === 'ccorp') return { type: 'none', guessed: true, why: 'C corp income does not qualify' };
+  if (fd.business_sstb === 'Yes') return { type: 'sstb', guessed: false, why: 'intake: specified service field' };
+  if (fd.business_sstb === 'No') return { type: 'nonsstb', guessed: false, why: 'intake: not a specified service field' };
   const ind = String(fd.business_industry || '').trim();
   if (ind && SSTB_RE.test(ind)) return { type: 'sstb', guessed: true, why: `industry "${ind}" looks like a specified service` };
   return { type: 'nonsstb', guessed: true, why: ind ? `industry "${ind}"` : 'no industry in the intake' };
@@ -126,7 +128,9 @@ export function intakeToModel(fd = {}) {
   p.businessType = entityOf(fd).kind === 'sole' ? 'scheduleC' : 'passthrough';
   const qbi = qbiTreatment(fd);
   p.qbiType = qbi.type;
-  p.qbiWages = saved.qbiWages !== undefined && saved.qbiWages !== null && saved.qbiWages !== '' ? num(saved.qbiWages) : null;
+  // Business W-2 wages (for the QBI wage limit): Scenario options, else the intake; blank = limit not applied.
+  const wagesSaved = saved.qbiWages !== undefined && saved.qbiWages !== null && saved.qbiWages !== '';
+  p.qbiWages = wagesSaved ? num(saved.qbiWages) : num(fd.biz_w2_wages) > 0 ? num(fd.biz_w2_wages) : null;
   m.db.contribution = num(saved.dbContribution);
   m.roth.conversion = num(saved.rothConversion);
   m.roth.retirementAge = num(fd.retirement_target_age) || 65;
@@ -604,7 +608,8 @@ function profileChips(a) {
     ['W-2 income', p.w2], ['Business income', p.businessIncome], ['Short-term gains', p.stcg], ['Long-term gains', p.ltcg],
     ['Interest', p.interest], ['Qualified dividends', p.qualifiedDividends], ['Non-qualified dividends', p.nonqualifiedDividends],
     ['Other income', p.otherIncome],
-  ].filter(([, v]) => typeof v === 'string' || v);
+    ['QBI', p.businessIncome > 0 ? QBI_LABEL[p.qbiType] : ''], ['Business W-2 wages', p.businessIncome > 0 && p.qbiType !== 'none' ? p.qbiWages || 0 : 0],
+  ].filter(([, v]) => v);
   return chips.map(([k, v]) => `<div class="tx-chip"><span>${esc(k)}</span><b>${typeof v === 'number' ? money(v) : esc(v)}</b></div>`).join('');
 }
 
@@ -664,27 +669,6 @@ function liabilityBars(plan, roth) {
     </div>`;
 }
 
-/**
- * QBI line under the plan hero: the deduction before and with the plan, the assumption behind it,
- * and what the plan would save if no QBI deduction were taken (so nobody is shown a false benefit).
- */
-export function qbiImpact(P, fd) {
-  const { a, plan } = P;
-  const before = a.comparison.blocks[plan.block].scenarios.none.return.qbiDeduction || 0;
-  const after = plan.res.return.qbiDeduction || 0;
-  if (before < 0.5 && after < 0.5) return null;
-  const saved = fd.__tax || {};
-  const P0 = planFor({ ...fd, __tax: { ...saved, qbiType: 'none', plan: P.sel } });
-  return { before, after, withoutSavings: P0.plan.savings, type: a.model.profile.qbiType, wages: a.model.profile.qbiWages, guessed: a.qbi.guessed };
-}
-
-function qbiNote(P, fd) {
-  const q = qbiImpact(P, fd);
-  if (!q) return '';
-  const assume = `${q.guessed ? 'assumes ' : ''}${QBI_LABEL[q.type].toLowerCase()}; ${q.wages === null ? 'no W-2 wage limit, since business wages aren\'t entered' : `${money(q.wages)} of business W-2 wages`}`;
-  return `<p class="tx-hero-qbi"><b>QBI deduction</b> ${money(q.before)} → ${money(q.after)} with the plan (${esc(assume)}). Without QBI the plan would save ${money(q.withoutSavings)}. Confirm with the CPA.</p>`;
-}
-
 function resultsHTML(P, tips, fd) {
   const { a, aug, pay, rows, sel, plan, shares } = P;
   const { model, comparison: cmp } = a;
@@ -708,7 +692,6 @@ function resultsHTML(P, tips, fd) {
         ${roth ? '' : `<div class="tx-hero-stats"><div><span>Effective rate</span><b>${pctOf(effBefore)} → ${pctOf(effAfter)}</b></div></div>`}
       </div>
       ${liabilityBars(plan, roth)}
-      ${qbiNote(P, fd)}
     </section>`;
   const summary = section('Your strategies', `<div class="tx-sumlist">
       <div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings</span><span></span></div>
@@ -878,9 +861,10 @@ function optionsHTML(built, saved, fd) {
     html += `<label class="tx-field"><span>QBI deduction (business income)</span><span class="tx-input"><select data-tax="qbiType">
       <option value="">Auto: ${esc(QBI_LABEL[q.guessed ? q.type : qbiTreatment({ ...fd, __tax: {} }).type].toLowerCase())}</option>
       ${Object.entries(QBI_LABEL).map(([k, v]) => `<option value="${k}"${saved.qbiType === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
-    </select></span><small>Specified service = health, law, accounting, consulting, financial services, performing arts, athletics. Confirm with the CPA.</small></label>`;
-    html += plain('qbiWages', 'W-2 wages the business pays', saved.qbiWages !== undefined && saved.qbiWages !== null ? commas(saved.qbiWages) : '', 'Not entered',
-      'All W-2 payroll, including an S corp owner\'s salary. Blank = the wage limit is assumed not to bind (largest deduction, smallest savings).', 'tx-money');
+    </select></span><small>Specified service = health, law, accounting, consulting, financial services, performing arts, athletics.</small></label>`;
+    const intakeWages = num(fd.biz_w2_wages);
+    html += plain('qbiWages', 'W-2 wages the business pays', saved.qbiWages !== undefined && saved.qbiWages !== null ? commas(saved.qbiWages) : '', intakeWages ? commas(intakeWages) : 'Not entered',
+      intakeWages ? 'Blank = the amount in the intake.' : 'All W-2 payroll, including an S corp owner\'s salary. Blank = the wage limit is not applied.', 'tx-money');
   }
   const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
   html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
@@ -950,7 +934,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     losses ? line('Strategy deductions & losses', 0, -losses, { hint: 'see how it is sized below' }) : '',
     line('Adjusted gross income', N.agi, R.agi, { cls: 'sub' }),
     line('Standard or itemized deduction', N.deduction + N.seniorDeduction, R.deduction + R.seniorDeduction, { hint: R.usedStandard ? 'standard deduction' : 'itemized, including the charitable gift' }),
-    N.qbiDeduction || R.qbiDeduction ? line('QBI deduction', N.qbiDeduction, R.qbiDeduction, { hint: `${a.qbi.guessed ? 'assumes ' : ''}${QBI_LABEL[model.profile.qbiType].toLowerCase()}${model.profile.qbiWages === null ? ', no W-2 wage limit' : ''}; confirm with the CPA` }) : '',
+    N.qbiDeduction || R.qbiDeduction ? line('QBI deduction', N.qbiDeduction, R.qbiDeduction, { hint: '20% of business income' }) : '',
     line('Taxable income', N.taxableIncome, R.taxableIncome, { cls: 'sub' }),
     line('Federal income tax before credits', N.regularTax, R.regularTax, { goodWhenDown: true }),
     credits ? line('Credits applied', 0, -credits, { goodWhenDown: true, hint: sit.credits.some((c) => c.id === 'solar-spreadsheet') ? 'energy credit, plus the spreadsheet\'s state-saving adjustment' : 'energy credit' }) : '',
