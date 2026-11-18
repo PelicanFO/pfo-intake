@@ -18,8 +18,8 @@ export const SCENARIOS = [
   // As in the workbook: the gift only brings ordinary income down to the top of the 24% bracket,
   // then Solar is sized against what is left.
   { id: 'solarCharitable', label: 'Solar & Charitable', steps: [{ strategy: 'charitable', options: { capToBracket: 0.24 } }, { strategy: 'solar', options: { excelVariant: 'afterCharitable' } }] },
-  { id: 'leap', label: 'LEAP', steps: [{ strategy: 'leap' }] },
-  { id: 'leapCharitable', label: 'LEAP & Charitable', steps: [{ strategy: 'leap' }, { strategy: 'charitable' }] },
+  { id: 'leap', label: 'Asset Management LLC', steps: [{ strategy: 'leap' }] },
+  { id: 'leapCharitable', label: 'Asset Management LLC & Charitable', steps: [{ strategy: 'leap' }, { strategy: 'charitable' }] },
 ];
 
 export const BLOCKS = [

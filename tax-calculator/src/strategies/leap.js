@@ -5,7 +5,7 @@ import { money, pct } from '../engine/ledger.js';
 // Spreadsheet sheets: LEAP, LEAP & Charitable (+ DB/Roth).
 export default {
   id: 'leap',
-  name: 'LEAP',
+  name: 'Asset Management LLC',
   description: 'Leveraged entity ownership: a negative K-1 that offsets business income and long-term gains.',
   params: [
     { key: 'incomePct', label: 'Business income offset (%)', type: 'pct', default: 1, excel: 'LEAP!D6', help: 'Used when no K-1 amount is entered.' },
@@ -30,20 +30,20 @@ export default {
     const cur = ctx.evaluate();
     const biz = ctx.sit.income.business;
     const incomeLoss = ctx.size(sizing.incomeLoss, {
-      what: 'LEAP business-income K-1', current: cur, noFill: true,
+      what: 'Asset Management LLC business-income K-1', current: cur, noFill: true,
       auto: () => [biz * p.incomePct, `${pct(p.incomePct, 0)} × ${money(biz)} business income`],
     });
     const incomeHow = ctx.lastSizing;
     const ltcg = ctx.sit.income.ltcg;
     const cgLoss = ctx.size(sizing.cgLoss, {
-      what: 'LEAP capital-gain K-1', current: cur, noFill: true,
+      what: 'Asset Management LLC capital-gain K-1', current: cur, noFill: true,
       auto: () => [ltcg * p.cgPct, `${pct(p.cgPct, 0)} × ${money(ltcg)} long-term gains`],
     });
     const cgHow = ctx.lastSizing;
-    if (incomeLoss) ctx.addBusinessLoss({ id: 'leap', label: 'LEAP negative K-1 (business income)', amount: incomeLoss, qbi: true, calc: incomeHow });
-    if (cgLoss) ctx.addCapitalLoss({ id: 'leap-cg', label: 'LEAP negative K-1 (long-term capital loss)', amount: cgLoss, calc: cgHow });
+    if (incomeLoss) ctx.addBusinessLoss({ id: 'leap', label: 'Asset Management LLC negative K-1 (business income)', amount: incomeLoss, qbi: true, calc: incomeHow });
+    if (cgLoss) ctx.addCapitalLoss({ id: 'leap-cg', label: 'Asset Management LLC negative K-1 (long-term capital loss)', amount: cgLoss, calc: cgHow });
 
-    if (!incomeLoss && !cgLoss) ctx.warn('LEAP does not apply: no business income or long-term gains to offset.');
+    if (!incomeLoss && !cgLoss) ctx.warn('Asset Management LLC does not apply: no business income or long-term gains to offset.');
     const incContrib = incomeLoss / p.incomeMultiple, cgContrib = cgLoss / p.cgMultiple;
     if (incomeLoss) {
       ctx.addCost({ kind: 'contribution', label: 'Required contribution (business income)', amount: incContrib, calc: `${money(incomeLoss)} ÷ ${p.incomeMultiple}` });

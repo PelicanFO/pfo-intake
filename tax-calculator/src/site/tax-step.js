@@ -18,8 +18,8 @@ import { STRATEGIES, defaultParams } from '../strategies/index.js';
 import { stateCodeFor } from '../tables/states/index.js';
 import { money, pct } from '../engine/ledger.js';
 import { augustaRule, familyPayroll, FOUNDATIONAL_PARAMS, entityOf } from './foundational.js';
-import { planContext, computePlan, recommendedPlan, scenarioFor, attribution, prune, helps } from './plan.js';
-import { beforeAfter, short, investChart, realisticPath } from './charts.js';
+import { planContext, computePlan, recommendedPlan, scenarioFor, attribution, prune, normalize } from './plan.js';
+import { beforeAfter, short, investChart, realisticPath, lineChart } from './charts.js';
 
 export const SITE_RULES = {
   ...ALL_OFF, clampNegative: true, standardDeduction: true, stateStandardDeduction: true,
@@ -34,7 +34,7 @@ export const QBI_LABEL = { nonsstb: 'Not a specified service business', sstb: 'S
 /** QBI treatment for the client's business: { type, guessed, why }. */
 export function qbiTreatment(fd = {}) {
   const saved = fd.__tax || {};
-  if (saved.qbiType && QBI_LABEL[saved.qbiType]) return { type: saved.qbiType, guessed: false, why: 'set under Scenario options' };
+  if (saved.qbiType && QBI_LABEL[saved.qbiType]) return { type: saved.qbiType, guessed: false, why: 'set under Strategy assumptions' };
   const entity = entityOf(fd);
   if (entity.kind === 'ccorp') return { type: 'none', guessed: true, why: 'C corp income does not qualify' };
   if (fd.business_sstb === 'Yes') return { type: 'sstb', guessed: false, why: 'intake: specified service field' };
@@ -54,8 +54,8 @@ const STRATEGY_BLURB = {
   solar: 'Solar project equity: energy tax credit plus first-year depreciation.',
   charitable: 'Gift of property appraised above its cost, deducted as a charitable contribution.',
   solarCharitable: 'Charitable gift down to the 24% bracket, then Solar against the remaining tax.',
-  leap: 'Leveraged entity ownership: a negative K-1 that offsets business income and gains.',
-  leapCharitable: 'LEAP first, then a charitable gift against the remaining income.',
+  leap: 'Asset Management LLC: entity ownership with a negative K-1 that offsets business income and gains.',
+  leapCharitable: 'Asset Management LLC first, then a charitable gift against the remaining income.',
 };
 const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth conversion' };
 
@@ -128,7 +128,7 @@ export function intakeToModel(fd = {}) {
   p.businessType = entityOf(fd).kind === 'sole' ? 'scheduleC' : 'passthrough';
   const qbi = qbiTreatment(fd);
   p.qbiType = qbi.type;
-  // Business W-2 wages (for the QBI wage limit): Scenario options, else the intake; blank = limit not applied.
+  // Business W-2 wages (for the QBI wage limit): Strategy assumptions, else the intake; blank = limit not applied.
   const wagesSaved = saved.qbiWages !== undefined && saved.qbiWages !== null && saved.qbiWages !== '';
   p.qbiWages = wagesSaved ? num(saved.qbiWages) : num(fd.biz_w2_wages) > 0 ? num(fd.biz_w2_wages) : null;
   m.db.contribution = num(saved.dbContribution);
@@ -364,9 +364,13 @@ export function taxSummary(fd = {}) {
   }).filter(Boolean);
   const top = base.find((r) => r.savings > 0.5);
   const P = planFor(fd);
-  const planNamesList = planNames(P.sel);
+  // Nothing selected yet: the recommended plan (computed here, so the email never shows "no plan" just
+  // because no one has picked strategies on the tax page).
+  const useRec = P.mode === 'none';
+  const pSel = useRec ? P.rec : P.sel, pPlan = useRec ? P.recPlan : P.plan;
+  const planNamesList = planNames(pSel);
   return {
-    plan: planNamesList.length && P.plan.savings > 0.5 ? { label: planNamesList.join(' + '), savings: P.plan.savings, pct: P.plan.savings / Math.max(1, P.plan.baseline), custom: P.custom } : null,
+    plan: planNamesList.length && pPlan.savings > 0.5 ? { label: planNamesList.join(' + '), savings: pPlan.savings, pct: pPlan.savings / Math.max(1, pPlan.baseline), custom: P.mode === 'custom' } : null,
     liability: cmp.blocks.base.baseline,
     strategies: [
       ...found,
@@ -381,11 +385,17 @@ export function taxSummary(fd = {}) {
 
 // ------------------------------------------------------------------ the client's plan
 const labelOfScenario = (id) => (SCENARIOS.find((s) => s.id === id) || {}).label || id;
-const ADV_LABEL = { film: 'Film', solar: 'Solar', charitable: 'Charitable', leap: 'LEAP' };
+const ADV_LABEL = { film: 'Film', solar: 'Solar', charitable: 'Charitable', leap: 'Asset Management LLC' };
+
+export const EMPTY_SEL = Object.freeze({ db: false, augusta: false, payroll: false, roth: false, adv: [] });
+const sameSel = (x, y) => ['db', 'augusta', 'payroll', 'roth'].every((k) => !!x[k] === !!y[k]) && [...x.adv].sort().join() === [...y.adv].sort().join();
+const isEmptySel = (x) => !x.db && !x.augusta && !x.payroll && !x.roth && !x.adv.length;
 
 /**
- * The tax plan for the page: the recommended mix of strategies (every foundational strategy that
- * applies plus the advanced mix that saves the most), or the advisor's own selection (saved.plan).
+ * The tax plan for the page: the strategies the advisor selected (saved.plan; nothing until they pick
+ * or choose the recommended plan), plus the recommended mix (every foundational strategy that applies
+ * plus the advanced mix that saves the most) and, for every strategy, what it adds to the selection.
+ * mode: 'none' (nothing selected), 'recommended' (selection = recommended plan) or 'custom'.
  * fd should already have the automatic DB plan applied (withAutoDb).
  */
 export function planFor(fd) {
@@ -397,11 +407,47 @@ export function planFor(fd) {
   const ctx = planContext(fd, a, aug, pay, appliesSet);
   const rec = recommendedPlan(ctx);
   // Anything that doesn't lower the overall tax liability is left out, even if it was selected.
-  const sel = saved.plan ? prune(ctx, saved.plan) : rec;
+  const sel = saved.plan ? prune(ctx, saved.plan) : normalize(ctx, EMPTY_SEL);
   const plan = computePlan(ctx, sel);
   const shares = attribution(ctx, sel).map((s) => ({ ...s, label: partLabel(s.key, sel) }));
   const recPlan = computePlan(ctx, rec);
-  return { a, aug, pay, rows, ctx, rec, sel, plan, shares, steps: shares, recPlan, custom: !!saved.plan };
+  const mode = isEmptySel(sel) ? 'none' : sameSel(sel, rec) ? 'recommended' : 'custom';
+  const P = { a, aug, pay, rows, ctx, rec, sel, plan, shares, steps: shares, recPlan, mode, custom: mode === 'custom' };
+  P.choices = choicesFor(P);
+  return P;
+}
+
+/**
+ * Every strategy that can be selected, with what it's worth given the current selection:
+ * selected → its share of the plan's savings; not selected → the savings it would add (with the swap
+ * when it can't be paired with the selected advanced strategy). Computed up front, so a figure is
+ * always shown. [{ key, id, group, label, on, amount, ok, inRec, hint }]
+ */
+function choicesFor(P) {
+  const { ctx, sel, plan, shares, rec } = P;
+  const shareOf = (k) => { const x = shares.find((y) => y.key === k); return x ? x.amount : 0; };
+  const gain = (next) => computePlan(ctx, normalize(ctx, next)).savings - plan.savings;
+  const out = [];
+  for (const k of ['db', 'augusta', 'payroll']) {
+    if (!ctx.avail[k]) continue;
+    const on = sel[k];
+    out.push({ key: k, group: 'Foundational', label: FOUNDATION[k].label, on, amount: on ? shareOf(k) : gain({ ...sel, [k]: true }), ok: true, inRec: rec[k] });
+  }
+  for (const id of ctx.advAvail) {
+    const on = sel.adv.includes(id);
+    const fits = on || ctx.setOk([...sel.adv, id]);
+    const next = fits ? [...sel.adv, id] : [id];
+    out.push({ key: `adv:${id}`, id, group: 'Advanced', label: ADV_LABEL[id], on, ok: true, inRec: rec.adv.includes(id),
+      amount: on ? (sel.adv.length === 1 ? shareOf('adv') : null) : gain({ ...sel, adv: next }),
+      hint: fits ? '' : `Replaces ${sel.adv.map((x) => ADV_LABEL[x]).join(' & ')}` });
+  }
+  if (ctx.avail.roth) {
+    const on = sel.roth;
+    const ok = sel.adv.length > 0;
+    out.push({ key: 'roth', group: 'Foundational', label: FOUNDATION.roth.label, on, ok, inRec: rec.roth,
+      amount: on ? shareOf('roth') : ok ? gain({ ...sel, roth: true }) : null, hint: ok ? '' : 'Needs an advanced strategy' });
+  }
+  return out;
 }
 
 const partLabel = (key, sel) => (key === 'adv' ? labelOfScenario(scenarioFor(sel.adv)) : FOUNDATION[key].label);
@@ -433,7 +479,7 @@ const ONE_LINE = {
   solar: 'Solar project equity: an energy tax credit plus depreciation.',
   charitable: 'A gift of property, deducted at its appraised value.',
   leap: 'Entity investment whose K-1 loss offsets business income and gains.',
-  leapCharitable: 'LEAP, then a charitable gift against the income that remains.',
+  leapCharitable: 'Asset Management LLC, then a charitable gift against the income that remains.',
   solarCharitable: 'A charitable gift, then solar credits against the remaining tax.',
 };
 
@@ -562,16 +608,27 @@ export function renderTaxStep(root, fd, handlers) {
       } else sel[k] = el.checked;
       saved.plan = sel;
       draw(); handlers.save({ ...saved });
+      return;
     }
+    if (el.matches('[data-tx-aml]')) { setAml(el); draw(); }
   });
   root.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-tx-detail]')) { e.preventDefault(); e.target.click(); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-tx-detail], [role="button"][data-tx-add]')) { e.preventDefault(); e.target.click(); }
   });
   root.onclick = (e) => {
     if (e.target.closest('label, input, textarea, summary')) return;
     const g = e.target.closest('[data-tx-gtab]');
     if (g) { growthTab = g.dataset.txGtab; draw(); return; }
-    if (e.target.closest('[data-tx-recommended]')) { delete saved.plan; draw(); handlers.save({ ...saved }); return; }
+    if (e.target.closest('[data-tx-recommended]')) { const P = planFor(effective()); saved.plan = { ...P.rec, adv: [...P.rec.adv] }; draw(); handlers.save({ ...saved }); return; }
+    if (e.target.closest('[data-tx-clear]')) { saved.plan = { ...EMPTY_SEL, adv: [] }; draw(); handlers.save({ ...saved }); return; }
+    const add = e.target.closest('[data-tx-add]');
+    if (add) {
+      const P = planFor(effective());
+      const sel = { ...P.sel, adv: [...P.sel.adv] };
+      const k = add.dataset.txAdd;
+      if (k.startsWith('adv:')) { const id = k.slice(4); sel.adv = P.ctx.setOk([...sel.adv, id]) ? [...sel.adv, id] : [id]; } else sel[k] = true;
+      saved.plan = sel; draw(); handlers.save({ ...saved }); return;
+    }
     const ap = e.target.closest('[data-tx-apply]');
     if (ap) {
       const [kind, amount] = ap.dataset.txApply.split(':');
@@ -675,6 +732,7 @@ function resultsHTML(P, tips, fd) {
   const roth = hasRoth(plan.block);
   const hasPlan = shares.length > 0 && plan.savings > 0.5;
 
+  if (!hasPlan && P.recPlan.savings > 0.5) return pickHTML(P);
   if (!hasPlan) {
     return `<section class="tx-hero tx-hero-none"><div><div class="tx-hero-label">Estimated tax savings</div>
         <div class="tx-hero-value">—</div><div class="tx-hero-sub">None of the modeled strategies lower the tax liability at this income.</div></div>
@@ -726,34 +784,62 @@ function resultsHTML(P, tips, fd) {
     <p class="tx-foot">${model.year} federal rates with the standard deduction, capital gains stacking, NIIT, QBI, self-employment tax and charitable limits. Each strategy's amount is its share of the combined savings, averaged over every order the strategies could be applied in. Estimates for discussion, not tax advice; growth figures are illustrations, not guarantees.</p>`;
 }
 
+/** Nothing selected yet: what each strategy would save, and the recommended plan one click away. */
+function pickHTML(P) {
+  const { recPlan, rec } = P;
+  const names = planNames(rec);
+  const hero = `<section class="tx-hero tx-pick-hero"><div>
+      <div class="tx-hero-label">Select strategies to build the plan</div>
+      <div class="tx-hero-value">${money(recPlan.savings)}</div>
+      <div class="tx-hero-sub">Recommended plan: ${esc(names.join(' + '))}</div>
+      <button type="button" class="btn btn-sm tx-hero-btn" data-tx-recommended>Use recommended plan</button></div>
+      <div class="tx-hero-side"><div><span>Tax liability</span><b>${money(recPlan.baseline)}</b></div></div></section>`;
+  const list = P.choices.filter((c) => c.ok && c.amount !== null && c.amount > 0.5).sort((x, y) => y.amount - x.amount);
+  const descKey = (c) => (c.id || c.key);
+  const body = `<div class="tx-sumlist tx-pick-list"><div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings on its own</span><span></span></div>
+    ${list.map((c) => `<div class="tx-sum" role="button" tabindex="0" data-tx-add="${c.key}">
+      <b class="tx-sum-name">${esc(c.label)}${c.inRec ? '<span class="tx-rec-dot">Recommended</span>' : ''}</b>
+      <span class="tx-sum-desc">${esc(ONE_LINE[descKey(c)] || '')}</span>
+      <b class="tx-sum-amt">${money(c.amount)}</b><span class="tx-sum-add">+ Add</span></div>`).join('')}</div>`;
+  return `${hero}${section('Available strategies', body, { right: '<span class="tx-card-sub">Savings combine, not add up: once you pick one, the others show what they add on top</span>' })}
+    <p class="tx-foot">Estimates for discussion, not tax advice.</p>`;
+}
+
 // ------------------------------------------------------------------ plan builder (right column)
 function builderHTML(P, tips) {
-  const { ctx, sel, plan, shares, custom } = P;
-  const shareOf = (k) => { const s = shares.find((x) => x.key === k); return s ? s.amount : null; };
-  const amt = (v) => (v === null ? '' : `<b>${short(v)}</b>`);
-  const check = (key, label, on, opts = {}) => `<label class="tx-check">
-      <input type="checkbox" data-tx-plan="${key}"${on ? ' checked' : ''}>
-      <span class="tx-check-box" aria-hidden="true"></span><span class="tx-check-label">${esc(label)}${opts.hint ? `<small>${esc(opts.hint)}</small>` : ''}</span>${on ? amt(opts.amount ?? null) : ''}</label>`;
-  const found = [];
-  for (const k of ['db', 'augusta', 'payroll']) {
-    if (!ctx.avail[k]) continue;
-    if (sel[k] || helps(ctx, sel, k)) found.push(check(k, FOUNDATION[k].label, sel[k], { amount: shareOf(k) }));
-  }
-  if (ctx.avail.roth && sel.adv.length && (sel.roth || helps(ctx, sel, 'roth'))) found.push(check('roth', FOUNDATION.roth.label, sel.roth, { amount: shareOf('roth') }));
+  const { ctx, sel, plan, mode, recPlan } = P;
+  const fig = (c) => {
+    if (c.on) return c.amount === null ? '' : `<b>${short(c.amount)}</b>`;
+    if (!c.ok || c.amount === null) return '';
+    if (c.amount > 0.5) return `<b class="inc">+${short(c.amount)}</b>`;
+    return c.hint && c.amount < -0.5 ? `<b class="muted">${short(c.amount)}</b>` : '<b class="muted">no added savings</b>';
+  };
+  const check = (c) => {
+    // A swap (advanced strategy that can't be paired) stays selectable even when it saves less.
+    const off = !c.on && (!c.ok || c.amount === null || (c.amount <= 0.5 && !(c.hint && c.amount < -0.5)));
+    return `<label class="tx-check${off ? ' is-off' : ''}">
+      <input type="checkbox" data-tx-plan="${c.key}"${c.on ? ' checked' : ''}${off ? ' disabled' : ''}>
+      <span class="tx-check-box" aria-hidden="true"></span><span class="tx-check-label">${esc(c.label)}${c.inRec ? '<span class="tx-rec-dot">Rec.</span>' : ''}${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</span>${fig(c)}</label>`;
+  };
+  const found = P.choices.filter((c) => c.group === 'Foundational').map(check);
+  const adv = P.choices.filter((c) => c.group === 'Advanced').map(check);
   const rothTip = !ctx.avail.roth && tips.find((t) => t.kind === 'roth');
-  const adv = ctx.advAvail.filter((id) => sel.adv.includes(id) || helps(ctx, sel, 'adv', id)).map((id) => {
-    const on = sel.adv.includes(id);
-    const fits = on || ctx.setOk([...sel.adv, id]);
-    return check(`adv:${id}`, ADV_LABEL[id], on, { amount: sel.adv.length === 1 ? shareOf('adv') : null, hint: fits ? '' : `Replaces ${sel.adv.map((x) => ADV_LABEL[x]).join(' & ')}` });
-  });
-  const pair = sel.adv.length > 1 ? shareOf('adv') : null;
+  const pairShare = sel.adv.length > 1 ? (P.shares.find((x) => x.key === 'adv') || {}).amount : null;
+  const badge = mode === 'recommended' ? '<span class="tx-badge">Recommended</span>' : mode === 'custom' ? '<span class="tx-badge custom">Custom</span>' : '<span class="tx-badge none">Nothing selected</span>';
+  const total = mode === 'none'
+    ? `<div class="tx-builder-total"><b>$0</b><small>Recommended plan saves ${money(recPlan.savings)}</small></div>`
+    : `<div class="tx-builder-total"><b>${money(Math.max(0, plan.savings))}</b><small>${money(plan.baseline)} → ${money(plan.liability)}</small></div>`;
   return `<section class="tx-card tx-builder">
-    <div class="tx-builder-head"><h3>Your plan</h3><span class="tx-badge ${custom ? 'custom' : ''}">${custom ? 'Custom' : 'Recommended'}</span></div>
-    <div class="tx-builder-total"><b>${money(Math.max(0, plan.savings))}</b><small>${money(plan.baseline)} → ${money(plan.liability)}</small></div>
+    <div class="tx-builder-head"><h3>Select strategies</h3>${badge}</div>
+    ${total}
+    <p class="tx-builder-sub">Selected: share of the plan's savings. Not selected: what it would add.</p>
     ${found.length ? `<div class="tx-bgroup">Foundational</div>${found.join('')}` : ''}
     ${rothTip ? `<button type="button" class="tx-addline" data-tx-apply="roth:${Math.round(rothTip.amount)}">+ Add a ${short(rothTip.amount)} Roth conversion</button>` : ''}
-    ${adv.length ? `<div class="tx-bgroup">Advanced${pair !== null ? ` <span>${esc(labelOfScenario(scenarioFor(sel.adv)))} ${amt(pair)}</span>` : ''}</div>${adv.join('')}` : ''}
-    ${custom ? '<button type="button" class="btn btn-sm tx-builder-btn" data-tx-recommended>Use recommended plan</button>' : ''}
+    ${adv.length ? `<div class="tx-bgroup">Advanced${pairShare != null ? ` <span>${esc(labelOfScenario(scenarioFor(sel.adv)))} <b>${short(pairShare)}</b></span>` : ''}</div>${adv.join('')}` : ''}
+    <div class="tx-builder-actions">
+      ${mode !== 'recommended' && recPlan.savings > 0.5 ? `<button type="button" class="btn btn-sm btn-primary" data-tx-recommended>Use recommended · ${short(recPlan.savings)}</button>` : ''}
+      ${mode !== 'none' ? '<button type="button" class="btn btn-sm" data-tx-clear>Clear</button>' : ''}
+    </div>
   </section>`;
 }
 
@@ -787,6 +873,7 @@ function growthViews(P, fd, share = (k) => { const s = (P.shares || []).find((x)
   const toRet = age && retAge > age ? Math.max(10, Math.min(30, retAge - age)) : 20;
   const ageLabel = age ? (t) => (t ? `Age ${age + t}` : 'Today') : null;
   const view = (id, label, sub, years, groups, xl = null) => out.push({ id, label, sub, html: investBlock({ years, groups, xLabel: xl }) });
+  const custom = (id, label, sub, html) => out.push({ id, label, sub, html, own: true });
   if (sel.db) {
     const c = model.db.contribution, s = share('db');
     view('db', 'Owner\'s benefit plan', `${money(c)} contributed once this year by your business (a deductible expense), plus the ${money(s)} it saves in tax, both invested${retAge ? ` to age ${retAge}` : ''}.`, toRet,
@@ -794,8 +881,8 @@ function growthViews(P, fd, share = (k) => { const s = (P.shares || []).find((x)
   }
   const acct = plan.res && plan.res.rows.investmentAccount > 0.5 ? plan.res.rows.investmentAccount : 0;
   if (acct && sel.adv.includes('leap')) {
-    view('leap', 'LEAP account', `${money(acct)} kept in the LEAP investment account, plus the ${money(share('adv'))} of tax savings, both invested.`, 20,
-      [{ label: 'LEAP account', amount: acct }, { label: 'Tax savings', amount: share('adv') }]);
+    const g = amlGrowth({ acct, savings: share('adv'), contribution: plan.res.rows.contribution });
+    custom('leap', 'Asset Management LLC account', g.sub, g.html);
   }
   if (sel.roth) {
     view('roth', 'Roth conversion', `${money(model.roth.conversion)} converted once this year and growing tax-free, plus the ${money(share('roth'))} of tax savings.`, 20,
@@ -817,7 +904,7 @@ function growthSectionHTML(P, fd) {
   const v = views.find((x) => x.id === growthTab) || views[0];
   const tabs = views.length > 1 ? `<div class="tx-gtabs" role="tablist">${views.map((x) => `<button type="button" role="tab" data-tx-gtab="${x.id}" aria-selected="${x.id === v.id}">${esc(x.label)}</button>`).join('')}</div>` : '';
   return section('Growth over time', `<p class="tx-gsub">${esc(v.sub)}</p>${v.html}
-    <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p>`, { cls: 'tx-growth-card', right: tabs });
+    <p class="tx-gnote">${v.own ? 'Illustration at a steady return. Actual returns will vary.' : 'Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.'}</p>`, { cls: 'tx-growth-card', right: tabs });
 }
 
 function naReason(r) {
@@ -831,8 +918,8 @@ function simplifyWarning(w) {
   if (/Charitable donation came out negative/.test(w)) return 'Charitable portion doesn\'t apply below the 24% bracket.';
   if (/credit is more than/.test(w)) return 'Part of the credit carries forward to future years.';
   if (/over the AGI limit/.test(w)) return 'Part of the gift carries forward to future years.';
-  if (/LEAP does not apply/.test(w)) return 'LEAP portion doesn\'t apply: no business income or long-term gains.';
-  if (/LEAP business-income K-1 came out negative/.test(w)) return 'LEAP portion doesn\'t apply.';
+  if (/Asset Management LLC does not apply/.test(w)) return 'Asset Management LLC portion doesn\'t apply: no business income or long-term gains.';
+  if (/business-income K-1 came out negative/.test(w)) return 'Asset Management LLC portion doesn\'t apply.';
   return w;
 }
 
@@ -856,9 +943,13 @@ function optionsHTML(built, saved, fd) {
   const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field tx-field-sm"><span>${esc(label)}</span>
     <span class="tx-input ${kind}"><input type="text" inputmode="decimal" data-tax="${key}" ${kind === 'tx-money' ? 'data-money' : ''} value="${esc(value)}" placeholder="${esc(placeholder)}"></span>
     ${hint ? `<small>${hint}</small>` : ''}</label>`;
+  const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
+  html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
+  html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
+  html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;
   if (m.profile.businessIncome > 0) {
     const q = built.qbi;
-    html += `<label class="tx-field"><span>QBI deduction (business income)</span><span class="tx-input"><select data-tax="qbiType">
+    html += `<div class="tx-assume-title">QBI deduction</div><label class="tx-field tx-field-sm"><span>Business type</span><span class="tx-input"><select data-tax="qbiType">
       <option value="">Auto: ${esc(QBI_LABEL[q.guessed ? q.type : qbiTreatment({ ...fd, __tax: {} }).type].toLowerCase())}</option>
       ${Object.entries(QBI_LABEL).map(([k, v]) => `<option value="${k}"${saved.qbiType === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}
     </select></span><small>Specified service = health, law, accounting, consulting, financial services, performing arts, athletics.</small></label>`;
@@ -866,10 +957,6 @@ function optionsHTML(built, saved, fd) {
     html += plain('qbiWages', 'W-2 wages the business pays', saved.qbiWages !== undefined && saved.qbiWages !== null ? commas(saved.qbiWages) : '', intakeWages ? commas(intakeWages) : 'Not entered',
       intakeWages ? 'Blank = the amount in the intake.' : 'All W-2 payroll, including an S corp owner\'s salary. Blank = the wage limit is not applied.', 'tx-money');
   }
-  const set = (k) => saved[k] !== undefined && saved[k] !== null && saved[k] !== '';
-  html += `<details class="tx-assume"><summary>Strategy assumptions</summary>`;
-  html += `<label class="tx-field tx-field-sm"><span>Planning fee</span><span class="tx-input tx-money"><input type="text" inputmode="decimal" data-tax="planningFee" data-money value="${esc(commas(m.profile.planningFee))}" placeholder="0"></span></label>`;
-  html += `<small class="tx-assume-hint">Subtracted from each strategy's savings.</small>`;
   html += `<div class="tx-assume-title">Augusta Rule</div>`;
   html += plain('augustaDays', 'Rental days', set('augustaDays') ? saved.augustaDays : '', String(FOUNDATIONAL_PARAMS.augustaMaxDays), 'Up to 14 a year.');
   html += plain('augustaRate', 'Daily rental rate', set('augustaRate') ? commas(saved.augustaRate) : '', aug.estRate ? commas(aug.estRate) : '0',
@@ -996,6 +1083,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
     <p class="tx-foot">PFO Tax Strategy Calculator method, 2026 federal rates (Rev. Proc. 2025-32). Estimates for discussion, not tax advice.</p>`;
 
   root.onclick = detailClick(scenario, block, foundationOnly, handlers);
+  root.onchange = (e) => { if (e.target.matches('[data-tx-aml]')) { setAml(e.target); handlers.select(scenario, block); } };
 }
 
 function detailClick(scenario, block, foundationOnly, handlers) {
@@ -1075,7 +1163,7 @@ function renderExtraDetail(root, a, x, extras, handlers) {
 
 // ------------------------------------------------------------------ growth over time
 // What this year's tax savings grow to if invested at 6–8% for 10/15/20 years (one-time amounts
-// compounded annually), plus the value if the same savings repeat every year. LEAP also keeps part
+// compounded annually), plus the value if the same savings repeat every year. Asset Management LLC also keeps part
 // of the contribution in an investment account, shown with the savings.
 let growthRate = 0.07;
 export const futureValue = (amount, rate, years) => amount * Math.pow(1 + rate, years);
@@ -1085,8 +1173,66 @@ function growthHTML(res, opts = {}) {
   const account = Math.max(0, res.rows.investmentAccount || 0) > 0.5 ? res.rows.investmentAccount : 0;
   const savings = Math.max(0, res.savings) > 0.5 ? res.savings : 0;
   if (!account && !savings) return '';
-  const sub = account ? `${money(account)} kept in the LEAP investment account, plus this year's ${money(savings)} of tax savings, both invested once.` : `This year's ${money(savings)} of tax savings, invested once.`;
-  return growthCard(opts.title || 'Growth over time', sub, investBlock({ years: 20, groups: [...(account ? [{ label: 'LEAP account', amount: account }] : []), { label: 'Tax savings', amount: savings }] }));
+  if (account) {
+    const g = amlGrowth({ acct: account, savings, contribution: res.rows.contribution });
+    return `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(opts.title || 'Growth over time')}</h3></div><p class="tx-gsub">${esc(g.sub)}</p>${g.html}
+      <p class="tx-gnote">Illustration at a steady return. Actual returns will vary.</p></section>`;
+  }
+  return growthCard(opts.title || 'Growth over time', `This year's ${money(savings)} of tax savings, invested once.`, investBlock({ years: 20, groups: [{ label: 'Tax savings', amount: savings }] }));
+}
+
+// ------------------------------------------------------------------ Asset Management LLC account growth
+// The account grows at the chosen return less the share taken each year to service the DRO (default
+// 4%, adjustable up to 10%); the tax savings grow at the chosen return. Breakeven: the first point
+// where the account plus the invested tax savings are worth more than the contribution, after which
+// the client could unwind the position without being behind.
+export const AML = { rate: 0.07, dro: 0.04, rates: [0.06, 0.07, 0.08, 0.09, 0.1], dros: [0, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1] };
+function setAml(el) {
+  const v = +el.value;
+  if (!Number.isFinite(v)) return;
+  if (el.dataset.txAml === 'rate') AML.rate = v; else if (el.dataset.txAml === 'dro') AML.dro = v;
+}
+/** When the account plus invested tax savings first reach the contribution (years, fractional), or null within 40 years. */
+export function amlBreakeven({ acct, savings, contribution, rate = AML.rate, dro = AML.dro }) {
+  const tot = (t) => acct * Math.pow(1 + rate - dro, t) + savings * Math.pow(1 + rate, t);
+  if (!(contribution > 0.5)) return null;
+  if (tot(0) >= contribution) return 0;
+  for (let t = 0; t < 40; t += 0.01) if (tot(t + 0.01) >= contribution) return t + 0.01;
+  return null;
+}
+function amlGrowth({ acct, savings, contribution }) {
+  const { rate, dro } = AML;
+  savings = Math.max(0, savings || 0);
+  const be = amlBreakeven({ acct, savings, contribution });
+  const years = be !== null && be > 17 ? Math.min(40, Math.ceil(be) + 3) : 20;
+  const yrs = Array.from({ length: years + 1 }, (_, t) => t);
+  const accVals = yrs.map((t) => acct * Math.pow(1 + rate - dro, t));
+  const savVals = yrs.map((t) => savings * Math.pow(1 + rate, t));
+  const totVals = yrs.map((t) => accVals[t] + savVals[t]);
+  const series = [
+    { label: 'Asset Management LLC account', cls: 'ic-a', vals: accVals },
+    ...(savings > 0.5 ? [{ label: 'Tax savings', cls: 'ic-b', vals: savVals }, { label: 'Together', cls: 'ic-c', vals: totVals, kind: 'total' }] : []),
+    ...(contribution > 0.5 ? [{ label: 'Contribution', vals: yrs.map(() => contribution), kind: 'ref' }] : []),
+  ];
+  const beText = be === null ? '' : be === 0 ? 'Breakeven today' : `Breakeven · ${be < 10 ? be.toFixed(1).replace(/\.0$/, '') : Math.round(be)} yrs`;
+  const marker = be !== null && be > 0 ? { t: be, v: contribution, label: beText } : null;
+  const opt = (list, cur) => list.map((x) => `<option value="${x}"${Math.abs(x - cur) < 1e-9 ? ' selected' : ''}>${Math.round(x * 100)}%</option>`).join('');
+  const ctrl = `<div class="tx-aml-ctrl"><label>Return <select data-tx-aml="rate" aria-label="Annual return">${opt(AML.rates, rate)}</select></label>
+    <label>DRO servicing <select data-tx-aml="dro" aria-label="Taken off the account each year to service the DRO">${opt(AML.dros, dro)}</select><span>a year off the account</span></label></div>`;
+  const ms = [...new Set([Math.round(years / 2), years])];
+  const row = (label, cls, vals, bold) => `<tr${bold ? ' class="sub"' : ''}><th scope="row">${cls ? `<i class="ic-key ${cls}"></i>` : ''}${esc(label)}</th><td><b>${money(vals[0])}</b></td>${ms.map((t) => `<td><b>${money(vals[t])}</b></td>`).join('')}</tr>`;
+  const table = `<div class="tx-table-wrap tx-gtable"><table class="tx-compare tx-growth tx-itable"><thead><tr><th></th><th>Today</th>${ms.map((t) => `<th>${t} yrs</th>`).join('')}</tr></thead><tbody>
+    ${row('Asset Management LLC account', 'ic-a', accVals)}
+    ${savings > 0.5 ? row('Tax savings', 'ic-b', savVals) + row('Together', 'ic-c', totVals, true) : ''}
+    ${contribution > 0.5 ? `<tr><th scope="row"><i class="ic-key lc-key-ref"></i>Contribution</th><td>${money(contribution)}</td>${ms.map(() => '<td></td>').join('')}</tr>` : ''}
+  </tbody></table></div>`;
+  const legend = `<div class="gc-legend">${series.map((x) => `<span><i class="ic-key ${x.kind === 'ref' ? 'lc-key-ref' : x.cls}"></i>${esc(x.label)}</span>`).join('')}</div>`;
+  const beNote = contribution > 0.5 ? `<p class="tx-breakeven">${be === null
+    ? `At ${pctOf(rate)} with ${pctOf(dro)} a year for the DRO, the account and invested tax savings don't reach the ${money(contribution)} contribution within 40 years.`
+    : be === 0 ? `The account and tax savings already cover the ${money(contribution)} contribution today.`
+    : `<b>Breakeven in about ${be < 10 ? be.toFixed(1).replace(/\.0$/, '') : Math.round(be)} years:</b> the account plus the invested tax savings pass the ${money(contribution)} contribution. From then on the client could unwind without being behind.`}</p>` : '';
+  const sub = `${money(acct)} kept in the Asset Management LLC account (growing at ${pctOf(rate)} less ${pctOf(dro)} a year to service the DRO), plus the ${money(savings)} of tax savings invested at ${pctOf(rate)}.`;
+  return { sub, html: `${ctrl}<div class="tx-gwrap"><div class="tx-gchart">${lineChart({ years, series, marker })}${legend}</div>${table}</div>${beNote}` };
 }
 const growthCard = (title, sub, html) => `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(title)}</h3></div><p class="tx-gsub">${esc(sub)}</p>${html}
   <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p></section>`;

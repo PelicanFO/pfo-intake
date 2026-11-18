@@ -1,6 +1,6 @@
 // The combined tax plan (src/site/plan.js): strategies computed together.
 import { suite } from './harness.js';
-import { analyze, planFor, withAutoDb, foundationResult } from '../src/site/tax-step.js';
+import { analyze, planFor, withAutoDb, foundationResult, taxSummary, amlBreakeven } from '../src/site/tax-step.js';
 import { computePlan, normalize, planSteps, attribution, prune, marginal, scenarioFor, ADV_ORDER } from '../src/site/plan.js';
 
 const client = (extra = {}) => withAutoDb({
@@ -61,7 +61,8 @@ suite('Plan: fair shares and nothing that hurts', (t) => {
   const leap = sh.find((x) => x.key === 'adv').amount;
   const seq = planSteps(P.ctx, all, (id) => id).find((x) => x.key === 'adv').amount;
   t.ok(leap > seq, `LEAP's share (${Math.round(leap)}) isn't penalized for coming last (${Math.round(seq)})`);
-  t.ok(P.shares.every((x) => x.amount > 0), 'every strategy in the recommended plan has a positive share');
+  const R = planFor(client({ __tax: { ...client().__tax, plan: P.rec } }));
+  t.ok(R.shares.length > 0 && R.shares.every((x) => x.amount > 0), 'every strategy in the recommended plan has a positive share');
   const rp = planFor(client({ __tax: { ...client().__tax, rothConversion: 900000, plan: { db: true, augusta: true, payroll: true, roth: true, adv: ['leap'] } } }));
   t.ok(rp.shares.every((x) => x.amount > 0), `with a Roth conversion every share is positive (${rp.shares.map((x) => x.key + ' ' + Math.round(x.amount)).join(', ')})`);
   const withRoth = client({ __tax: { ...client().__tax, rothConversion: 900000, plan: { db: true, roth: true, adv: [] } } });
@@ -80,3 +81,30 @@ suite('Plan: family payroll wages count toward the QBI wage limit', (t) => {
   t.close(pay.savings, P.pay.savings, 0.01, 'Family Payroll in the plan equals Family Payroll on its own');
 });
 
+
+suite('Plan: the advisor selects the strategies', (t) => {
+  const P = planFor(client());
+  t.equal(P.mode, 'none', 'nothing is selected until the advisor picks');
+  t.ok(P.recPlan.savings > 0.5, `the recommended plan is still computed (${Math.round(P.recPlan.savings)})`);
+  const offered = P.choices.filter((c) => c.ok && c.amount > 0.5);
+  t.ok(offered.length >= 3, `every available strategy shows what it would save (${offered.map((c) => c.key + ' ' + Math.round(c.amount)).join(', ')})`);
+  const db = P.choices.find((c) => c.key === 'db');
+  t.close(db.amount, computePlan(P.ctx, { ...none, db: true }).savings, 0.01, 'with nothing selected, a strategy shows its savings on its own');
+  const one = planFor(client({ __tax: { ...client().__tax, plan: { ...none, db: true } } }));
+  const aug = one.choices.find((c) => c.key === 'augusta');
+  t.close(aug.amount, computePlan(one.ctx, { ...none, db: true, augusta: true }).savings - one.plan.savings, 0.01, 'with the DB plan selected, Augusta shows what it adds on top');
+  t.equal(one.mode, 'custom', 'a hand-picked plan is custom');
+  t.equal(planFor(client({ __tax: { ...client().__tax, plan: P.rec } })).mode, 'recommended', 'picking the recommended plan shows as recommended');
+  const sum = taxSummary(client());
+  t.ok(sum.plan && sum.plan.savings > 0.5 && !sum.plan.custom, 'with nothing selected, the summary reports the recommended plan (never "no plan")');
+});
+
+suite('Asset Management LLC breakeven', (t) => {
+  // Contribution $266,824; account $63,750; tax savings $118,074; 7% return, 4% a year for the DRO.
+  const be = amlBreakeven({ acct: 63750, savings: 118074, contribution: 266824, rate: 0.07, dro: 0.04 });
+  const tot = (y) => 63750 * Math.pow(1.03, y) + 118074 * Math.pow(1.07, y);
+  t.ok(be > 6 && be < 8, `breakeven in about ${be.toFixed(1)} years`);
+  t.ok(tot(be) >= 266824 && tot(be - 0.02) < 266824, 'first point where account + savings pass the contribution');
+  t.ok(amlBreakeven({ acct: 63750, savings: 118074, contribution: 266824, rate: 0.07, dro: 0.1 }) > be, 'a larger DRO share pushes breakeven out');
+  t.equal(amlBreakeven({ acct: 200000, savings: 100000, contribution: 266824 }), 0, 'already covered today');
+});
