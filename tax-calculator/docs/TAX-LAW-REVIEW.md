@@ -50,7 +50,8 @@ amounts under each strategy.
 
 The site (`SITE_RULES` in `src/site/tax-step.js`) applies corrections 1, 3, 4, 5, 6, 7, 11, 12 and 13.
 Corrections 2, 8, 9, 10 and 14 are still off, so the Solar sizing keeps the workbook's
-state-saving adjustment. The charitable gift is treated as appreciated property (30% of AGI).
+state-saving adjustment. The charitable gift is limited to 50% of AGI for clients created from v1.15.2 on
+(stamped `charitable50` on the client record); earlier clients keep the 30% appreciated-property limit.
 QBI treatment and business W-2 wages come from the intake or Scenario options (see the README).
 
 ## Workbook mechanics (not tax law, but they change numbers)

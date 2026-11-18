@@ -190,3 +190,16 @@ suite('Site: QBI deduction, NIIT and RMD age (tax-law corrections)', (t) => {
   // Born 1971 (55 in 2026): RMDs start at 75.
   t.equal(a.comparison.roth.rmdStartAge, 75, 'RMDs start at 75 for anyone born 1960 or later');
 });
+
+suite('Site: charitable limit is 50% of AGI for new clients, 30% for existing ones', (t) => {
+  // $400k wages; the gift defaults to 50% of AGI (200,000).
+  const TX = { filing_status: 'Married filing jointly', state: 'Texas', age: '55', w2_income: '400000' };
+  const gift = (x) => analyze(x).comparison.blocks.base.scenarios.charitable.return;
+  const old = gift(TX);
+  // Existing client: 30% × 400,000 = 120,000 allowed, 80,000 carries forward.
+  t.close(old.carryforwards.charitable, 80000, 0.01, 'existing client: 30% limit, 80,000 carries forward');
+  const fresh = gift({ ...TX, __tax: { charitable50: true } });
+  // New client: 50% × 400,000 = 200,000 allowed; nothing carries forward.
+  t.close(fresh.carryforwards.charitable, 0, 0.01, 'new client: 50% limit, the whole gift is deductible this year');
+  t.equal(analyze({ ...TX, __tax: { charitable50: true } }).model.params.charitable.giftType, 'property50', 'new client: gift type is property at 50%');
+});

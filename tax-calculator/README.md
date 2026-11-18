@@ -27,7 +27,7 @@ and Priorities. The code is in `src/site/` (`tax-step.js`, `tax-step.css`).
   corrections on: federal and state standard deductions, capital gains stacked on ordinary income,
   NIIT (3.8% × lesser of investment income or MAGI over the threshold), the QBI deduction (W-2 wage
   limit when the business's wages are known), self-employment and Additional Medicare tax, charitable
-  limits (30% of AGI for appreciated property, 0.5% floor, 2/37 limit, carryforward), RMD start age by
+  limits (50% of AGI for the charitable gift on clients created from v1.15.2 on, 30% for earlier clients, 0.5% floor, 2/37 limit, carryforward), RMD start age by
   birth year, and negative strategy amounts set to $0. Still off: continuous brackets, excess business
   loss limit, AMT, the solar credit limit and the first-year IRA withdrawal tax.
 - **QBI inputs:** treatment comes from Scenario options, else the intake's "specified service field"
