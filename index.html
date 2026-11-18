@@ -816,7 +816,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.15.2'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.15.3'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -1201,8 +1201,6 @@ let taxFormClientId = null, taxFormRef = null;   // client (and data object) the
 // Clients created after strategy selection went live (v1.15.0) start with no strategies selected; every
 // earlier client keeps showing the recommended plan it always showed, unless someone changes the selection.
 const TAX_SELECT_SINCE = Date.parse('2026-11-18T08:25:32Z');
-// Clients created from v1.15.2 on use a 50%-of-AGI charitable limit (earlier clients keep 30%).
-const TAX_CHARITY50_SINCE = Date.parse('2026-11-18T16:04:36Z');
 const clientCreatedAt = new Map();   // client id -> created_at (ms)
 async function loadTaxFormData() {
   const rec = await dbGet(TBL_CLIENTS, currentClientId);
@@ -1223,7 +1221,6 @@ async function openTaxStep() {
   const created = clientCreatedAt.get(String(currentClientId));
   const stamp = {};
   if (t.selectMode === undefined && created >= TAX_SELECT_SINCE) stamp.selectMode = true;
-  if (t.charitable50 === undefined && created >= TAX_CHARITY50_SINCE) stamp.charitable50 = true;
   if (Object.keys(stamp).length) {
     currentFormData.__tax = {...t, ...stamp};
     autosave();
