@@ -50,8 +50,8 @@ amounts under each strategy.
 
 The site (`SITE_RULES` in `src/site/tax-step.js`) applies corrections 1, 3, 4, 5, 6, 7, 11, 12 and 13.
 Corrections 2, 8, 9, 10 and 14 are still off, so the Solar sizing keeps the workbook's
-state-saving adjustment. The charitable gift is limited to 50% of AGI for clients created from v1.15.2 on
-(stamped `charitable50` on the client record); earlier clients keep the 30% appreciated-property limit.
+state-saving adjustment. The charitable gift is limited to 50% of AGI (v1.15.3). Existing clients showing the recommended plan
+keep the strategies it picked under the earlier 30% limit; only the figures change.
 QBI treatment and business W-2 wages come from the intake or Scenario options (see the README).
 
 ## Workbook mechanics (not tax law, but they change numbers)
@@ -101,4 +101,4 @@ These are reproduced exactly by the Excel replica and fixed by the engine. They 
 | Property tax | $0 | Only matters if the client itemizes |
 | Business income type | K-1 pass-through (no SE tax) | Matches the DB/LEAP planning use case |
 | QBI treatment | Specified service business | Conservative: no deduction above the phase-in range |
-| Charitable gift type | Appreciated property (30% limit) | Matches the leveraged-gift structure |
+| Charitable gift type | Appreciated property (30% limit) | Matches the leveraged-gift structure (the site uses 50%) |

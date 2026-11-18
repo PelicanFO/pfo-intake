@@ -137,9 +137,8 @@ export function intakeToModel(fd = {}) {
   // No age entered: left blank so the 65+ deductions aren't applied (the Roth projection assumes 65).
   if (!p.age) notes.push({ text: 'Age not entered — 65+ deductions not applied; the Roth projection assumes age 65.', section: 'personal' });
   const params = defaultParams();
-  // Clients created from v1.15.2 on (stamped charitable50) use a 50%-of-AGI limit on the charitable gift;
-  // earlier clients keep the 30% limit their plans were built with.
-  if (saved.charitable50) params.charitable.giftType = 'property50';
+  // The charitable gift is limited to 50% of AGI (v1.15.3; 30% before).
+  params.charitable.giftType = 'property50';
   for (const [sid, vals] of Object.entries(saved.params || {})) if (params[sid]) Object.assign(params[sid], vals);
   m.params = params;
   m.rules = { ...SITE_RULES };
@@ -151,12 +150,17 @@ export function intakeToModel(fd = {}) {
 }
 
 // ------------------------------------------------------------------ results
-let cache = { key: null, value: null };
+const cache = new Map(); // last few comparisons (existing clients' plans also run a 30%-charitable pass)
 export function analyze(fd) {
   const built = intakeToModel(fd);
   const key = JSON.stringify(built.model);
-  if (cache.key !== key) cache = { key, value: runComparison(built.model) };
-  return { ...built, comparison: cache.value };
+  let value = cache.get(key);
+  if (!value) {
+    value = runComparison(built.model);
+    cache.set(key, value);
+    if (cache.size > 4) cache.delete(cache.keys().next().value);
+  }
+  return { ...built, comparison: value };
 }
 
 function blocksFor(model) {
@@ -408,10 +412,12 @@ export function planFor(fd) {
   const rows = strategyRows(a.comparison, 'base');
   const appliesSet = new Set(rows.filter((r) => r.applies && r.savings > 0.5).map((r) => r.id));
   const ctx = planContext(fd, a, aug, pay, appliesSet);
-  const rec = recommendedPlan(ctx);
-  // Anything that doesn't lower the overall tax liability is left out, even if it was selected.
   // No saved selection: new clients (selectMode, set when created after v1.15.0) start empty; earlier
-  // clients keep the recommended plan they have always shown.
+  // clients keep the recommended plan they have always shown. That plan is still picked with the 30%
+  // charitable limit it was built with, so the 50% limit (v1.15.3) changes its figures, not its strategies.
+  const legacy = !saved.plan && !saved.selectMode;
+  const rec = legacy ? legacyRecommended(fd) : recommendedPlan(ctx);
+  // Anything that doesn't lower the overall tax liability is left out, even if it was selected.
   const sel = saved.plan ? prune(ctx, saved.plan) : saved.selectMode ? normalize(ctx, EMPTY_SEL) : rec;
   const plan = computePlan(ctx, sel);
   const shares = attribution(ctx, sel).map((s) => ({ ...s, label: partLabel(s.key, sel) }));
@@ -420,6 +426,18 @@ export function planFor(fd) {
   const P = { a, aug, pay, rows, ctx, rec, sel, plan, shares, steps: shares, recPlan, mode, custom: mode === 'custom' };
   P.choices = choicesFor(P);
   return P;
+}
+
+// The recommended plan as picked before v1.15.3, with the charitable gift limited to 30% of AGI.
+function legacyRecommended(fd) {
+  const saved = fd.__tax || {};
+  const params = { ...(saved.params || {}), charitable: { giftType: 'property', ...(saved.params?.charitable || {}) } };
+  const f = { ...fd, __tax: { ...saved, params } };
+  const a = analyze(f);
+  const aug = augustaRule(f, a.model, f.__tax), pay = familyPayroll(f, a.model, f.__tax);
+  const rows = strategyRows(a.comparison, 'base');
+  const appliesSet = new Set(rows.filter((r) => r.applies && r.savings > 0.5).map((r) => r.id));
+  return recommendedPlan(planContext(f, a, aug, pay, appliesSet));
 }
 
 /**
