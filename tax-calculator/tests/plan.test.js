@@ -83,19 +83,23 @@ suite('Plan: family payroll wages count toward the QBI wage limit', (t) => {
 
 
 suite('Plan: the advisor selects the strategies', (t) => {
-  const P = planFor(client());
-  t.equal(P.mode, 'none', 'nothing is selected until the advisor picks');
+  const old = planFor(client());
+  t.equal(old.mode, 'recommended', 'existing clients (no selectMode) keep showing the recommended plan');
+  t.ok(old.shares.length > 0 && old.plan.savings > 0.5, 'and its savings, as before');
+  const fresh = (x = {}) => client({ __tax: { ...client().__tax, selectMode: true, ...x } });
+  const P = planFor(fresh());
+  t.equal(P.mode, 'none', 'new clients: nothing is selected until the advisor picks');
   t.ok(P.recPlan.savings > 0.5, `the recommended plan is still computed (${Math.round(P.recPlan.savings)})`);
   const offered = P.choices.filter((c) => c.ok && c.amount > 0.5);
   t.ok(offered.length >= 3, `every available strategy shows what it would save (${offered.map((c) => c.key + ' ' + Math.round(c.amount)).join(', ')})`);
   const db = P.choices.find((c) => c.key === 'db');
   t.close(db.amount, computePlan(P.ctx, { ...none, db: true }).savings, 0.01, 'with nothing selected, a strategy shows its savings on its own');
-  const one = planFor(client({ __tax: { ...client().__tax, plan: { ...none, db: true } } }));
+  const one = planFor(fresh({ plan: { ...none, db: true } }));
   const aug = one.choices.find((c) => c.key === 'augusta');
   t.close(aug.amount, computePlan(one.ctx, { ...none, db: true, augusta: true }).savings - one.plan.savings, 0.01, 'with the DB plan selected, Augusta shows what it adds on top');
   t.equal(one.mode, 'custom', 'a hand-picked plan is custom');
-  t.equal(planFor(client({ __tax: { ...client().__tax, plan: P.rec } })).mode, 'recommended', 'picking the recommended plan shows as recommended');
-  const sum = taxSummary(client());
+  t.equal(planFor(fresh({ plan: P.rec })).mode, 'recommended', 'picking the recommended plan shows as recommended');
+  const sum = taxSummary(fresh());
   t.ok(sum.plan && sum.plan.savings > 0.5 && !sum.plan.custom, 'with nothing selected, the summary reports the recommended plan (never "no plan")');
 });
 

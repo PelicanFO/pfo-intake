@@ -485,3 +485,9 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 .tx-sum-add { font-size: 12px; font-weight: 600; color: var(--navy); white-space: nowrap; }
 .tx-aml-ctrl label { white-space: nowrap; }
 .tx-aml-ctrl select { width: auto; min-width: 0; max-width: 90px; margin: 0; }
+/* v1.15.1: real Add buttons inside the row */
+.tx-pick-list .tx-sum { cursor: default; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) auto auto; padding: 11px 12px; }
+.tx-pick-list .tx-sum:hover { background: none; }
+.tx-add-btn { white-space: nowrap; padding: 6px 14px; }
+.tx-pick-hero .tx-hero-btn { background: var(--gold-light, #e8d3a8); color: var(--navy); border: 0; font-weight: 600; }
+@media (max-width: 700px) { .tx-pick-list .tx-sum { grid-template-columns: minmax(0, 1fr) auto auto; } }

@@ -407,7 +407,9 @@ export function planFor(fd) {
   const ctx = planContext(fd, a, aug, pay, appliesSet);
   const rec = recommendedPlan(ctx);
   // Anything that doesn't lower the overall tax liability is left out, even if it was selected.
-  const sel = saved.plan ? prune(ctx, saved.plan) : normalize(ctx, EMPTY_SEL);
+  // No saved selection: new clients (selectMode, set when created after v1.15.0) start empty; earlier
+  // clients keep the recommended plan they have always shown.
+  const sel = saved.plan ? prune(ctx, saved.plan) : saved.selectMode ? normalize(ctx, EMPTY_SEL) : rec;
   const plan = computePlan(ctx, sel);
   const shares = attribution(ctx, sel).map((s) => ({ ...s, label: partLabel(s.key, sel) }));
   const recPlan = computePlan(ctx, rec);
@@ -613,7 +615,7 @@ export function renderTaxStep(root, fd, handlers) {
     if (el.matches('[data-tx-aml]')) { setAml(el); draw(); }
   });
   root.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-tx-detail], [role="button"][data-tx-add]')) { e.preventDefault(); e.target.click(); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-tx-detail]')) { e.preventDefault(); e.target.click(); }
   });
   root.onclick = (e) => {
     if (e.target.closest('label, input, textarea, summary')) return;
@@ -784,24 +786,22 @@ function resultsHTML(P, tips, fd) {
     <p class="tx-foot">${model.year} federal rates with the standard deduction, capital gains stacking, NIIT, QBI, self-employment tax and charitable limits. Each strategy's amount is its share of the combined savings, averaged over every order the strategies could be applied in. Estimates for discussion, not tax advice; growth figures are illustrations, not guarantees.</p>`;
 }
 
-/** Nothing selected yet: what each strategy would save, and the recommended plan one click away. */
+/** Nothing selected yet: each strategy's savings on its own, and the recommended plan one click away. */
 function pickHTML(P) {
   const { recPlan, rec } = P;
-  const names = planNames(rec);
   const hero = `<section class="tx-hero tx-pick-hero"><div>
-      <div class="tx-hero-label">Select strategies to build the plan</div>
-      <div class="tx-hero-value">${money(recPlan.savings)}</div>
-      <div class="tx-hero-sub">Recommended plan: ${esc(names.join(' + '))}</div>
-      <button type="button" class="btn btn-sm tx-hero-btn" data-tx-recommended>Use recommended plan</button></div>
-      <div class="tx-hero-side"><div><span>Tax liability</span><b>${money(recPlan.baseline)}</b></div></div></section>`;
+      <div class="tx-hero-label">Current tax liability</div>
+      <div class="tx-hero-value">${money(recPlan.baseline)}</div>
+      <div class="tx-hero-sub">Recommended plan: ${esc(planNames(rec).join(' + '))}</div>
+      <button type="button" class="btn btn-sm tx-hero-btn" data-tx-recommended>Use recommended plan</button></div></section>`;
   const list = P.choices.filter((c) => c.ok && c.amount !== null && c.amount > 0.5).sort((x, y) => y.amount - x.amount);
-  const descKey = (c) => (c.id || c.key);
   const body = `<div class="tx-sumlist tx-pick-list"><div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings on its own</span><span></span></div>
-    ${list.map((c) => `<div class="tx-sum" role="button" tabindex="0" data-tx-add="${c.key}">
-      <b class="tx-sum-name">${esc(c.label)}${c.inRec ? '<span class="tx-rec-dot">Recommended</span>' : ''}</b>
-      <span class="tx-sum-desc">${esc(ONE_LINE[descKey(c)] || '')}</span>
-      <b class="tx-sum-amt">${money(c.amount)}</b><span class="tx-sum-add">+ Add</span></div>`).join('')}</div>`;
-  return `${hero}${section('Available strategies', body, { right: '<span class="tx-card-sub">Savings combine, not add up: once you pick one, the others show what they add on top</span>' })}
+    ${list.map((c) => `<div class="tx-sum">
+      <b class="tx-sum-name">${esc(c.label)}</b>
+      <span class="tx-sum-desc">${esc(ONE_LINE[c.id || c.key] || '')}</span>
+      <b class="tx-sum-amt">${money(c.amount)}</b>
+      <button type="button" class="btn btn-sm tx-add-btn" data-tx-add="${c.key}" aria-label="Add ${esc(c.label)}">+ Add</button></div>`).join('')}</div>`;
+  return `${hero}${section('Available strategies', body)}
     <p class="tx-foot">Estimates for discussion, not tax advice.</p>`;
 }
 
@@ -819,7 +819,7 @@ function builderHTML(P, tips) {
     const off = !c.on && (!c.ok || c.amount === null || (c.amount <= 0.5 && !(c.hint && c.amount < -0.5)));
     return `<label class="tx-check${off ? ' is-off' : ''}">
       <input type="checkbox" data-tx-plan="${c.key}"${c.on ? ' checked' : ''}${off ? ' disabled' : ''}>
-      <span class="tx-check-box" aria-hidden="true"></span><span class="tx-check-label">${esc(c.label)}${c.inRec ? '<span class="tx-rec-dot">Rec.</span>' : ''}${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</span>${fig(c)}</label>`;
+      <span class="tx-check-box" aria-hidden="true"></span><span class="tx-check-label">${esc(c.label)}${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</span>${fig(c)}</label>`;
   };
   const found = P.choices.filter((c) => c.group === 'Foundational').map(check);
   const adv = P.choices.filter((c) => c.group === 'Advanced').map(check);
@@ -827,7 +827,7 @@ function builderHTML(P, tips) {
   const pairShare = sel.adv.length > 1 ? (P.shares.find((x) => x.key === 'adv') || {}).amount : null;
   const badge = mode === 'recommended' ? '<span class="tx-badge">Recommended</span>' : mode === 'custom' ? '<span class="tx-badge custom">Custom</span>' : '<span class="tx-badge none">Nothing selected</span>';
   const total = mode === 'none'
-    ? `<div class="tx-builder-total"><b>$0</b><small>Recommended plan saves ${money(recPlan.savings)}</small></div>`
+    ? `<div class="tx-builder-total"><b>$0</b><small>Current liability ${money(recPlan.baseline)}</small></div>`
     : `<div class="tx-builder-total"><b>${money(Math.max(0, plan.savings))}</b><small>${money(plan.baseline)} → ${money(plan.liability)}</small></div>`;
   return `<section class="tx-card tx-builder">
     <div class="tx-builder-head"><h3>Select strategies</h3>${badge}</div>
@@ -837,7 +837,7 @@ function builderHTML(P, tips) {
     ${rothTip ? `<button type="button" class="tx-addline" data-tx-apply="roth:${Math.round(rothTip.amount)}">+ Add a ${short(rothTip.amount)} Roth conversion</button>` : ''}
     ${adv.length ? `<div class="tx-bgroup">Advanced${pairShare != null ? ` <span>${esc(labelOfScenario(scenarioFor(sel.adv)))} <b>${short(pairShare)}</b></span>` : ''}</div>${adv.join('')}` : ''}
     <div class="tx-builder-actions">
-      ${mode !== 'recommended' && recPlan.savings > 0.5 ? `<button type="button" class="btn btn-sm btn-primary" data-tx-recommended>Use recommended · ${short(recPlan.savings)}</button>` : ''}
+      ${mode !== 'recommended' && recPlan.savings > 0.5 ? `<button type="button" class="btn btn-sm btn-primary" data-tx-recommended>Use recommended plan</button>` : ''}
       ${mode !== 'none' ? '<button type="button" class="btn btn-sm" data-tx-clear>Clear</button>' : ''}
     </div>
   </section>`;
