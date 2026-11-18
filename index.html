@@ -816,7 +816,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.15.0'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.15.1'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -1198,8 +1198,13 @@ async function loadTaxModule() {
   return taxModule;
 }
 let taxFormClientId = null, taxFormRef = null;   // client (and data object) the tax pages last loaded
+// Clients created after strategy selection went live (v1.15.0) start with no strategies selected; every
+// earlier client keeps showing the recommended plan it always showed, unless someone changes the selection.
+const TAX_SELECT_SINCE = Date.parse('2026-11-18T08:25:32Z');
+const clientCreatedAt = new Map();   // client id -> created_at (ms)
 async function loadTaxFormData() {
   const rec = await dbGet(TBL_CLIENTS, currentClientId);
+  if (rec && rec.created_at) clientCreatedAt.set(String(currentClientId), new Date(rec.created_at).getTime());
   currentFormData = trackForm(rec && rec.form_data);
   taxFormClientId = currentClientId; taxFormRef = currentFormData;
 }
@@ -1211,6 +1216,12 @@ async function openTaxStep() {
   if (taxDetailState.clientId !== currentClientId) taxDetailState = {scenario:null, block:'base', clientId:currentClientId};
   // Reuse in-memory data when it is already this client's (it may hold option edits not yet autosaved).
   if (!taxFormFresh()) await loadTaxFormData();
+  // Record on a new client that its plan is picked by the advisor (saved with the client, so it never flips).
+  const t = currentFormData.__tax || {};
+  if (t.selectMode === undefined && clientCreatedAt.get(String(currentClientId)) >= TAX_SELECT_SINCE) {
+    currentFormData.__tax = {...t, selectMode: true};
+    autosave();
+  }
   document.getElementById('tax-client-title').textContent = currentClientName;
   const root = document.getElementById('tax-root');
   showView('tax');
