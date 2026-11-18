@@ -12,7 +12,7 @@ export default {
     { key: 'multiple', label: 'Deduction per $1 contributed', type: 'number', default: 5, excel: 'Charitable!D7' },
     { key: 'riaDiscount', label: 'RIA discount', type: 'pct', default: 0, excel: 'Charitable!D12' },
     { key: 'giftType', label: 'Gift type (sets the AGI limit)', type: 'choice', default: 'property',
-      choices: [['property', 'Appreciated property — 30% of AGI'], ['cash', 'Cash — 60% of AGI']],
+      choices: [['property', 'Appreciated property — 30% of AGI'], ['property50', 'Appreciated property — 50% of AGI'], ['cash', 'Cash — 60% of AGI']],
       help: 'Only applies when the charitable-limits correction is on.' },
   ],
   sizing: [
@@ -40,7 +40,7 @@ export default {
         return [amt, how];
       },
     });
-    const limitPct = p.giftType === 'cash' ? 0.6 : 0.3;
+    const limitPct = { cash: 0.6, property50: 0.5 }[p.giftType] ?? 0.3;
     ctx.addCharitable({ id: 'charitable', label: 'Charitable gift (appraised value)', amount: donation, limitPct, calc: ctx.lastSizing });
     const contribution = donation / p.multiple * (1 - p.riaDiscount);
     ctx.addCost({

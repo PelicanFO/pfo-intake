@@ -137,6 +137,9 @@ export function intakeToModel(fd = {}) {
   // No age entered: left blank so the 65+ deductions aren't applied (the Roth projection assumes 65).
   if (!p.age) notes.push({ text: 'Age not entered — 65+ deductions not applied; the Roth projection assumes age 65.', section: 'personal' });
   const params = defaultParams();
+  // Clients created from v1.15.2 on (stamped charitable50) use a 50%-of-AGI limit on the charitable gift;
+  // earlier clients keep the 30% limit their plans were built with.
+  if (saved.charitable50) params.charitable.giftType = 'property50';
   for (const [sid, vals] of Object.entries(saved.params || {})) if (params[sid]) Object.assign(params[sid], vals);
   m.params = params;
   m.rules = { ...SITE_RULES };
