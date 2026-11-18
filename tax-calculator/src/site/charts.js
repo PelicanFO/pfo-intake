@@ -165,3 +165,36 @@ export function investChart({ years, groups, xLabel = (t) => `Yr ${t}` }) {
   return `<div class="tx-chart-wrap"><svg class="tx-gc tx-ic" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(groups.map((g) => `${g.label} ${full(g.amount)} today`).join(', '))}">
     ${grid}${body}${labels}${ticks}</svg></div>`;
 }
+
+/**
+ * Plain line chart for one-time amounts growing at a chosen rate.
+ * series: [{ label, cls, vals: [value by year], kind: 'line'|'total'|'ref' }]
+ * marker: { t, v, label } (e.g. the breakeven point), optional; t may be fractional.
+ */
+export function lineChart({ years, series, marker = null, xLabel = (t) => (t ? `${t} yrs` : 'Today') }) {
+  const W = 560, H = 220, top = 22, bottom = 28, left = 52, right = 104;
+  const plotW = W - left - right, plotH = H - top - bottom;
+  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.vals.slice(0, years + 1))));
+  const x = (t) => left + (t / years) * plotW;
+  const y = (v) => top + plotH - (Math.max(0, v) / max) * plotH;
+  const grid = [0, 0.5, 1].map((f) => `<line class="gc-grid" x1="${left}" x2="${left + plotW}" y1="${y(max * f)}" y2="${y(max * f)}"/>
+    <text class="gc-axis" x="${left - 8}" y="${y(max * f) + 4}" text-anchor="end">${short(max * f)}</text>`).join('');
+  const step = years <= 12 ? 2 : 5;
+  const yrs = Array.from({ length: years + 1 }, (_, i) => i);
+  const ticks = yrs.filter((t) => t === 0 || t === years || (t % step === 0 && years - t >= step * 0.6)).map((t) => `<text class="gc-axis" x="${x(t)}" y="${H - 9}" text-anchor="middle">${esc(xLabel(t))}</text>`).join('');
+  const path = (vals) => vals.slice(0, years + 1).map((v, t) => `${t ? 'L' : 'M'}${x(t).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const lines = series.map((s) => `<path class="${s.kind === 'ref' ? 'lc-ref' : `ic-line ${s.cls}${s.kind === 'total' ? ' lc-total' : ''}`}" d="${path(s.vals)}"><title>${esc(s.label)}</title></path>`).join('');
+  const ends = series.map((s) => ({ s, y: y(s.vals[years]), v: s.vals[years] })).sort((a, b) => a.y - b.y);
+  for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 15) ends[k].y = ends[k - 1].y + 15;
+  const labels = ends.map((e) => `<text class="${e.s.kind === 'ref' ? 'lc-ref-end' : `ic-end ${e.s.cls}`}" x="${x(years) + 8}" y="${e.y + 4}">${short(e.v)}</text>`).join('');
+  let mark = '';
+  if (marker && marker.t >= 0 && marker.t <= years) {
+    const mx = x(marker.t), my = y(marker.v);
+    const anchor = mx > left + plotW * 0.7 ? 'end' : 'start';
+    mark = `<line class="lc-mark" x1="${mx}" x2="${mx}" y1="${top - 6}" y2="${y(0)}"/>
+      <circle class="lc-mark-dot" cx="${mx}" cy="${my}" r="5"><title>${esc(marker.label)}</title></circle>
+      <text class="lc-mark-label" x="${mx + (anchor === 'end' ? -7 : 7)}" y="${top + 4}" text-anchor="${anchor}">${esc(marker.label)}</text>`;
+  }
+  return `<div class="tx-chart-wrap"><svg class="tx-gc tx-ic" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map((s) => `${s.label} ${full(s.vals[years])} after ${years} years`).join(', '))}${marker ? `. ${esc(marker.label)}` : ''}">
+    ${grid}${lines}${mark}${labels}${ticks}</svg></div>`;
+}

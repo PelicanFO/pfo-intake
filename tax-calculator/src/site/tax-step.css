@@ -454,3 +454,34 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 
 /* ================= v1.14 ================= */
 .tx-input select { width: 100%; min-width: 0; border: 0; background: transparent; font: 14px "DM Sans", sans-serif; color: inherit; padding: 8px 4px; text-overflow: ellipsis; }
+
+/* Asset Management LLC growth: chosen return, DRO servicing, breakeven */
+.lc-total { stroke-width: 3; }
+.lc-ref { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.lc-ref-end { font: 600 12px 'DM Sans', sans-serif; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+.lc-mark { stroke: var(--gold); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.lc-mark-dot { fill: var(--gold); stroke: var(--white); stroke-width: 2; }
+.lc-mark-label { font: 600 11.5px 'DM Sans', sans-serif; fill: #8a6a35; }
+.ic-key.lc-key-ref { background: none; border-top: 2px dashed var(--text-muted); height: 0; border-radius: 0; vertical-align: 3px; }
+.ic-key.lc-key-total { background: var(--gold); }
+.ic-line.ic-c.lc-total { stroke: var(--gold); }
+.tx-aml-ctrl { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin: 0 0 .7rem; font-size: 12.5px; color: var(--text-muted); }
+.tx-aml-ctrl label { display: inline-flex; align-items: center; gap: 7px; }
+.tx-aml-ctrl select { font: 13px 'DM Sans', sans-serif; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--white); color: var(--text); }
+.tx-breakeven { margin: .7rem 0 0; padding: 8px 11px; border-radius: 8px; background: #fbf5ea; color: #6b5023; font-size: 12.5px; line-height: 1.5; }
+.tx-breakeven b { color: #4d3814; }
+
+/* Strategy selection */
+.tx-check > b.inc { color: var(--green); font-weight: 500; }
+.tx-check > b.muted { color: var(--text-light); font-weight: 400; font-size: 11.5px; }
+.tx-rec-dot { display: inline-block; font-size: 9.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #7a5a24; background: #f7ead2; border-radius: 99px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+.tx-badge.none { color: var(--text-muted); background: var(--cream); }
+.tx-builder-actions { display: flex; gap: 8px; margin-top: .8rem; }
+.tx-builder-actions .btn { flex: 1; justify-content: center; }
+.tx-builder-sub { font-size: 11.5px; color: var(--text-light); margin: -.2rem 0 .3rem; line-height: 1.45; }
+.tx-pick-hero .tx-hero-value { font-size: 34px; }
+.tx-pick-hero .btn { margin-top: .8rem; }
+.tx-pick-list .tx-sum { cursor: pointer; }
+.tx-sum-add { font-size: 12px; font-weight: 600; color: var(--navy); white-space: nowrap; }
+.tx-aml-ctrl label { white-space: nowrap; }
+.tx-aml-ctrl select { width: auto; min-width: 0; max-width: 90px; margin: 0; }

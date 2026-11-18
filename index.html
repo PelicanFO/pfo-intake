@@ -816,7 +816,7 @@ select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%
 // ══════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════
-const APP_VERSION        = 'v1.14.1'; // bump on every deployed change; shown on the login screen
+const APP_VERSION        = 'v1.15.0'; // bump on every deployed change; shown on the login screen
 // Tax page styles, versioned so browsers pick up changes after each deploy (like the tax module).
 document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="tax-calculator/src/site/tax-step.css?v=' + encodeURIComponent(APP_VERSION) + '"/>');
 const SUPABASE_URL      = 'https://ufyxthiuidnckzuxgywu.supabase.co/';
@@ -1197,17 +1197,20 @@ async function loadTaxModule() {
   if (!taxModule) taxModule = await import('./tax-calculator/src/site/tax-step.js?v=' + encodeURIComponent(APP_VERSION));
   return taxModule;
 }
-let taxFormClientId = null;   // client whose form data the tax pages last loaded
+let taxFormClientId = null, taxFormRef = null;   // client (and data object) the tax pages last loaded
 async function loadTaxFormData() {
   const rec = await dbGet(TBL_CLIENTS, currentClientId);
   currentFormData = trackForm(rec && rec.form_data);
-  taxFormClientId = currentClientId;
+  taxFormClientId = currentClientId; taxFormRef = currentFormData;
 }
+// In-memory data can be reused only if it is still the object the tax pages loaded for this client
+// (other pages replace currentFormData; reusing another load could show a plan built from the wrong data).
+const taxFormFresh = () => taxFormClientId === currentClientId && taxFormRef === currentFormData;
 async function openTaxStep() {
   if (!currentClientId) return;
   if (taxDetailState.clientId !== currentClientId) taxDetailState = {scenario:null, block:'base', clientId:currentClientId};
   // Reuse in-memory data when it is already this client's (it may hold option edits not yet autosaved).
-  if (taxFormClientId !== currentClientId) await loadTaxFormData();
+  if (!taxFormFresh()) await loadTaxFormData();
   document.getElementById('tax-client-title').textContent = currentClientName;
   const root = document.getElementById('tax-root');
   showView('tax');
@@ -1230,7 +1233,7 @@ async function openTaxStep() {
 async function openTaxDetail(scenario, block) {
   if (!currentClientId) return;
   // Normally reached from the tax step (data already loaded, possibly with unsaved option edits).
-  if (taxFormClientId !== currentClientId) { await loadTaxFormData(); taxDetailState = {scenario:null, block:'base', clientId:currentClientId}; }
+  if (!taxFormFresh()) { await loadTaxFormData(); taxDetailState = {scenario:null, block:'base', clientId:currentClientId}; }
   if (scenario) taxDetailState.scenario = scenario;
   if (block) taxDetailState.block = block;
   document.getElementById('taxdetail-client-title').textContent = currentClientName;
@@ -2493,7 +2496,10 @@ function saveMulti(id){currentFormData[id]=Array.from(document.querySelectorAll(
 // this window's own changes are applied; lists of items with ids (spreadsheet rows, priorities, plan
 // items) merge item by item, so two people can each add or edit different rows.
 const clone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
-const jsonEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Key order is ignored: the database (jsonb) hands objects back with their keys re-sorted, and comparing
+// raw JSON text made this window's own nested edits (e.g. tax options) look like another window's.
+const stableJson = v => JSON.stringify(v, (k, x) => isPlainObj(x) ? Object.keys(x).sort().reduce((o, key) => (o[key] = x[key], o), {}) : x);
+const jsonEq = (a, b) => stableJson(a) === stableJson(b);
 const isPlainObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const isIdList = v => Array.isArray(v) && v.every(x => isPlainObj(x) && x.id != null);
 function merge3(base, mine, theirs) {

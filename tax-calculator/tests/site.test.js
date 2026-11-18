@@ -172,9 +172,9 @@ suite('Site: QBI deduction, NIIT and RMD age (tax-law corrections)', (t) => {
   // The plan's strategies lower the QBI deduction (a deduction the client gets anyway).
   const fd = withAutoDb({ ...TX, business_income: '1500000', business_entity: 'S-Corp' });
   const P = planFor(fd);
-  t.ok(P.plan.res.return.qbiDeduction < none.return.qbiDeduction, `the plan lowers the QBI deduction (${Math.round(none.return.qbiDeduction)} → ${Math.round(P.plan.res.return.qbiDeduction)})`);
+  t.ok(P.recPlan.res.return.qbiDeduction < none.return.qbiDeduction, `the plan lowers the QBI deduction (${Math.round(none.return.qbiDeduction)} → ${Math.round(P.recPlan.res.return.qbiDeduction)})`);
   const P0 = planFor({ ...fd, __tax: { ...fd.__tax, qbiType: 'none' } });
-  t.ok(P0.plan.savings > P.plan.savings, `QBI lowers the plan's savings (${Math.round(P.plan.savings)} vs ${Math.round(P0.plan.savings)} without QBI)`);
+  t.ok(P0.recPlan.savings > P.recPlan.savings, `QBI lowers the plan's savings (${Math.round(P.recPlan.savings)} vs ${Math.round(P0.recPlan.savings)} without QBI)`);
   // Intake questions: specified-service answer beats the industry guess; business W-2 wages feed the limit.
   t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Medical practice', business_sstb: 'No' }).model.profile.qbiType, 'nonsstb', 'intake answer "No" overrides the industry guess');
   t.equal(analyze({ ...TX, business_income: '1500000', business_industry: 'Manufacturing', business_sstb: 'Yes' }).model.profile.qbiType, 'sstb', 'intake answer "Yes"');
