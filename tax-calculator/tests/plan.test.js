@@ -103,7 +103,7 @@ suite('Plan: the advisor selects the strategies', (t) => {
   t.ok(sum.plan && sum.plan.savings > 0.5 && !sum.plan.custom, 'with nothing selected, the summary reports the recommended plan (never "no plan")');
 });
 
-suite('Asset Management LLC breakeven', (t) => {
+suite('LEAP: Asset Management LLC account breakeven', (t) => {
   // Contribution $266,824; account $63,750; tax savings $118,074; 7% return, 4% a year for the DRO.
   const be = amlBreakeven({ acct: 63750, savings: 118074, contribution: 266824, rate: 0.07, dro: 0.04 });
   const tot = (y) => 63750 * Math.pow(1.03, y) + 118074 * Math.pow(1.07, y);
