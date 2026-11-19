@@ -54,8 +54,8 @@ const STRATEGY_BLURB = {
   solar: 'Solar project equity: energy tax credit plus first-year depreciation.',
   charitable: 'Gift of property appraised above its cost, deducted as a charitable contribution.',
   solarCharitable: 'Charitable gift down to the 24% bracket, then Solar against the remaining tax.',
-  leap: 'Asset Management LLC: entity ownership with a negative K-1 that offsets business income and gains.',
-  leapCharitable: 'Asset Management LLC first, then a charitable gift against the remaining income.',
+  leap: 'Leveraged entity ownership: a negative K-1 that offsets business income and gains.',
+  leapCharitable: 'LEAP first, then a charitable gift against the remaining income.',
 };
 const BLOCK_LABEL = { base: 'On its own', db: 'With DB plan', roth: 'With Roth conversion' };
 
@@ -392,7 +392,7 @@ export function taxSummary(fd = {}) {
 
 // ------------------------------------------------------------------ the client's plan
 const labelOfScenario = (id) => (SCENARIOS.find((s) => s.id === id) || {}).label || id;
-const ADV_LABEL = { film: 'Film', solar: 'Solar', charitable: 'Charitable', leap: 'Asset Management LLC' };
+const ADV_LABEL = { film: 'Film', solar: 'Solar', charitable: 'Charitable', leap: 'LEAP' };
 
 export const EMPTY_SEL = Object.freeze({ db: false, augusta: false, payroll: false, roth: false, adv: [] });
 const sameSel = (x, y) => ['db', 'augusta', 'payroll', 'roth'].every((k) => !!x[k] === !!y[k]) && [...x.adv].sort().join() === [...y.adv].sort().join();
@@ -502,7 +502,7 @@ const ONE_LINE = {
   solar: 'Solar project equity: an energy tax credit plus depreciation.',
   charitable: 'A gift of property, deducted at its appraised value.',
   leap: 'Entity investment whose K-1 loss offsets business income and gains.',
-  leapCharitable: 'Asset Management LLC, then a charitable gift against the income that remains.',
+  leapCharitable: 'LEAP, then a charitable gift against the income that remains.',
   solarCharitable: 'A charitable gift, then solar credits against the remaining tax.',
 };
 
@@ -547,7 +547,7 @@ function walkSteps(key, P, fd) {
     losses > 0.5 ? `A ${money(losses)} ${lossWord} passes through against your income.` : '',
     gifts > 0.5 ? `A charitable gift is deducted at its appraised ${money(gifts)}.` : '',
     credit > 0.5 ? `A ${money(credit)} energy credit lowers tax dollar for dollar.` : '',
-    acct > 0.5 ? `${money(acct)} stays in an investment account in your name.` : '',
+    acct > 0.5 ? `${money(acct)} stays ${sel.adv.includes('leap') ? 'in your Asset Management LLC account' : 'in an investment account in your name'}.` : '',
   ].filter(Boolean);
 }
 
@@ -939,8 +939,8 @@ function simplifyWarning(w) {
   if (/Charitable donation came out negative/.test(w)) return 'Charitable portion doesn\'t apply below the 24% bracket.';
   if (/credit is more than/.test(w)) return 'Part of the credit carries forward to future years.';
   if (/over the AGI limit/.test(w)) return 'Part of the gift carries forward to future years.';
-  if (/Asset Management LLC does not apply/.test(w)) return 'Asset Management LLC portion doesn\'t apply: no business income or long-term gains.';
-  if (/business-income K-1 came out negative/.test(w)) return 'Asset Management LLC portion doesn\'t apply.';
+  if (/LEAP does not apply/.test(w)) return 'LEAP portion doesn\'t apply: no business income or long-term gains.';
+  if (/LEAP business-income K-1 came out negative/.test(w)) return 'LEAP portion doesn\'t apply.';
   return w;
 }
 
@@ -1184,7 +1184,7 @@ function renderExtraDetail(root, a, x, extras, handlers) {
 
 // ------------------------------------------------------------------ growth over time
 // What this year's tax savings grow to if invested at 6–8% for 10/15/20 years (one-time amounts
-// compounded annually), plus the value if the same savings repeat every year. Asset Management LLC also keeps part
+// compounded annually), plus the value if the same savings repeat every year. LEAP also keeps part
 // of the contribution in an investment account, shown with the savings.
 let growthRate = 0.07;
 export const futureValue = (amount, rate, years) => amount * Math.pow(1 + rate, years);
@@ -1202,7 +1202,7 @@ function growthHTML(res, opts = {}) {
   return growthCard(opts.title || 'Growth over time', `This year's ${money(savings)} of tax savings, invested once.`, investBlock({ years: 20, groups: [{ label: 'Tax savings', amount: savings }] }));
 }
 
-// ------------------------------------------------------------------ Asset Management LLC account growth
+// ------------------------------------------------------------------ LEAP: Asset Management LLC account growth
 // The account grows at the chosen return less the share taken each year to service the DRO (default
 // 4%, adjustable up to 10%); the tax savings grow at the chosen return. Breakeven: the first point
 // where the account plus the invested tax savings are worth more than the contribution, after which

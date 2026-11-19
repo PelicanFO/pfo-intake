@@ -455,7 +455,7 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 /* ================= v1.14 ================= */
 .tx-input select { width: 100%; min-width: 0; border: 0; background: transparent; font: 14px "DM Sans", sans-serif; color: inherit; padding: 8px 4px; text-overflow: ellipsis; }
 
-/* Asset Management LLC growth: chosen return, DRO servicing, breakeven */
+/* LEAP Asset Management LLC account growth: chosen return, DRO servicing, breakeven */
 .lc-total { stroke-width: 3; }
 .lc-ref { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .lc-ref-end { font: 600 12px 'DM Sans', sans-serif; fill: var(--text-muted); font-variant-numeric: tabular-nums; }

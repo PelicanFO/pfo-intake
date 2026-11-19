@@ -5,7 +5,7 @@ import { money, pct } from '../engine/ledger.js';
 // Spreadsheet sheets: LEAP, LEAP & Charitable (+ DB/Roth).
 export default {
   id: 'leap',
-  name: 'Asset Management LLC',
+  name: 'LEAP',
   description: 'Leveraged entity ownership: a negative K-1 that offsets business income and long-term gains.',
   params: [
     { key: 'incomePct', label: 'Business income offset (%)', type: 'pct', default: 1, excel: 'LEAP!D6', help: 'Used when no K-1 amount is entered.' },
@@ -14,8 +14,8 @@ export default {
     { key: 'cgMultiple', label: 'Capital-gain K-1 per $1 contributed', type: 'number', default: 10, excel: 'LEAP!E9' },
     { key: 'adminFeePct', label: 'Admin fee (% of business K-1)', type: 'pct', default: 0.05, excel: 'LEAP!D14' },
     { key: 'sopFeePct', label: 'SOP fee (% of capital-gain K-1)', type: 'pct', default: 0.05, excel: 'LEAP!E14' },
-    { key: 'investIncomePct', label: 'Kept in investment account (% of business contribution)', type: 'pct', default: 0.6, excel: 'LEAP!D20' },
-    { key: 'investCgPct', label: 'Kept in investment account (% of capital-gain contribution)', type: 'pct', default: 0.5, excel: 'LEAP!E20' },
+    { key: 'investIncomePct', label: 'Kept in Asset Management LLC account (% of business contribution)', type: 'pct', default: 0.6, excel: 'LEAP!D20' },
+    { key: 'investCgPct', label: 'Kept in Asset Management LLC account (% of capital-gain contribution)', type: 'pct', default: 0.5, excel: 'LEAP!E20' },
   ],
   sizing: [
     { key: 'incomeLoss', label: 'Negative K-1 vs. business income', excel: { base: 'Strategy comparison!K18', db: 'DB comparison!K5', roth: 'Roth comparison!K5' } },
@@ -30,20 +30,20 @@ export default {
     const cur = ctx.evaluate();
     const biz = ctx.sit.income.business;
     const incomeLoss = ctx.size(sizing.incomeLoss, {
-      what: 'Asset Management LLC business-income K-1', current: cur, noFill: true,
+      what: 'LEAP business-income K-1', current: cur, noFill: true,
       auto: () => [biz * p.incomePct, `${pct(p.incomePct, 0)} × ${money(biz)} business income`],
     });
     const incomeHow = ctx.lastSizing;
     const ltcg = ctx.sit.income.ltcg;
     const cgLoss = ctx.size(sizing.cgLoss, {
-      what: 'Asset Management LLC capital-gain K-1', current: cur, noFill: true,
+      what: 'LEAP capital-gain K-1', current: cur, noFill: true,
       auto: () => [ltcg * p.cgPct, `${pct(p.cgPct, 0)} × ${money(ltcg)} long-term gains`],
     });
     const cgHow = ctx.lastSizing;
-    if (incomeLoss) ctx.addBusinessLoss({ id: 'leap', label: 'Asset Management LLC negative K-1 (business income)', amount: incomeLoss, qbi: true, calc: incomeHow });
-    if (cgLoss) ctx.addCapitalLoss({ id: 'leap-cg', label: 'Asset Management LLC negative K-1 (long-term capital loss)', amount: cgLoss, calc: cgHow });
+    if (incomeLoss) ctx.addBusinessLoss({ id: 'leap', label: 'LEAP negative K-1 (business income)', amount: incomeLoss, qbi: true, calc: incomeHow });
+    if (cgLoss) ctx.addCapitalLoss({ id: 'leap-cg', label: 'LEAP negative K-1 (long-term capital loss)', amount: cgLoss, calc: cgHow });
 
-    if (!incomeLoss && !cgLoss) ctx.warn('Asset Management LLC does not apply: no business income or long-term gains to offset.');
+    if (!incomeLoss && !cgLoss) ctx.warn('LEAP does not apply: no business income or long-term gains to offset.');
     const incContrib = incomeLoss / p.incomeMultiple, cgContrib = cgLoss / p.cgMultiple;
     if (incomeLoss) {
       ctx.addCost({ kind: 'contribution', label: 'Required contribution (business income)', amount: incContrib, calc: `${money(incomeLoss)} ÷ ${p.incomeMultiple}` });
