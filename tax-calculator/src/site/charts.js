@@ -192,8 +192,8 @@ export function lineChart({ years, series, marker = null, xLabel = (t) => (t ? `
     const mx = x(marker.t), my = y(marker.v);
     const anchor = mx > left + plotW * 0.7 ? 'end' : 'start';
     mark = `<line class="lc-mark" x1="${mx}" x2="${mx}" y1="${top - 6}" y2="${y(0)}"/>
-      <circle class="lc-mark-dot" cx="${mx}" cy="${my}" r="5"><title>${esc(marker.label)}</title></circle>
-      <text class="lc-mark-label" x="${mx + (anchor === 'end' ? -7 : 7)}" y="${top + 4}" text-anchor="${anchor}">${esc(marker.label)}</text>`;
+      <circle class="lc-mark-dot" cx="${mx}" cy="${my}" r="6"><title>${esc(marker.label)}</title></circle>
+      <text class="lc-mark-label" x="${mx + (anchor === 'end' ? -10 : 10)}" y="${Math.max(top + 4, my - 12)}" text-anchor="${anchor}">${esc(marker.label)}</text>`;
   }
   return `<div class="tx-chart-wrap"><svg class="tx-gc tx-ic" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map((s) => `${s.label} ${full(s.vals[years])} after ${years} years`).join(', '))}${marker ? `. ${esc(marker.label)}` : ''}">
     ${grid}${lines}${mark}${labels}${ticks}</svg></div>`;
