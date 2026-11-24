@@ -1,6 +1,6 @@
 // The combined tax plan (src/site/plan.js): strategies computed together.
 import { suite } from './harness.js';
-import { analyze, planFor, withAutoDb, foundationResult, taxSummary, amlBreakeven, leapAhead, leapFacts, recaptureTax } from '../src/site/tax-step.js';
+import { analyze, planFor, withAutoDb, foundationResult, taxSummary, recaptureRepaid, leapAhead, leapFacts, recaptureTax } from '../src/site/tax-step.js';
 import { computePlan, normalize, planSteps, attribution, prune, marginal, scenarioFor, ADV_ORDER } from '../src/site/plan.js';
 
 const client = (extra = {}) => withAutoDb({
@@ -103,16 +103,14 @@ suite('Plan: the advisor selects the strategies', (t) => {
   t.ok(sum.plan && sum.plan.savings > 0.5 && !sum.plan.custom, 'with nothing selected, the summary reports the recommended plan (never "no plan")');
 });
 
-suite('LEAP: breakeven against the recapture tax', (t) => {
-  // Account $63,750; net tax savings $118,074; recapture tax $250,000; 7% return, 4% a year for the DRO.
-  const f = { acct: 63750, savings: 118074, recapture: 250000, rate: 0.07, dro: 0.04 };
-  const be = amlBreakeven(f);
-  const tot = (y) => 63750 * Math.pow(1.03, y) + 118074 * Math.pow(1.07, y);
-  t.ok(be > 5 && be < 8, `breakeven in about ${be.toFixed(1)} years`);
-  t.ok(tot(be) >= 250000 && tot(be - 0.02) < 250000, 'first point where account + savings cover the recapture tax');
-  t.close(leapAhead(f, 0), 63750 + 118074 - 250000, 0.01, 'standing after unwinding today');
-  t.ok(amlBreakeven({ ...f, dro: 0.1 }) > be, 'a larger DRO share pushes breakeven out');
-  t.equal(amlBreakeven({ ...f, recapture: 150000 }), 0, 'ahead from day one when savings + account cover recapture');
+suite('LEAP: invested tax savings repay the recapture tax', (t) => {
+  // Net tax savings $92,919 invested at 7% against a $259,960 recapture tax.
+  const be = recaptureRepaid({ savings: 92919, recapture: 259960, rate: 0.07 });
+  t.close(92919 * Math.pow(1.07, be), 259960, 0.5, `repaid in ${be.toFixed(1)} years`);
+  t.ok(recaptureRepaid({ savings: 92919, recapture: 259960, rate: 0.1 }) < be, 'a higher return repays sooner');
+  t.equal(recaptureRepaid({ savings: 300000, recapture: 259960 }), 0, 'already covered');
+  t.equal(recaptureRepaid({ savings: 1000, recapture: 259960, rate: 0.06 }), null, 'not within 40 years');
+  t.close(leapAhead({ acct: 63750, savings: 118074, recapture: 250000, rate: 0.07, dro: 0.04 }, 0), 63750 + 118074 - 250000, 0.01, 'standing after unwinding today (waterfall)');
 
   const fd = client();
   const P = planFor({ ...fd, __tax: { ...(fd.__tax || {}), plan: { ...none, adv: ['leap'] } } });

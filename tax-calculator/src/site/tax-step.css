@@ -460,8 +460,8 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 .lc-ref { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .lc-ref-end { font: 600 12px 'DM Sans', sans-serif; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
 .lc-mark { stroke: var(--gold); stroke-width: 1.5; stroke-dasharray: 3 3; }
-.lc-mark-dot { fill: var(--gold); stroke: var(--white); stroke-width: 2; }
-.lc-mark-label { font: 600 11.5px 'DM Sans', sans-serif; fill: #8a6a35; }
+.lc-mark-dot { fill: var(--gold); stroke: var(--white); stroke-width: 2.5; }
+.lc-mark-label { font: 700 13px 'DM Sans', sans-serif; fill: var(--navy); paint-order: stroke; stroke: var(--white); stroke-width: 4px; stroke-linejoin: round; }
 .ic-key.lc-key-ref { background: none; border-top: 2px dashed var(--text-muted); height: 0; border-radius: 0; vertical-align: 3px; }
 .ic-key.lc-key-total { background: var(--gold); }
 .ic-line.ic-c.lc-total { stroke: var(--gold); }

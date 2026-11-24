@@ -961,8 +961,8 @@ function growthSectionHTML(P, fd) {
   if (!views.length) return '';
   const v = views.find((x) => x.id === growthTab) || views[0];
   const tabs = views.length > 1 ? `<div class="tx-gtabs" role="tablist">${views.map((x) => `<button type="button" role="tab" data-tx-gtab="${x.id}" aria-selected="${x.id === v.id}">${esc(x.label)}</button>`).join('')}</div>` : '';
-  return section('Growth over time', `<p class="tx-gsub">${esc(v.sub)}</p>${v.html}
-    <p class="tx-gnote">${v.own ? 'Illustration at a steady return. Actual returns will vary.' : 'Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.'}</p>`, { cls: 'tx-growth-card', right: tabs });
+  return section('Growth over time', `${v.sub ? `<p class="tx-gsub">${esc(v.sub)}</p>` : ''}${v.html}
+    ${v.own ? '' : '<p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p>'}`, { cls: 'tx-growth-card', right: tabs });
 }
 
 function naReason(r) {
@@ -1247,8 +1247,7 @@ function growthHTML(res, opts = {}) {
   if (!account && !savings) return '';
   if (account && opts.a && res.situation) {
     const g = amlGrowth({ ...leapFacts(res, opts.a), savings });
-    return `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(opts.title || 'Growth over time')}</h3></div><p class="tx-gsub">${esc(g.sub)}</p>${g.html}
-      <p class="tx-gnote">Illustration at a steady return. Actual returns will vary.</p></section>`;
+    return `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(opts.title || 'Growth over time')}</h3></div>${g.html}</section>`;
   }
   return growthCard(opts.title || 'Growth over time', `This year's ${money(savings)} of tax savings, invested once.`, investBlock({ years: 20, groups: [{ label: 'Tax savings', amount: savings }] }));
 }
@@ -1257,9 +1256,8 @@ function growthHTML(res, opts = {}) {
 // The Asset Management LLC account grows at the chosen return less the share taken each year to service
 // the DRO (default 4%, adjustable up to 10%); the tax savings (already net of the contribution and fees)
 // grow at the chosen return. If the client unwinds, every LEAP K-1 loss taken is recaptured as
-// long-term capital gain (20% + 3.8% NIIT + state, at this year's income). Breakeven: the first point
-// where the account plus the invested tax savings cover that recapture tax, so the client is ahead
-// even after unwinding.
+// long-term capital gain (20% + 3.8% NIIT + state, at this year's income). The chart centres on when the
+// invested tax savings alone repay that recapture tax; the account is a bonus on top.
 export const AML = { rate: 0.07, dro: 0.04, rates: [0.06, 0.07, 0.08, 0.09, 0.1], dros: [0, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1] };
 function setAml(el) {
   const v = +el.value;
@@ -1295,12 +1293,12 @@ export function leapFacts(res, a) {
 /** Where the client stands after unwinding at year t: invested savings + account − recapture tax. */
 export const leapAhead = ({ acct, savings, recapture, rate = AML.rate, dro = AML.dro }, t) => savings * Math.pow(1 + rate, t) + acct * Math.pow(1 + rate - dro, t) - recapture;
 
-/** When the account plus invested tax savings first cover the recapture tax (years, fractional), or null within 40 years. */
-export function amlBreakeven({ acct, savings, recapture, rate = AML.rate, dro = AML.dro }) {
-  const f = { acct, savings: Math.max(0, savings || 0), recapture, rate, dro };
-  if (!(recapture > 0.5) || leapAhead(f, 0) >= 0) return 0;
-  for (let t = 0; t < 40; t += 0.01) if (leapAhead(f, t + 0.01) >= 0) return t + 0.01;
-  return null;
+/** Years until the invested tax savings alone repay the recapture tax (0 = already, null = not within 40 years). */
+export function recaptureRepaid({ savings, recapture, rate = AML.rate }) {
+  if (!(recapture > 0.5) || savings >= recapture) return 0;
+  if (!(savings > 0.5) || !(rate > 0)) return null;
+  const t = Math.log(recapture / savings) / Math.log(1 + rate);
+  return t <= 40 ? t : null;
 }
 
 const yrsText = (be) => (be < 10 ? be.toFixed(1).replace(/\.0$/, '') : String(Math.round(be)));
@@ -1324,50 +1322,45 @@ function unwindHTML({ acct, savings, recapture, contribution }) {
   const pos = (v) => ((v - lo) / span) * 100;
   const bar = (from, to, cls) => `<i class="${cls}" style="left:${pos(Math.min(from, to)).toFixed(2)}%;width:${Math.max(0.4, Math.abs(to - from) / span * 100).toFixed(2)}%"></i>`;
   const row = (label, from, to, v, cls, strong) => `<div class="tx-wf-row${strong ? ' tx-wf-total' : ''}"><span>${esc(label)}</span><div class="tx-wf-track">${bar(from, to, cls)}</div><b class="${v < 0 ? 'down' : strong ? 'up' : ''}">${v < 0 ? '−' : strong ? '' : '+'}${money(Math.abs(v)).replace('−', '')}</b></div>`;
-  const later = [1, 3, 5, 10].map((t) => { const v = leapAhead(f, t); return `<div><span>${t} yr${t > 1 ? 's' : ''}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '−' : ''}${money(Math.abs(v)).replace('−', '')}</b></div>`; }).join('');
   return `<div class="tx-unwind"><h4>If you unwind after 1 year</h4>
     <div class="tx-wf" role="img" aria-label="After unwinding at 1 year: ${net < 0 ? 'behind by' : 'ahead by'} ${money(Math.abs(net))}">
       ${bars.map((x) => row(x.label, x.from, x.to, x.v, x.v < 0 ? 'wf-neg' : 'wf-pos')).join('')}
       ${row(net < 0 ? 'Behind after unwinding' : 'Ahead after unwinding', 0, net, net, net < 0 ? 'wf-neg' : 'wf-net', true)}
-    </div>
-    <div class="tx-unwind-later"><span class="tx-unwind-k">Net if unwound after</span>${later}</div>
-    <p class="tx-gnote">Recapture: the ${money(recapture)} is tax on the K-1 losses coming back as long-term capital gain (20% + 3.8% NIIT + state) at this year's income.</p></div>`;
+    </div></div>`;
 }
 
 function amlGrowth({ acct, savings, recapture, contribution }) {
   const { rate, dro } = AML;
   savings = Math.max(0, savings || 0);
-  const be = amlBreakeven({ acct, savings, recapture });
-  const years = be !== null && be > 17 ? Math.min(40, Math.ceil(be) + 3) : 20;
+  const be = recaptureRepaid({ savings, recapture });
+  // Just past the point the recapture is repaid (5 years at least).
+  const years = be === null ? 20 : Math.max(5, Math.ceil(be) + 2);
   const yrs = Array.from({ length: years + 1 }, (_, t) => t);
   const accVals = yrs.map((t) => acct * Math.pow(1 + rate - dro, t));
   const savVals = yrs.map((t) => savings * Math.pow(1 + rate, t));
-  const totVals = yrs.map((t) => accVals[t] + savVals[t]);
   const series = [
-    { label: 'Asset Management LLC account', cls: 'ic-a', vals: accVals },
-    ...(savings > 0.5 ? [{ label: 'Tax savings', cls: 'ic-b', vals: savVals }, { label: 'Together', cls: 'ic-c', vals: totVals, kind: 'total' }] : []),
-    ...(recapture > 0.5 ? [{ label: 'Recapture tax if unwound', vals: yrs.map(() => recapture), kind: 'ref' }] : []),
+    ...(savings > 0.5 ? [{ label: 'Tax savings invested', cls: 'ic-b', vals: savVals, kind: 'total' }] : []),
+    ...(recapture > 0.5 ? [{ label: 'Recapture tax', vals: yrs.map(() => recapture), kind: 'ref' }] : []),
+    { label: 'Asset Management LLC account (bonus)', cls: 'ic-a', vals: accVals },
   ];
-  const beText = be === null ? '' : be === 0 ? 'Ahead from day one' : `Breakeven · ${yrsText(be)} yrs`;
-  const marker = be !== null && be > 0 ? { t: be, v: recapture, label: beText } : null;
+  const marker = be ? { t: be, v: recapture, label: `Recapture repaid · ${yrsText(be)} yrs` } : null;
   const opt = (list, cur) => list.map((x) => `<option value="${x}"${Math.abs(x - cur) < 1e-9 ? ' selected' : ''}>${Math.round(x * 100)}%</option>`).join('');
   const ctrl = `<div class="tx-aml-ctrl"><label>Return <select data-tx-aml="rate" aria-label="Annual return">${opt(AML.rates, rate)}</select></label>
-    <label>DRO servicing <select data-tx-aml="dro" aria-label="Taken off the account each year to service the DRO">${opt(AML.dros, dro)}</select><span>a year off the account</span></label></div>`;
-  const ms = [...new Set([Math.round(years / 2), years])];
-  const row = (label, cls, vals, bold) => `<tr${bold ? ' class="sub"' : ''}><th scope="row">${cls ? `<i class="ic-key ${cls}"></i>` : ''}${esc(label)}</th><td><b>${money(vals[0])}</b></td>${ms.map((t) => `<td><b>${money(vals[t])}</b></td>`).join('')}</tr>`;
-  const table = `<div class="tx-table-wrap tx-gtable"><table class="tx-compare tx-growth tx-itable"><thead><tr><th></th><th>Today</th>${ms.map((t) => `<th>${t} yrs</th>`).join('')}</tr></thead><tbody>
-    ${row('Asset Management LLC account', 'ic-a', accVals)}
-    ${savings > 0.5 ? row('Tax savings', 'ic-b', savVals) + row('Together', 'ic-c', totVals, true) : ''}
-    ${recapture > 0.5 ? `<tr><th scope="row"><i class="ic-key lc-key-ref"></i>Recapture tax if unwound</th><td>${money(recapture)}</td>${ms.map(() => '<td></td>').join('')}</tr>` : ''}
+    <label>DRO servicing <select data-tx-aml="dro" aria-label="Taken off the account each year to service the DRO">${opt(AML.dros, dro)}</select></label></div>`;
+  const at = be ? Math.ceil(be) : years;
+  const row = (label, cls, a, b) => `<tr><th scope="row"><i class="ic-key ${cls}"></i>${esc(label)}</th><td>${money(a)}</td><td><b>${money(b)}</b></td></tr>`;
+  const table = `<div class="tx-table-wrap tx-gtable"><table class="tx-compare tx-growth tx-itable"><thead><tr><th></th><th>Today</th><th>${at} yrs</th></tr></thead><tbody>
+    ${savings > 0.5 ? row('Tax savings invested', 'ic-b', savVals[0], savVals[at]) : ''}
+    ${recapture > 0.5 ? row('Recapture tax', 'lc-key-ref', recapture, recapture) : ''}
+    ${row('Asset Management LLC account (bonus)', 'ic-a', accVals[0], accVals[at])}
   </tbody></table></div>`;
   const legend = `<div class="gc-legend">${series.map((x) => `<span><i class="ic-key ${x.kind === 'ref' ? 'lc-key-ref' : x.cls}"></i>${esc(x.label)}</span>`).join('')}</div>`;
   const beNote = recapture > 0.5 ? `<p class="tx-breakeven">${be === null
-    ? `At ${pctOf(rate)} with ${pctOf(dro)} a year for the DRO, the account and invested tax savings don't cover the ${money(recapture)} recapture tax within 40 years.`
-    : be === 0 ? `<b>Ahead from day one:</b> the account plus the tax savings already cover the ${money(recapture)} recapture tax, so the client is ahead even after unwinding.`
-    : `<b>Breakeven in about ${yrsText(be)} years:</b> the account plus the invested tax savings pass the ${money(recapture)} recapture tax. From then on the client could unwind and still be ahead.`}</p>` : '';
-  const sub = `${money(acct)} kept in the Asset Management LLC account (growing at ${pctOf(rate)} less ${pctOf(dro)} a year to service the DRO), plus the ${money(savings)} of tax savings (after the contribution and fees) invested at ${pctOf(rate)}.`;
+    ? `The tax savings don't repay the ${money(recapture)} recapture tax within 40 years at ${pctOf(rate)}.`
+    : be === 0 ? `<b>Recapture covered today</b> by the ${money(savings)} of tax savings, plus the ${money(acct)} account.`
+    : `<b>Recapture repaid in about ${yrsText(be)} years</b> by the invested tax savings, with the ${money(accVals[at])} account on top.`}</p>` : '';
   const unwind = recapture > 0.5 ? unwindHTML({ acct, savings, recapture, contribution }) : '';
-  return { sub, html: `${ctrl}<div class="tx-gwrap"><div class="tx-gchart">${lineChart({ years, series, marker })}${legend}</div>${table}</div>${beNote}${unwind}` };
+  return { sub: '', html: `${ctrl}<div class="tx-gwrap"><div class="tx-gchart">${lineChart({ years, series, marker })}${legend}</div>${table}</div>${beNote}${unwind}` };
 }
 const growthCard = (title, sub, html) => `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(title)}</h3></div><p class="tx-gsub">${esc(sub)}</p>${html}
   <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p></section>`;
