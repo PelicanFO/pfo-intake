@@ -13,7 +13,8 @@
 import { runComparison } from '../engine/compare.js';
 import { SCENARIOS } from '../engine/scenarios.js';
 import { defaultModel } from '../engine/model.js';
-import { ALL_OFF } from '../engine/rules.js';
+import { ALL_OFF, normalizeRules } from '../engine/rules.js';
+import { computeReturn } from '../engine/taxReturn.js';
 import { STRATEGIES, defaultParams } from '../strategies/index.js';
 import { stateCodeFor } from '../tables/states/index.js';
 import { money, pct } from '../engine/ledger.js';
@@ -69,6 +70,7 @@ export const FOUNDATION = {
   roth: { label: 'Roth Conversion', short: 'Roth conversion', blurb: 'Moves pre-tax retirement money to a Roth: tax is paid now instead of on withdrawals later, and future growth is tax-free.' },
   augusta: { label: 'Augusta Rule', short: 'Augusta Rule', blurb: 'The business rents the client\'s home for business meetings, up to 14 days a year. The business deducts the rent, and the client receives it tax-free (IRC §280A(g)).' },
   payroll: { label: 'Family Payroll', short: 'Family payroll', blurb: 'The business pays the client\'s children reasonable wages for real work, up to the standard deduction, so the children owe no federal income tax and the business deducts the wages.' },
+  ded: { label: 'Additional Deductions', short: 'Additional deductions', blurb: 'Deductions the advisor adds for this year, such as cost segregation or equipment purchases.' },
   dbRoth: { label: 'DB Plan + Roth Conversion', short: 'DB plan + Roth conversion', blurb: 'Both in the same year: the DB contribution lowers this year\'s income, so the Roth conversion is taxed at lower rates.' },
 };
 const hasDb = (b) => b === 'db' || b === 'dbRoth';
@@ -394,9 +396,9 @@ export function taxSummary(fd = {}) {
 const labelOfScenario = (id) => (SCENARIOS.find((s) => s.id === id) || {}).label || id;
 const ADV_LABEL = { film: 'Film', solar: 'Solar', charitable: 'Charitable', leap: 'LEAP' };
 
-export const EMPTY_SEL = Object.freeze({ db: false, augusta: false, payroll: false, roth: false, adv: [] });
-const sameSel = (x, y) => ['db', 'augusta', 'payroll', 'roth'].every((k) => !!x[k] === !!y[k]) && [...x.adv].sort().join() === [...y.adv].sort().join();
-const isEmptySel = (x) => !x.db && !x.augusta && !x.payroll && !x.roth && !x.adv.length;
+export const EMPTY_SEL = Object.freeze({ ded: false, db: false, augusta: false, payroll: false, roth: false, adv: [] });
+const sameSel = (x, y) => ['ded', 'db', 'augusta', 'payroll', 'roth'].every((k) => !!x[k] === !!y[k]) && [...x.adv].sort().join() === [...y.adv].sort().join();
+const isEmptySel = (x) => !x.ded && !x.db && !x.augusta && !x.payroll && !x.roth && !x.adv.length;
 
 /**
  * The tax plan for the page: the strategies the advisor selected (saved.plan; nothing until they pick
@@ -451,6 +453,10 @@ function choicesFor(P) {
   const shareOf = (k) => { const x = shares.find((y) => y.key === k); return x ? x.amount : 0; };
   const gain = (next) => computePlan(ctx, normalize(ctx, next)).savings - plan.savings;
   const out = [];
+  if (ctx.avail.ded) {
+    const on = sel.ded;
+    out.push({ key: 'ded', group: 'Deductions', label: FOUNDATION.ded.label, on, amount: on ? shareOf('ded') : gain({ ...sel, ded: true }), ok: true, inRec: rec.ded });
+  }
   for (const k of ['db', 'augusta', 'payroll']) {
     if (!ctx.avail[k]) continue;
     const on = sel[k];
@@ -478,6 +484,7 @@ const partLabel = (key, sel) => (key === 'adv' ? labelOfScenario(scenarioFor(sel
 /** Names of the strategies in a plan selection. */
 export function planNames(sel) {
   const out = [];
+  if (sel.ded) out.push(FOUNDATION.ded.label);
   if (sel.db) out.push(FOUNDATION.db.label);
   if (sel.augusta) out.push(FOUNDATION.augusta.label);
   if (sel.payroll) out.push(FOUNDATION.payroll.label);
@@ -498,6 +505,7 @@ const ONE_LINE = {
   augusta: 'Your business rents your home for meetings. Deductible to it, tax-free to you.',
   payroll: 'Your business pays your children for real work. Their wages are largely untaxed.',
   roth: 'Converts pre-tax IRA money to a Roth while the other deductions keep the rate low.',
+  ded: 'Deductions for this year, such as cost segregation, taken against your income.',
   film: 'Film production investment with a deduction several times the amount invested.',
   solar: 'Solar project equity: an energy tax credit plus depreciation.',
   charitable: 'A gift of property, deducted at its appraised value.',
@@ -517,6 +525,7 @@ function walkSteps(key, P, fd) {
   const { a, aug, pay, plan, sel } = P;
   const m = a.model;
   const retAge = num(fd.retirement_target_age);
+  if (key === 'ded') return P.ctx.ded.map((d) => `${d.label || (d.kind === 'business' ? 'Business deduction' : 'Personal deduction')}: ${money(d.amount)} deducted from ${d.kind === 'business' ? (aug.entity.kind === 'ccorp' ? 'the corporation\'s income' : 'business income') : 'your ordinary income'}.`);
   if (key === 'db') return [
     `Your business contributes ${money(m.db.contribution)} to your defined benefit plan.`,
     'The contribution is deducted from business income.',
@@ -554,6 +563,7 @@ function walkSteps(key, P, fd) {
 /** Where a plan part's detail page is. */
 function detailAttrs(key, P) {
   const { sel, plan } = P;
+  if (key === 'ded') return '';
   if (key === 'db') return 'data-tx-detail="none" data-tx-detail-block="db"';
   if (key === 'augusta' || key === 'payroll') return `data-tx-detail="${key}" data-tx-detail-block="base"`;
   return `data-tx-detail="${scenarioFor(sel.adv)}" data-tx-detail-block="${plan.block}"`;
@@ -598,6 +608,15 @@ export function renderTaxStep(root, fd, handlers) {
   let t;
   optionsEl.addEventListener('input', (e) => {
     const el = e.target;
+    if (el.dataset.txDed) {
+      const [i, field] = el.dataset.txDed.split(':');
+      const list = saved.deductions = (saved.deductions || []).map((d) => ({ ...d }));
+      if (!list[+i]) return;
+      list[+i][field] = field === 'amount' ? num(el.value) : el.value;
+      clearTimeout(t);
+      t = setTimeout(() => { draw(); handlers.save({ ...saved }); }, 250);
+      return;
+    }
     const key = el.dataset.tax;
     if (!key) return;
     if (key.startsWith('param:')) {
@@ -662,6 +681,22 @@ export function renderTaxStep(root, fd, handlers) {
       if (input) input.value = commas(+amount);
       draw(); handlers.save({ ...saved });
       return;
+    }
+    if (e.target.closest('[data-tx-ded-add]')) {
+      saved.deductions = [...(saved.deductions || []), { kind: 'business', label: '', amount: 0 }];
+      // Entered deductions go in the plan (a client with no saved plan and no selection yet starts one).
+      if (saved.plan) saved.plan = { ...saved.plan, ded: true };
+      else if (saved.selectMode) saved.plan = { ...EMPTY_SEL, adv: [], ded: true };
+      drawOptions(); draw(); handlers.save({ ...saved });
+      const rows = optionsEl.querySelectorAll('[data-tx-ded$=":label"]');
+      if (rows.length) rows[rows.length - 1].focus();
+      return;
+    }
+    const del = e.target.closest('[data-tx-ded-del]');
+    if (del) {
+      saved.deductions = (saved.deductions || []).filter((_, i) => i !== +del.dataset.txDedDel);
+      if (!saved.deductions.length) delete saved.deductions;
+      drawOptions(); draw(); handlers.save({ ...saved }); return;
     }
     if (e.target.closest('[data-tx-autodb]')) { delete saved.dbContribution; drawOptions(); draw(); handlers.save({ ...saved }); return; }
     const d = e.target.closest('[data-tx-detail]');
@@ -776,15 +811,15 @@ function resultsHTML(P, tips, fd) {
     </section>`;
   const summary = section('Your strategies', `<div class="tx-sumlist">
       <div class="tx-sum tx-sum-head"><span>Strategy</span><span></span><span class="tx-sum-h">Savings</span><span></span></div>
-      ${shares.map((s) => `<div class="tx-sum" role="button" tabindex="0" ${detailAttrs(s.key, P)}>
+      ${shares.map((s) => `<div class="tx-sum${s.key === 'ded' ? ' tx-static' : ''}" ${s.key === 'ded' ? '' : `role="button" tabindex="0" ${detailAttrs(s.key, P)}`}>
         <b class="tx-sum-name">${esc(s.label)}</b>
         <span class="tx-sum-desc">${esc(ONE_LINE[s.key === 'adv' ? scenarioFor(sel.adv) : s.key])}</span>
-        <b class="tx-sum-amt">${money(s.amount)}</b><span class="tx-sum-go" aria-hidden="true">›</span></div>`).join('')}
+        <b class="tx-sum-amt">${money(s.amount)}</b><span class="tx-sum-go" aria-hidden="true">${s.key === 'ded' ? '' : '›'}</span></div>`).join('')}
       <div class="tx-sum tx-sum-total"><b class="tx-sum-name">Total savings</b><span class="tx-sum-desc">${roth ? 'Compared with not converting, including tax on future IRA withdrawals.' : ''}</span><b class="tx-sum-amt">${money(plan.savings)}</b><span></span></div>
     </div>`, { cls: 'tx-summary', right: '<span class="tx-card-sub">Click a strategy for the full calculation</span>' });
 
   // ---- Walkthrough: how each one works, with the client's numbers.
-  const walk = section('How it works', `<div class="tx-walk">${shares.map((s) => `<div class="tx-step" role="button" tabindex="0" ${detailAttrs(s.key, P)}>
+  const walk = section('How it works', `<div class="tx-walk">${shares.map((s) => `<div class="tx-step${s.key === 'ded' ? ' tx-static' : ''}" ${s.key === 'ded' ? '' : `role="button" tabindex="0" ${detailAttrs(s.key, P)}`}>
       <div class="tx-step-head"><b>${esc(s.label)}</b><span>${money(s.amount)}</span></div>
       <ol>${walkSteps(s.key, P, fd).map((x) => `<li>${esc(x)}</li>`).join('')}</ol></div>`).join('')}</div>`);
 
@@ -842,6 +877,7 @@ function builderHTML(P, tips) {
       <input type="checkbox" data-tx-plan="${c.key}"${c.on ? ' checked' : ''}${off ? ' disabled' : ''}>
       <span class="tx-check-box" aria-hidden="true"></span><span class="tx-check-label">${esc(c.label)}${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</span>${fig(c)}</label>`;
   };
+  const ded = P.choices.filter((c) => c.group === 'Deductions').map(check);
   const found = P.choices.filter((c) => c.group === 'Foundational').map(check);
   const adv = P.choices.filter((c) => c.group === 'Advanced').map(check);
   const rothTip = !ctx.avail.roth && tips.find((t) => t.kind === 'roth');
@@ -854,6 +890,7 @@ function builderHTML(P, tips) {
     <div class="tx-builder-head"><h3>Select strategies</h3>${badge}</div>
     ${total}
     <p class="tx-builder-sub">Selected: share of the plan's savings. Not selected: what it would add.</p>
+    ${ded.length ? `<div class="tx-bgroup">Deductions</div>${ded.join('')}` : ''}
     ${found.length ? `<div class="tx-bgroup">Foundational</div>${found.join('')}` : ''}
     ${rothTip ? `<button type="button" class="tx-addline" data-tx-apply="roth:${Math.round(rothTip.amount)}">+ Add a ${short(rothTip.amount)} Roth conversion</button>` : ''}
     ${adv.length ? `<div class="tx-bgroup">Advanced${pairShare != null ? ` <span>${esc(labelOfScenario(scenarioFor(sel.adv)))} <b>${short(pairShare)}</b></span>` : ''}</div>${adv.join('')}` : ''}
@@ -900,10 +937,10 @@ function growthViews(P, fd, share = (k) => { const s = (P.shares || []).find((x)
     view('db', 'Owner\'s benefit plan', `${money(c)} contributed once this year by your business (a deductible expense), plus the ${money(s)} it saves in tax, both invested${retAge ? ` to age ${retAge}` : ''}.`, toRet,
       [{ label: 'Plan contribution', amount: c }, { label: 'Tax savings', amount: s }], ageLabel);
   }
-  const acct = plan.res && plan.res.rows.investmentAccount > 0.5 ? plan.res.rows.investmentAccount : 0;
-  if (acct && sel.adv.includes('leap')) {
-    const g = amlGrowth({ acct, savings: share('adv'), contribution: plan.res.rows.contribution });
-    custom('leap', 'Asset Management LLC account', g.sub, g.html);
+  const lf = sel.adv.includes('leap') && plan.res && plan.res.situation ? leapFacts(plan.res, a) : null;
+  if (lf && lf.acct > 0.5) {
+    const g = amlGrowth({ ...lf, savings: share('adv') });
+    custom('leap', 'LEAP', g.sub, g.html);
   }
   if (sel.roth) {
     view('roth', 'Roth conversion', `${money(model.roth.conversion)} converted once this year and growing tax-free, plus the ${money(share('roth'))} of tax savings.`, 20,
@@ -959,6 +996,7 @@ function optionsHTML(built, saved, fd) {
     : m.profile.businessIncome > 0 ? `Foundational strategy. <button type="button" class="tx-link" data-tx-autodb>Use the suggested amount</button>` : 'Funded from business income; none in the intake.';
   html += field('dbContribution', 'DB plan contribution', commas(m.db.contribution), dbHint);
   html += field('rothConversion', 'Roth conversion', commas(m.roth.conversion), taxDeferred ? `Pre-tax retirement balance in the intake: ${money(taxDeferred)}.` : 'Foundational strategy; can be combined with an advanced strategy.');
+  html += deductionsEditorHTML(saved);
   const aug = augustaRule(fd, m, saved);
   const pay = familyPayroll(fd, m, saved);
   const plain = (key, label, value, placeholder, hint, kind = '') => `<label class="tx-field tx-field-sm"><span>${esc(label)}</span>
@@ -995,6 +1033,19 @@ function optionsHTML(built, saved, fd) {
   }
   html += `<button type="button" class="tx-link" data-tx-reset>Reset assumptions</button></details></section>`;
   return html;
+}
+
+/** Additional deductions (e.g. cost segregation): one row per deduction, business or personal. */
+function deductionsEditorHTML(saved) {
+  const list = Array.isArray(saved.deductions) ? saved.deductions : [];
+  const rows = list.map((d, i) => `<div class="tx-ded-row">
+      <span class="tx-input"><select data-tx-ded="${i}:kind" aria-label="Deduction type">
+        <option value="business"${d.kind !== 'personal' ? ' selected' : ''}>Business</option><option value="personal"${d.kind === 'personal' ? ' selected' : ''}>Personal</option></select></span>
+      <span class="tx-input"><input type="text" data-tx-ded="${i}:label" value="${esc(d.label || '')}" placeholder="e.g. Cost segregation" aria-label="Description"></span>
+      <span class="tx-input tx-money"><input type="text" inputmode="decimal" data-money data-tx-ded="${i}:amount" value="${esc(commas(num(d.amount)))}" placeholder="0" aria-label="Amount"></span>
+      <button type="button" class="tx-ded-del" data-tx-ded-del="${i}" aria-label="Remove deduction">×</button></div>`).join('');
+  return `<div class="tx-ded"><div class="tx-ded-head"><span>Additional deductions</span><button type="button" class="tx-link" data-tx-ded-add>+ Add deduction</button></div>
+    ${rows}<small>${list.length ? 'Business: lowers business income. Personal: lowers ordinary income (e.g. cost seg on a rental). Shown in the plan as Additional Deductions.' : 'This year\'s deductions such as cost segregation or equipment, added to the plan.'}</small></div>`;
 }
 
 // ------------------------------------------------------------------ Detailed Results page
@@ -1093,7 +1144,7 @@ export function renderTaxDetail(root, fd, { scenario = null, block = 'base' } = 
       <tbody>${rowsHTML}</tbody></table></div>
       <div class="tx-savings-line"><span>Estimated savings</span><b class="${res.savings < 0 ? 'down' : 'up'}">${money(res.savings)}</b></div>
     </section>
-    ${foundationOnly && hasDb(block) ? detailGrowthHTML('db', a, fd, { db: true }, res.savings) : growthHTML(res)}
+    ${foundationOnly && hasDb(block) ? detailGrowthHTML('db', a, fd, { db: true }, res.savings) : growthHTML(res, { a, title: res.rows.investmentAccount > 0.5 ? 'LEAP growth over time' : '' })}
     <section class="tx-card"><h3>How it's calculated</h3>
       ${sizingHTML ? `<h4>Sizing</h4>${sizingHTML}` : ''}
       ${costs ? `<h4>Contribution</h4><table class="tx-how">${costs}</table>` : ''}
@@ -1194,37 +1245,99 @@ function growthHTML(res, opts = {}) {
   const account = Math.max(0, res.rows.investmentAccount || 0) > 0.5 ? res.rows.investmentAccount : 0;
   const savings = Math.max(0, res.savings) > 0.5 ? res.savings : 0;
   if (!account && !savings) return '';
-  if (account) {
-    const g = amlGrowth({ acct: account, savings, contribution: res.rows.contribution });
+  if (account && opts.a && res.situation) {
+    const g = amlGrowth({ ...leapFacts(res, opts.a), savings });
     return `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(opts.title || 'Growth over time')}</h3></div><p class="tx-gsub">${esc(g.sub)}</p>${g.html}
       <p class="tx-gnote">Illustration at a steady return. Actual returns will vary.</p></section>`;
   }
   return growthCard(opts.title || 'Growth over time', `This year's ${money(savings)} of tax savings, invested once.`, investBlock({ years: 20, groups: [{ label: 'Tax savings', amount: savings }] }));
 }
 
-// ------------------------------------------------------------------ LEAP: Asset Management LLC account growth
-// The account grows at the chosen return less the share taken each year to service the DRO (default
-// 4%, adjustable up to 10%); the tax savings grow at the chosen return. Breakeven: the first point
-// where the account plus the invested tax savings are worth more than the contribution, after which
-// the client could unwind the position without being behind.
+// ------------------------------------------------------------------ LEAP: growth, recapture and breakeven
+// The Asset Management LLC account grows at the chosen return less the share taken each year to service
+// the DRO (default 4%, adjustable up to 10%); the tax savings (already net of the contribution and fees)
+// grow at the chosen return. If the client unwinds, every LEAP K-1 loss taken is recaptured as
+// long-term capital gain (20% + 3.8% NIIT + state, at this year's income). Breakeven: the first point
+// where the account plus the invested tax savings cover that recapture tax, so the client is ahead
+// even after unwinding.
 export const AML = { rate: 0.07, dro: 0.04, rates: [0.06, 0.07, 0.08, 0.09, 0.1], dros: [0, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1] };
 function setAml(el) {
   const v = +el.value;
   if (!Number.isFinite(v)) return;
   if (el.dataset.txAml === 'rate') AML.rate = v; else if (el.dataset.txAml === 'dro') AML.dro = v;
 }
-/** When the account plus invested tax savings first reach the contribution (years, fractional), or null within 40 years. */
-export function amlBreakeven({ acct, savings, contribution, rate = AML.rate, dro = AML.dro }) {
-  const tot = (t) => acct * Math.pow(1 + rate - dro, t) + savings * Math.pow(1 + rate, t);
-  if (!(contribution > 0.5)) return null;
-  if (tot(0) >= contribution) return 0;
-  for (let t = 0; t < 40; t += 0.01) if (tot(t + 0.01) >= contribution) return t + 0.01;
+
+/** Extra tax if `gain` of long-term capital gain is added to the client's no-planning return. */
+export function recaptureTax(a, gain) {
+  if (!(gain > 0.5)) return 0;
+  const none = a.comparison.blocks.base.scenarios.none;
+  const rules = normalizeRules(a.model.rules);
+  const s = JSON.parse(JSON.stringify(none.situation));
+  const before = computeReturn(JSON.parse(JSON.stringify(none.situation)), rules, { ledger: false }).totals.total;
+  s.income.ltcg += gain;
+  return Math.max(0, computeReturn(s, rules, { ledger: false }).totals.total - before);
+}
+
+/** LEAP's own figures in a result: K-1 losses, contribution + fees, account kept, and the recapture tax. */
+export function leapFacts(res, a) {
+  const add = (xs) => xs.reduce((t, x) => t + (+x.amount || 0), 0);
+  const sit = res.situation;
+  const k1 = add(sit.businessLosses.filter((x) => x.id === 'leap')) + add(sit.capitalLosses.filter((x) => x.id === 'leap-cg'));
+  const leapCosts = res.costs.filter((c) => c.strategy === 'leap');
+  return {
+    k1,
+    contribution: add(leapCosts.filter((c) => c.kind === 'contribution')),
+    acct: add(leapCosts.filter((c) => c.kind === 'asset')),
+    recapture: recaptureTax(a, k1),
+  };
+}
+
+/** Where the client stands after unwinding at year t: invested savings + account − recapture tax. */
+export const leapAhead = ({ acct, savings, recapture, rate = AML.rate, dro = AML.dro }, t) => savings * Math.pow(1 + rate, t) + acct * Math.pow(1 + rate - dro, t) - recapture;
+
+/** When the account plus invested tax savings first cover the recapture tax (years, fractional), or null within 40 years. */
+export function amlBreakeven({ acct, savings, recapture, rate = AML.rate, dro = AML.dro }) {
+  const f = { acct, savings: Math.max(0, savings || 0), recapture, rate, dro };
+  if (!(recapture > 0.5) || leapAhead(f, 0) >= 0) return 0;
+  for (let t = 0; t < 40; t += 0.01) if (leapAhead(f, t + 0.01) >= 0) return t + 0.01;
   return null;
 }
-function amlGrowth({ acct, savings, contribution }) {
+
+const yrsText = (be) => (be < 10 ? be.toFixed(1).replace(/\.0$/, '') : String(Math.round(be)));
+
+/** "If you unwind after 1 year": tax saved − contribution + account + growth − recapture = where you stand. */
+function unwindHTML({ acct, savings, recapture, contribution }) {
+  const { rate, dro } = AML;
+  const f = { acct, savings, recapture, rate, dro };
+  const steps = [
+    { label: 'Tax saved this year', v: savings + contribution },
+    { label: 'Contribution & fees', v: -contribution },
+    { label: 'Asset Management LLC account after 1 year', v: acct * (1 + rate - dro) },
+    { label: `Tax savings invested for 1 year (${pctOf(rate)})`, v: savings * rate },
+    { label: 'Recapture tax on unwinding', v: -recapture },
+  ].filter((x) => Math.abs(x.v) > 0.5);
+  const net = leapAhead(f, 1);
+  let cum = 0;
+  const pts = [0];
+  const bars = steps.map((x) => { const from = cum; cum += x.v; pts.push(cum); return { ...x, from, to: cum }; });
+  const lo = Math.min(0, ...pts), hi = Math.max(1, ...pts), span = hi - lo;
+  const pos = (v) => ((v - lo) / span) * 100;
+  const bar = (from, to, cls) => `<i class="${cls}" style="left:${pos(Math.min(from, to)).toFixed(2)}%;width:${Math.max(0.4, Math.abs(to - from) / span * 100).toFixed(2)}%"></i>`;
+  const row = (label, from, to, v, cls, strong) => `<div class="tx-wf-row${strong ? ' tx-wf-total' : ''}"><span>${esc(label)}</span><div class="tx-wf-track">${bar(from, to, cls)}</div><b class="${v < 0 ? 'down' : strong ? 'up' : ''}">${v < 0 ? '−' : strong ? '' : '+'}${money(Math.abs(v)).replace('−', '')}</b></div>`;
+  const later = [1, 3, 5, 10].map((t) => { const v = leapAhead(f, t); return `<div><span>${t} yr${t > 1 ? 's' : ''}</span><b class="${v < 0 ? 'down' : 'up'}">${v < 0 ? '−' : ''}${money(Math.abs(v)).replace('−', '')}</b></div>`; }).join('');
+  return `<div class="tx-unwind"><h4>If you unwind after 1 year</h4>
+    <div class="tx-wf" role="img" aria-label="After unwinding at 1 year: ${net < 0 ? 'behind by' : 'ahead by'} ${money(Math.abs(net))}">
+      ${bars.map((x) => row(x.label, x.from, x.to, x.v, x.v < 0 ? 'wf-neg' : 'wf-pos')).join('')}
+      ${row(net < 0 ? 'Behind after unwinding' : 'Ahead after unwinding', 0, net, net, net < 0 ? 'wf-neg' : 'wf-net', true)}
+    </div>
+    <div class="tx-unwind-later"><span class="tx-unwind-k">Net if unwound after</span>${later}</div>
+    <p class="tx-gnote">Recapture: the ${money(recapture)} is tax on the K-1 losses coming back as long-term capital gain (20% + 3.8% NIIT + state) at this year's income.</p></div>`;
+}
+
+function amlGrowth({ acct, savings, recapture, contribution }) {
   const { rate, dro } = AML;
   savings = Math.max(0, savings || 0);
-  const be = amlBreakeven({ acct, savings, contribution });
+  const be = amlBreakeven({ acct, savings, recapture });
   const years = be !== null && be > 17 ? Math.min(40, Math.ceil(be) + 3) : 20;
   const yrs = Array.from({ length: years + 1 }, (_, t) => t);
   const accVals = yrs.map((t) => acct * Math.pow(1 + rate - dro, t));
@@ -1233,10 +1346,10 @@ function amlGrowth({ acct, savings, contribution }) {
   const series = [
     { label: 'Asset Management LLC account', cls: 'ic-a', vals: accVals },
     ...(savings > 0.5 ? [{ label: 'Tax savings', cls: 'ic-b', vals: savVals }, { label: 'Together', cls: 'ic-c', vals: totVals, kind: 'total' }] : []),
-    ...(contribution > 0.5 ? [{ label: 'Contribution', vals: yrs.map(() => contribution), kind: 'ref' }] : []),
+    ...(recapture > 0.5 ? [{ label: 'Recapture tax if unwound', vals: yrs.map(() => recapture), kind: 'ref' }] : []),
   ];
-  const beText = be === null ? '' : be === 0 ? 'Breakeven today' : `Breakeven · ${be < 10 ? be.toFixed(1).replace(/\.0$/, '') : Math.round(be)} yrs`;
-  const marker = be !== null && be > 0 ? { t: be, v: contribution, label: beText } : null;
+  const beText = be === null ? '' : be === 0 ? 'Ahead from day one' : `Breakeven · ${yrsText(be)} yrs`;
+  const marker = be !== null && be > 0 ? { t: be, v: recapture, label: beText } : null;
   const opt = (list, cur) => list.map((x) => `<option value="${x}"${Math.abs(x - cur) < 1e-9 ? ' selected' : ''}>${Math.round(x * 100)}%</option>`).join('');
   const ctrl = `<div class="tx-aml-ctrl"><label>Return <select data-tx-aml="rate" aria-label="Annual return">${opt(AML.rates, rate)}</select></label>
     <label>DRO servicing <select data-tx-aml="dro" aria-label="Taken off the account each year to service the DRO">${opt(AML.dros, dro)}</select><span>a year off the account</span></label></div>`;
@@ -1245,15 +1358,16 @@ function amlGrowth({ acct, savings, contribution }) {
   const table = `<div class="tx-table-wrap tx-gtable"><table class="tx-compare tx-growth tx-itable"><thead><tr><th></th><th>Today</th>${ms.map((t) => `<th>${t} yrs</th>`).join('')}</tr></thead><tbody>
     ${row('Asset Management LLC account', 'ic-a', accVals)}
     ${savings > 0.5 ? row('Tax savings', 'ic-b', savVals) + row('Together', 'ic-c', totVals, true) : ''}
-    ${contribution > 0.5 ? `<tr><th scope="row"><i class="ic-key lc-key-ref"></i>Contribution</th><td>${money(contribution)}</td>${ms.map(() => '<td></td>').join('')}</tr>` : ''}
+    ${recapture > 0.5 ? `<tr><th scope="row"><i class="ic-key lc-key-ref"></i>Recapture tax if unwound</th><td>${money(recapture)}</td>${ms.map(() => '<td></td>').join('')}</tr>` : ''}
   </tbody></table></div>`;
   const legend = `<div class="gc-legend">${series.map((x) => `<span><i class="ic-key ${x.kind === 'ref' ? 'lc-key-ref' : x.cls}"></i>${esc(x.label)}</span>`).join('')}</div>`;
-  const beNote = contribution > 0.5 ? `<p class="tx-breakeven">${be === null
-    ? `At ${pctOf(rate)} with ${pctOf(dro)} a year for the DRO, the account and invested tax savings don't reach the ${money(contribution)} contribution within 40 years.`
-    : be === 0 ? `The account and tax savings already cover the ${money(contribution)} contribution today.`
-    : `<b>Breakeven in about ${be < 10 ? be.toFixed(1).replace(/\.0$/, '') : Math.round(be)} years:</b> the account plus the invested tax savings pass the ${money(contribution)} contribution. From then on the client could unwind without being behind.`}</p>` : '';
-  const sub = `${money(acct)} kept in the Asset Management LLC account (growing at ${pctOf(rate)} less ${pctOf(dro)} a year to service the DRO), plus the ${money(savings)} of tax savings invested at ${pctOf(rate)}.`;
-  return { sub, html: `${ctrl}<div class="tx-gwrap"><div class="tx-gchart">${lineChart({ years, series, marker })}${legend}</div>${table}</div>${beNote}` };
+  const beNote = recapture > 0.5 ? `<p class="tx-breakeven">${be === null
+    ? `At ${pctOf(rate)} with ${pctOf(dro)} a year for the DRO, the account and invested tax savings don't cover the ${money(recapture)} recapture tax within 40 years.`
+    : be === 0 ? `<b>Ahead from day one:</b> the account plus the tax savings already cover the ${money(recapture)} recapture tax, so the client is ahead even after unwinding.`
+    : `<b>Breakeven in about ${yrsText(be)} years:</b> the account plus the invested tax savings pass the ${money(recapture)} recapture tax. From then on the client could unwind and still be ahead.`}</p>` : '';
+  const sub = `${money(acct)} kept in the Asset Management LLC account (growing at ${pctOf(rate)} less ${pctOf(dro)} a year to service the DRO), plus the ${money(savings)} of tax savings (after the contribution and fees) invested at ${pctOf(rate)}.`;
+  const unwind = recapture > 0.5 ? unwindHTML({ acct, savings, recapture, contribution }) : '';
+  return { sub, html: `${ctrl}<div class="tx-gwrap"><div class="tx-gchart">${lineChart({ years, series, marker })}${legend}</div>${table}</div>${beNote}${unwind}` };
 }
 const growthCard = (title, sub, html) => `<section class="tx-card tx-growth-card"><div class="tx-card-head"><h3>${esc(title)}</h3></div><p class="tx-gsub">${esc(sub)}</p>${html}
   <p class="tx-gnote">Illustration at a steady 6%, 7% (line) and 8% a year. Actual returns will vary.</p></section>`;

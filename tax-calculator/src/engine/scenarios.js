@@ -51,6 +51,20 @@ export function situationFor(model, blockId) {
     s.income.otherOrdinary += +p.otherIncome;
     s.otherOrdinaryItems.push({ label: 'Other income (rental, royalties, etc.)', amount: +p.otherIncome });
   }
+  // Other deductions the advisor adds to the plan (e.g. cost segregation, equipment). Business ones are
+  // ordinary business expenses: they lower business income, QBI and self-employment earnings. Personal
+  // ones (e.g. cost seg on a rental with real-estate-professional status) lower ordinary income.
+  for (const d of p.extraDeductions || []) {
+    const amt = +d.amount || 0;
+    if (!(amt > 0)) continue;
+    if (d.kind === 'business') {
+      s.income.business -= amt;
+      s.businessIncomeAdjustments.push({ label: `Less ${d.label || 'business deduction'}`, amount: amt, calc: 'additional business deduction', expense: true });
+    } else {
+      s.income.otherOrdinary -= amt;
+      s.otherOrdinaryItems.push({ label: `Less ${d.label || 'personal deduction'}`, amount: -amt, calc: 'additional deduction' });
+    }
+  }
   s.propertyTax = +p.propertyTax || 0;
   s.otherItemized = +p.otherItemized || 0;
   s.businessType = p.businessType || 'passthrough';

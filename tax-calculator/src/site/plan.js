@@ -7,6 +7,8 @@
 //   2. The DB plan contribution comes out of the (now lower) business income.
 //   3. The Roth conversion, if any, is added to income.
 //   4. The advanced strategy (or permitted pair) is sized against what's left.
+// Additional deductions the advisor enters (e.g. cost segregation) come out first, with step 1:
+// business ones from business income (the corporation's, for a C corp), personal ones from ordinary income.
 // Savings = the block's no-planning baseline (from the client's own numbers; with a Roth
 // conversion that includes tax on future IRA withdrawals) − the plan's total outlay
 // (tax + strategy contributions + fees + payroll taxes + the children's own tax).
@@ -17,6 +19,13 @@ import { cloneModel } from '../engine/model.js';
 
 const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, '')); return Number.isFinite(n) ? n : 0; };
 const CORPORATE_RATE = 0.21;
+
+/** The advisor's additional deductions (saved.deductions), cleaned: [{ kind, label, amount }]. */
+export function deductionsOf(saved = {}) {
+  return (Array.isArray(saved.deductions) ? saved.deductions : [])
+    .map((d) => ({ kind: d.kind === 'personal' ? 'personal' : 'business', label: String(d.label || '').trim(), amount: Math.max(0, num(d.amount)) }))
+    .filter((d) => d.amount > 0.5);
+}
 
 /** Advanced strategies that can be combined, keyed by their sorted ids → scenario id. */
 const ADV_SETS = { '': 'none', film: 'film', solar: 'solar', charitable: 'charitable', leap: 'leap', 'charitable+leap': 'leapCharitable', 'charitable+solar': 'solarCharitable' };
@@ -45,7 +54,9 @@ export function planContext(fd, a, aug, pay, appliesSet) {
   const m = a.model;
   const entity = aug.entity;
   const profit = entity.kind === 'ccorp' ? Math.max(num(fd.biz_net_profit), +m.profile.businessIncome || 0) : +m.profile.businessIncome || 0;
+  const ded = deductionsOf(fd.__tax || {});
   const avail = {
+    ded: ded.length > 0,
     db: m.db.contribution > 0,
     augusta: !!aug.applies,
     payroll: !!pay.applies,
@@ -53,7 +64,7 @@ export function planContext(fd, a, aug, pay, appliesSet) {
   };
   const advAvail = ADV_ORDER.filter((id) => appliesSet.has(id));
   const setOk = (adv) => { const sc = scenarioFor(adv); return sc !== null && (sc === 'none' || appliesSet.has(sc)); };
-  return { fd, a, aug, pay, entity, profit, avail, advAvail, setOk };
+  return { fd, a, aug, pay, entity, profit, avail, advAvail, setOk, ded };
 }
 
 /** Selection with anything unavailable or not permitted removed. */
@@ -61,6 +72,7 @@ export function normalize(ctx, sel = {}) {
   const adv = (Array.isArray(sel.adv) ? sel.adv : []).filter((id) => ctx.advAvail.includes(id));
   const advOk = ctx.setOk(adv) ? adv : [];
   return {
+    ded: !!sel.ded && ctx.avail.ded,
     db: !!sel.db && ctx.avail.db,
     augusta: !!sel.augusta && ctx.avail.augusta,
     payroll: !!sel.payroll && ctx.avail.payroll,
@@ -77,7 +89,10 @@ export function computePlan(ctx, sel) {
   const payDeduction = sel.payroll ? Math.min(pay.wages + pay.employerTax, Math.max(0, ctx.profit - rent)) : 0;
   const payrollCost = sel.payroll ? pay.employerTax + pay.employeeTax + pay.childTax : 0;
   let corpSavings = 0;
-  if (entity.kind === 'ccorp') corpSavings = (rent + payDeduction) * CORPORATE_RATE;
+  const ded = sel.ded ? ctx.ded : [];
+  const bizDed = ded.filter((d) => d.kind === 'business').reduce((s, d) => s + d.amount, 0);
+  if (ded.length) m.profile.extraDeductions = entity.kind === 'ccorp' ? ded.filter((d) => d.kind === 'personal') : ded;
+  if (entity.kind === 'ccorp') corpSavings = (rent + payDeduction + Math.min(bizDed, Math.max(0, ctx.profit - rent - payDeduction))) * CORPORATE_RATE;
   else {
     m.profile.businessIncome = (+m.profile.businessIncome || 0) - rent - payDeduction;
     // Children's wages count toward the business's W-2 wages for the QBI wage limit (when known).
@@ -98,7 +113,7 @@ export function computePlan(ctx, sel) {
 
 /** The suggested plan: every foundational strategy that applies, plus the advanced mix that saves the most. */
 export function recommendedPlan(ctx) {
-  const base = { db: ctx.avail.db, augusta: ctx.avail.augusta, payroll: ctx.avail.payroll, roth: false, adv: [] };
+  const base = { ded: ctx.avail.ded, db: ctx.avail.db, augusta: ctx.avail.augusta, payroll: ctx.avail.payroll, roth: false, adv: [] };
   let best = computePlan(ctx, base);
   for (const adv of VALID_SETS) {
     if (!ctx.setOk(adv) || !adv.every((id) => ctx.advAvail.includes(id))) continue;
@@ -110,7 +125,7 @@ export function recommendedPlan(ctx) {
   return prune(ctx, best.sel);
 }
 
-export const STEP_LABEL = { db: 'DB plan', augusta: 'Augusta Rule', payroll: 'Family Payroll', roth: 'Roth conversion' };
+export const STEP_LABEL = { ded: 'Additional deductions', db: 'DB plan', augusta: 'Augusta Rule', payroll: 'Family Payroll', roth: 'Roth conversion' };
 
 /**
  * How much each part of the plan adds, in order: DB plan, Augusta Rule, Family Payroll, the advanced
@@ -118,14 +133,14 @@ export const STEP_LABEL = { db: 'DB plan', augusta: 'Augusta Rule', payroll: 'Fa
  */
 export function planSteps(ctx, sel, labelOf) {
   const steps = [];
-  let cur = { db: false, augusta: false, payroll: false, roth: false, adv: [] };
+  let cur = { ded: false, db: false, augusta: false, payroll: false, roth: false, adv: [] };
   let prev = 0;
   const add = (key, label, next) => {
     const s = computePlan(ctx, next).savings;
     steps.push({ key, label, amount: s - prev });
     prev = s; cur = next;
   };
-  for (const k of ['db', 'augusta', 'payroll']) if (sel[k]) add(k, STEP_LABEL[k], { ...cur, [k]: true });
+  for (const k of ['ded', 'db', 'augusta', 'payroll']) if (sel[k]) add(k, STEP_LABEL[k], { ...cur, [k]: true });
   if (sel.adv.length) add('adv', labelOf(scenarioFor(sel.adv)), { ...cur, adv: sel.adv });
   if (sel.roth) add('roth', STEP_LABEL.roth, { ...cur, roth: true });
   return steps;
@@ -142,9 +157,9 @@ export function advToggleState(ctx, sel, id, labelOf) {
 }
 
 // ------------------------------------------------------------------ attribution and pruning
-const PLAYERS = ['db', 'augusta', 'payroll', 'adv', 'roth'];
+const PLAYERS = ['ded', 'db', 'augusta', 'payroll', 'adv', 'roth'];
 const membersOf = (sel) => PLAYERS.filter((k) => (k === 'adv' ? sel.adv.length > 0 : sel[k]));
-const subsetSel = (sel, keys) => ({ db: keys.includes('db'), augusta: keys.includes('augusta'), payroll: keys.includes('payroll'), roth: keys.includes('roth'), adv: keys.includes('adv') ? sel.adv : [] });
+const subsetSel = (sel, keys) => ({ ded: keys.includes('ded'), db: keys.includes('db'), augusta: keys.includes('augusta'), payroll: keys.includes('payroll'), roth: keys.includes('roth'), adv: keys.includes('adv') ? sel.adv : [] });
 
 /**
  * Each strategy's share of the plan's savings, independent of the order they're applied in: its added

@@ -491,3 +491,47 @@ div.tx-row[role="button"]:focus-visible { outline: 2px solid var(--navy-light); 
 .tx-add-btn { white-space: nowrap; padding: 6px 14px; }
 .tx-pick-hero .tx-hero-btn { background: var(--gold-light, #e8d3a8); color: var(--navy); border: 0; font-weight: 600; }
 @media (max-width: 700px) { .tx-pick-list .tx-sum { grid-template-columns: minmax(0, 1fr) auto auto; } }
+
+/* Additional deductions (Scenario options) */
+.tx-ded { margin: .4rem 0 .9rem; }
+.tx-ded-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
+.tx-ded-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) 22px; grid-template-areas: 'label label del' 'kind amount amount'; gap: 6px; align-items: center; margin-bottom: 10px; }
+.tx-ded-row > :nth-child(1) { grid-area: kind; }
+.tx-ded-row > :nth-child(2) { grid-area: label; }
+.tx-ded-row > :nth-child(3) { grid-area: amount; }
+.tx-ded-row > :nth-child(4) { grid-area: del; }
+.tx-ded-row .tx-input { border: 1px solid var(--border); border-radius: 8px; background: var(--white); }
+.tx-ded-row .tx-input input { border: 0; background: transparent; padding: 7px 8px; font: 13.5px 'DM Sans', sans-serif; color: var(--text); outline: none; }
+.tx-ded-row .tx-input.tx-money input { padding-left: 20px; }
+.tx-ded-row .tx-money::before { left: 8px; font-size: 13px; }
+.tx-ded-row .tx-input select, .tx-ded-row .tx-input input { width: 100%; min-width: 0; }
+.tx-ded-del { border: 0; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
+.tx-ded-del:hover { color: var(--navy); }
+.tx-ded small { display: block; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.tx-sum.tx-static, .tx-step.tx-static { cursor: default; }
+.tx-sum.tx-static:hover { background: none; }
+.tx-step.tx-static:hover { border-color: var(--border); box-shadow: none; }
+
+/* LEAP: where the client stands after unwinding (waterfall) */
+.tx-unwind { margin-top: 1.1rem; padding-top: .9rem; border-top: 1px solid var(--border); }
+.tx-unwind h4 { margin: 0 0 .6rem; font-size: 14px; font-weight: 600; color: var(--navy); }
+.tx-wf { display: grid; gap: 6px; }
+.tx-wf-row { display: grid; grid-template-columns: minmax(150px, 260px) minmax(0, 1fr) 96px; align-items: center; gap: 12px; font-size: 13px; }
+.tx-wf-row > span { color: var(--text); }
+.tx-wf-row > b { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--navy); }
+.tx-wf-track { position: relative; height: 16px; }
+.tx-wf-track i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.tx-wf-track .wf-pos { background: #9db8cc; }
+.tx-wf-track .wf-neg { background: #d9a79b; }
+.tx-wf-track .wf-net { background: var(--green); }
+.tx-wf-total { border-top: 1px solid var(--border); padding-top: 6px; font-weight: 600; }
+.tx-wf-total > span { font-weight: 600; color: var(--navy); }
+.tx-wf-row b.up { color: var(--green); }
+.tx-wf-row b.down { color: var(--red-s); }
+.tx-unwind-later { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: .75rem; font-size: 12.5px; color: var(--text-muted); }
+.tx-unwind-later div { display: inline-flex; gap: 6px; align-items: baseline; }
+.tx-unwind-later b { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.tx-unwind-later b.up { color: var(--green); }
+.tx-unwind-later b.down { color: var(--red-s); }
+.tx-unwind-k { font-weight: 600; color: var(--navy); }
+@media (max-width: 700px) { .tx-wf-row { grid-template-columns: minmax(0, 1fr) 90px; } .tx-wf-track { grid-column: 1 / 3; grid-row: 2; } }

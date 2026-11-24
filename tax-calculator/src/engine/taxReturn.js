@@ -61,7 +61,7 @@ export function computeReturn(sit, rulesIn, { ledger = true } = {}) {
 
   // ---------------------------------------------------------------- self-employment tax (needed before AGI)
   let seTax = 0, halfSe = 0, netEarnings = 0;
-  const preDbBusiness = inc.business + sum(sit.businessIncomeAdjustments);
+  const preDbBusiness = inc.business + sum(sit.businessIncomeAdjustments.filter((a) => !a.expense)); // business expenses also lower SE earnings
   if (R.medicareSurtax && sit.businessType === 'scheduleC' && preDbBusiness > 0) {
     const se = T.selfEmployment;
     netEarnings = preDbBusiness * se.netEarningsFactor;
