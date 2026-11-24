@@ -46,15 +46,15 @@ export default {
     if (!incomeLoss && !cgLoss) ctx.warn('LEAP does not apply: no business income or long-term gains to offset.');
     const incContrib = incomeLoss / p.incomeMultiple, cgContrib = cgLoss / p.cgMultiple;
     if (incomeLoss) {
-      ctx.addCost({ kind: 'contribution', label: 'Required contribution (business income)', amount: incContrib, calc: `${money(incomeLoss)} ÷ ${p.incomeMultiple}` });
-      ctx.addCost({ kind: 'contribution', label: 'Admin fee', amount: incomeLoss * p.adminFeePct, calc: `${pct(p.adminFeePct)} × ${money(incomeLoss)}` });
+      ctx.addCost({ strategy: 'leap', kind: 'contribution', label: 'Required contribution (business income)', amount: incContrib, calc: `${money(incomeLoss)} ÷ ${p.incomeMultiple}` });
+      ctx.addCost({ strategy: 'leap', kind: 'contribution', label: 'Admin fee', amount: incomeLoss * p.adminFeePct, calc: `${pct(p.adminFeePct)} × ${money(incomeLoss)}` });
     }
     if (cgLoss) {
-      ctx.addCost({ kind: 'contribution', label: 'Required contribution (capital gains)', amount: cgContrib, calc: `${money(cgLoss)} ÷ ${p.cgMultiple}` });
-      ctx.addCost({ kind: 'contribution', label: 'SOP fee', amount: cgLoss * p.sopFeePct, calc: `${pct(p.sopFeePct)} × ${money(cgLoss)}` });
+      ctx.addCost({ strategy: 'leap', kind: 'contribution', label: 'Required contribution (capital gains)', amount: cgContrib, calc: `${money(cgLoss)} ÷ ${p.cgMultiple}` });
+      ctx.addCost({ strategy: 'leap', kind: 'contribution', label: 'SOP fee', amount: cgLoss * p.sopFeePct, calc: `${pct(p.sopFeePct)} × ${money(cgLoss)}` });
     }
     if (incomeLoss || cgLoss) ctx.addCost({
-      kind: 'asset', label: 'Investment account balance (not counted as savings)',
+      strategy: 'leap', kind: 'asset', label: 'Investment account balance (not counted as savings)',
       amount: incContrib * p.investIncomePct + cgContrib * p.investCgPct,
       calc: `${pct(p.investIncomePct, 0)} × ${money(incContrib)} + ${pct(p.investCgPct, 0)} × ${money(cgContrib)}`,
     });

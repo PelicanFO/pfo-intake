@@ -1,6 +1,6 @@
 // The combined tax plan (src/site/plan.js): strategies computed together.
 import { suite } from './harness.js';
-import { analyze, planFor, withAutoDb, foundationResult, taxSummary, amlBreakeven } from '../src/site/tax-step.js';
+import { analyze, planFor, withAutoDb, foundationResult, taxSummary, amlBreakeven, leapAhead, leapFacts, recaptureTax } from '../src/site/tax-step.js';
 import { computePlan, normalize, planSteps, attribution, prune, marginal, scenarioFor, ADV_ORDER } from '../src/site/plan.js';
 
 const client = (extra = {}) => withAutoDb({
@@ -103,12 +103,41 @@ suite('Plan: the advisor selects the strategies', (t) => {
   t.ok(sum.plan && sum.plan.savings > 0.5 && !sum.plan.custom, 'with nothing selected, the summary reports the recommended plan (never "no plan")');
 });
 
-suite('LEAP: Asset Management LLC account breakeven', (t) => {
-  // Contribution $266,824; account $63,750; tax savings $118,074; 7% return, 4% a year for the DRO.
-  const be = amlBreakeven({ acct: 63750, savings: 118074, contribution: 266824, rate: 0.07, dro: 0.04 });
+suite('LEAP: breakeven against the recapture tax', (t) => {
+  // Account $63,750; net tax savings $118,074; recapture tax $250,000; 7% return, 4% a year for the DRO.
+  const f = { acct: 63750, savings: 118074, recapture: 250000, rate: 0.07, dro: 0.04 };
+  const be = amlBreakeven(f);
   const tot = (y) => 63750 * Math.pow(1.03, y) + 118074 * Math.pow(1.07, y);
-  t.ok(be > 6 && be < 8, `breakeven in about ${be.toFixed(1)} years`);
-  t.ok(tot(be) >= 266824 && tot(be - 0.02) < 266824, 'first point where account + savings pass the contribution');
-  t.ok(amlBreakeven({ acct: 63750, savings: 118074, contribution: 266824, rate: 0.07, dro: 0.1 }) > be, 'a larger DRO share pushes breakeven out');
-  t.equal(amlBreakeven({ acct: 200000, savings: 100000, contribution: 266824 }), 0, 'already covered today');
+  t.ok(be > 5 && be < 8, `breakeven in about ${be.toFixed(1)} years`);
+  t.ok(tot(be) >= 250000 && tot(be - 0.02) < 250000, 'first point where account + savings cover the recapture tax');
+  t.close(leapAhead(f, 0), 63750 + 118074 - 250000, 0.01, 'standing after unwinding today');
+  t.ok(amlBreakeven({ ...f, dro: 0.1 }) > be, 'a larger DRO share pushes breakeven out');
+  t.equal(amlBreakeven({ ...f, recapture: 150000 }), 0, 'ahead from day one when savings + account cover recapture');
+
+  const fd = client();
+  const P = planFor({ ...fd, __tax: { ...(fd.__tax || {}), plan: { ...none, adv: ['leap'] } } });
+  const lf = leapFacts(P.plan.res, P.a);
+  t.ok(lf.k1 > 0 && lf.contribution > 0 && lf.acct > 0, 'LEAP K-1, contribution and account found in the result');
+  const k1Only = recaptureTax(P.a, lf.k1);
+  t.close(lf.recapture, k1Only, 0.01, 'recapture = tax on the K-1 losses as long-term gain');
+  t.ok(lf.recapture > lf.k1 * 0.2 && lf.recapture < lf.k1 * 0.3, `recapture rate ${(lf.recapture / lf.k1 * 100).toFixed(1)}% is the capital-gains rate (20% + 3.8% NIIT + LA)`);
+});
+
+suite('Plan: additional deductions (e.g. cost segregation)', (t) => {
+  const fd = client();
+  const tax = (deductions, plan) => ({ ...fd, __tax: { ...(fd.__tax || {}), deductions, ...(plan ? { plan } : {}) } });
+  const biz = [{ kind: 'business', label: 'Cost segregation', amount: 200000 }];
+  const per = [{ kind: 'personal', label: 'Rental cost seg', amount: 200000 }];
+  const Pb = planFor(tax(biz, { ...none, ded: true }));
+  const Pp = planFor(tax(per, { ...none, ded: true }));
+  t.ok(Pb.plan.savings > 40000 && Pb.plan.savings < 200000 * 0.45, `$200k business deduction saves ${Math.round(Pb.plan.savings)}`);
+  t.ok(Pp.plan.savings > 40000, `$200k personal deduction saves ${Math.round(Pp.plan.savings)}`);
+  t.ok(Pb.plan.savings < Pp.plan.savings, 'a business deduction also lowers the QBI deduction, so it saves a little less');
+  t.ok(Pb.choices.some((c) => c.key === 'ded' && c.on), 'shows in the builder, selected');
+  t.ok(planFor(tax(biz)).rec.ded, 'part of the recommended plan once entered');
+  t.equal(planFor(fd).ctx.avail.ded, false, 'nothing entered: not offered');
+  const P2 = planFor(tax(biz, { ...none, ded: true, adv: ['leap'] }));
+  const sum = P2.shares.reduce((x, y) => x + y.amount, 0);
+  t.close(sum, P2.plan.savings, 0.5, 'shares still add up to the plan');
+  t.ok(planFor(tax([{ kind: 'business', label: '', amount: 0 }], { ...none, ded: true })).sel.ded === false, 'a blank row does nothing');
 });
